@@ -65,12 +65,6 @@ pub fn main_menu(ui: &mut Ui, state: &mut OculanteState, app: &mut App, gfx: &mu
             changed_channels = true;
         }
 
-        if changed_channels && state.current_image.is_some() {
-            state
-                .current_texture
-                .update_color_selection(gfx, &state.persistent_settings);
-        }
-
         let label_rect = ui.ctx().available_rect().shrink(50.);
 
         // TODO Center toast to image viewing area (Shift to the left / Right if the info or edit panel gets opened)
@@ -326,6 +320,12 @@ pub fn main_menu(ui: &mut Ui, state: &mut OculanteState, app: &mut App, gfx: &mu
                 state.persistent_settings.edit_enabled = !state.persistent_settings.edit_enabled;
             }
         });
+
+        if changed_channels && state.current_image.is_some() {
+            state
+                .current_texture
+                .update_color_selection(gfx, &state.persistent_settings);
+        }
     });
 }
 
