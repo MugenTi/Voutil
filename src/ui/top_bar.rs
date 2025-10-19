@@ -29,48 +29,6 @@ pub fn main_menu(ui: &mut Ui, state: &mut OculanteState, app: &mut App, gfx: &mu
             app.backend.exit();
         }
 
-        let mut changed_channels = false;
-
-        if key_pressed(app, state, RedChannel) {
-            state.persistent_settings.current_channel = ColorChannel::Red;
-            changed_channels = true;
-        }
-        if key_pressed(app, state, GreenChannel) {
-            state.persistent_settings.current_channel = ColorChannel::Green;
-            changed_channels = true;
-        }
-        if key_pressed(app, state, BlueChannel) {
-            state.persistent_settings.current_channel = ColorChannel::Blue;
-            changed_channels = true;
-        }
-        if key_pressed(app, state, AlphaChannel) {
-            state.persistent_settings.current_channel = ColorChannel::Alpha;
-            changed_channels = true;
-        }
-        if key_pressed(app, state, RGBChannel) {
-            state.persistent_settings.current_channel = ColorChannel::Rgb;
-            changed_channels = true;
-        }
-        if key_pressed(app, state, RGBAChannel) {
-            state.persistent_settings.current_channel = ColorChannel::Rgba;
-            changed_channels = true;
-        }
-
-        // Force rgba while edit mode is open.
-        // TODO: display of channels should be done through a shader
-        if state.persistent_settings.edit_enabled
-            && state.persistent_settings.current_channel != ColorChannel::Rgba
-        {
-            state.persistent_settings.current_channel = ColorChannel::Rgba;
-            changed_channels = true;
-        }
-
-        if changed_channels && state.current_image.is_some() {
-            state
-                .current_texture
-                .update_color_selection(gfx, &state.persistent_settings);
-        }
-
         let label_rect = ui.ctx().available_rect().shrink(50.);
 
         // TODO Center toast to image viewing area (Shift to the left / Right if the info or edit panel gets opened)
@@ -211,6 +169,42 @@ pub fn main_menu(ui: &mut Ui, state: &mut OculanteState, app: &mut App, gfx: &mu
 
         drag_area(ui, state, app);
 
+        let mut changed_channels = false;
+
+        if key_pressed(app, state, RedChannel) {
+            state.persistent_settings.current_channel = ColorChannel::Red;
+            changed_channels = true;
+        }
+        if key_pressed(app, state, GreenChannel) {
+            state.persistent_settings.current_channel = ColorChannel::Green;
+            changed_channels = true;
+        }
+        if key_pressed(app, state, BlueChannel) {
+            state.persistent_settings.current_channel = ColorChannel::Blue;
+            changed_channels = true;
+        }
+        if key_pressed(app, state, AlphaChannel) {
+            state.persistent_settings.current_channel = ColorChannel::Alpha;
+            changed_channels = true;
+        }
+        if key_pressed(app, state, RGBChannel) {
+            state.persistent_settings.current_channel = ColorChannel::Rgb;
+            changed_channels = true;
+        }
+        if key_pressed(app, state, RGBAChannel) {
+            state.persistent_settings.current_channel = ColorChannel::Rgba;
+            changed_channels = true;
+        }
+
+        // Force rgba while edit mode is open.
+        // TODO: display of channels should be done through a shader
+        if state.persistent_settings.edit_enabled
+            && state.persistent_settings.current_channel != ColorChannel::Rgba
+        {
+            state.persistent_settings.current_channel = ColorChannel::Rgba;
+            changed_channels = true;
+        }
+
         // Use with_layout for right-aligned elements
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             // Move RGBA selector here
@@ -264,6 +258,12 @@ pub fn main_menu(ui: &mut Ui, state: &mut OculanteState, app: &mut App, gfx: &mu
                             }
                         });
                 });
+            }
+
+            if changed_channels && state.current_image.is_some() {
+                state
+                    .current_texture
+                    .update_color_selection(gfx, &state.persistent_settings);
             }
 
             if state.current_texture.get().is_some()
