@@ -1189,16 +1189,24 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
 
         #[cfg(not(feature = "file_open"))]
         {
-            let mut is_open = state.file_browser_visible;
             if state.file_browser_visible {
-                egui::Window::new("Browse")
-                    .collapsible(false)
-                    .open(&mut is_open)
+                egui::SidePanel::left("file_browser_panel")
                     .resizable(true)
-                    .default_width(822.)
-                    .default_height(600.)
+                    .default_width(400.0)
+                    .min_width(250.0)
                     .show(ctx, |ui| {
-                        let mut path = ctx
+                        ui.horizontal(|ui| {
+                            ui.label("File Browser");
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                if ui.button("❌").clicked() {
+                                    state.file_browser_visible = false;
+                                }
+                            });
+                        });
+                        ui.separator();
+
+                        let mut path = ui
+                            .ctx()
                             .data(|r| r.get_temp::<PathBuf>(Id::new("FBPATH")))
                             .unwrap_or(filebrowser::load_recent_dir().unwrap_or_default());
 
@@ -1218,13 +1226,8 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                         if ui.ctx().input(|r| r.key_pressed(Key::Escape)) {
                             state.file_browser_visible = false;
                         }
-                        ctx.data_mut(|w| w.insert_temp(Id::new("FBPATH"), path));
+                        ui.ctx().data_mut(|w| w.insert_temp(Id::new("FBPATH"), path));
                     });
-
-                // If the window was closed, update the state.
-                if !is_open {
-                    state.file_browser_visible = false;
-                }
             }
         }
 
