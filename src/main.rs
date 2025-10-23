@@ -1153,8 +1153,6 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
             (bbox_tl, bbox_br) = info_ui(ctx, state, gfx);
         }
 
-        state.pointer_over_ui = ctx.is_pointer_over_area();
-
         // if there is interaction on the ui (dragging etc)
         // we don't want zoom & pan to work, so we "grab" the pointer
         state.mouse_grab = ctx.is_using_pointer()
@@ -1233,6 +1231,8 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
 
         // Settings come last, as they block keyboard grab (for hotkey assigment)
         settings_ui(app, ctx, state, gfx);
+
+        state.pointer_over_ui = ctx.is_pointer_over_area();
     });
 
     if let Some(texture) = &state.current_texture.get() {
