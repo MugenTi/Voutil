@@ -816,6 +816,10 @@ fn update(app: &mut App, state: &mut OculanteState) {
 }
 
 fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut OculanteState) {
+    // If the window is minimized, don't draw anything to prevent egui from losing its state.
+    if app.window().width() == 0 {
+        return;
+    }
     let mut draw = gfx.create_draw();
     let mut zoom_image = gfx.create_draw();
     if let Ok(p) = state.load_channel.1.try_recv() {
