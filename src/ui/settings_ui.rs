@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use std::fs::remove_dir_all;
 use std::sync::{Arc, Mutex};
 
