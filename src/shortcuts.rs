@@ -145,6 +145,23 @@ impl ShortcutExt for Shortcuts {
             .add_keys(InputEvent::Copy, &["LControl", "C"])
             .add_keys(InputEvent::CopySelection, &["LControl", "C"])
             .add_keys(InputEvent::CropSelection, &["LControl", "Y"]);
+        s
+    }
+    fn add_key(mut self, function: InputEvent, key: &str) -> Self {
+        self.insert(
+            function,
+            vec![key].into_iter().map(|k| k.to_string()).collect(),
+        );
+        self
+    }
+    fn add_keys(mut self, function: InputEvent, keys: &[&str]) -> Self
+    where
+        Self: Sized,
+    {
+        self.insert(function, keys.iter().map(|k| k.to_string()).collect());
+        self
+    }
+}
 
 pub fn key_pressed(app: &mut App, state: &mut OculanteState, command: InputEvent) -> bool {
     // let mut alternates: HashMap<String, String>;

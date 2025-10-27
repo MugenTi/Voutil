@@ -12,6 +12,7 @@ use egui_notify::Toasts;
 use image::DynamicImage;
 use nalgebra::Vector2;
 use notan::{prelude::Texture, AppState};
+use notan::egui;
 use std::{
     path::PathBuf,
     sync::mpsc::{self, Receiver, Sender},
@@ -101,6 +102,7 @@ pub struct OculanteState {
     pub selection_rect: Option<egui::Rect>,
     /// Is the user currently drawing a selection rectangle?
     pub is_selecting: bool,
+    pub selection_start_mouse_pos: Option<egui::Pos2>,
 }
 
 impl<'b> OculanteState {
@@ -179,6 +181,7 @@ impl<'b> Default for OculanteState {
             thumbnails: Default::default(),
             selection_rect: None,
             is_selecting: false,
+            selection_start_mouse_pos: None,
         }
     }
 }

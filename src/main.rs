@@ -2,6 +2,7 @@
 
 use clap::Arg;
 use clap::Command;
+#[allow(unused_imports)]
 use image::{GenericImageView, ImageBuffer, Rgba};
 use image_editing::LegacyEditState;
 use log::debug;
@@ -724,6 +725,7 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
             MouseButton::Right => {
                 if !state.pointer_over_ui && !state.mouse_grab {
                     state.is_selecting = true;
+                    state.selection_start_mouse_pos = Some(egui::pos2(state.cursor.x, state.cursor.y));
                     // New selection, so clear the old one
                     state.selection_rect = None;
                 }
@@ -783,7 +785,7 @@ fn update(app: &mut App, state: &mut OculanteState) {
                 app.window().height() as f32,
             );
 
-            let start_pos = state.cursor - state.mouse_delta;
+            let start_pos = state.selection_start_mouse_pos.unwrap_or(egui::pos2(state.cursor.x, state.cursor.y));
             let end_pos = state.cursor;
 
             let start_x = (start_pos.x - image_rect.min.x) / state.image_geometry.scale;
@@ -1439,8 +1441,8 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
 
 fn image_rect_from_image_geometry(
     image_geometry: &ImageGeometry,
-    window_width: f32,
-    window_height: f32,
+    _window_width: f32,
+    _window_height: f32,
 ) -> egui::Rect {
     let img_w = image_geometry.dimensions.0 as f32 * image_geometry.scale;
     let img_h = image_geometry.dimensions.1 as f32 * image_geometry.scale;
@@ -1534,7 +1536,8 @@ fn crop_to_selected_region(state: &mut OculanteState, selection_rect: egui::Rect
         if width > 0 && height > 0 {
             *current_image = current_image.crop_imm(x, y, width, height);
             state.reset_image = true;
-            state.send_frame(crate::utils::Frame::new_still(current_image.clone()));
+            let cloned_image = current_image.clone();
+            state.send_frame(crate::utils::Frame::new_still(cloned_image));
             state.send_message_info(&format!("Cropped image to {}x{}", width, height));
             state.selection_rect = None; // Clear selection after cropping
         } else {
