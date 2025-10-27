@@ -101,20 +101,6 @@ pub struct OculanteState {
     pub selection_rect: Option<egui::Rect>,
     /// Is the user currently drawing a selection rectangle?
     pub is_selecting: bool,
-    pub dragging_selection_handle: Option<SelectionHandle>,
-    pub selection_drag_start_pos: Option<egui::Pos2>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum SelectionHandle {
-    Top,
-    Bottom,
-    Left,
-    Right,
-    TopLeft,
-    TopRight,
-    BottomLeft,
-    BottomRight,
 }
 
 impl<'b> OculanteState {
@@ -193,8 +179,6 @@ impl<'b> Default for OculanteState {
             thumbnails: Default::default(),
             selection_rect: None,
             is_selecting: false,
-            dragging_selection_handle: None,
-            selection_drag_start_pos: None,
         }
     }
 }
