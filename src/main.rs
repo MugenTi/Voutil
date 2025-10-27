@@ -1117,8 +1117,86 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
     let mut bbox_tl: egui::Pos2 = Default::default();
     let mut bbox_br: egui::Pos2 = Default::default();
     let mut info_panel_color = egui::Color32::from_gray(200);
+
+    const HANDLE_SIZE: f32 = 8.0;
+    const HANDLE_COLOR: egui::Color32 = egui::Color32::WHITE;
+
     let egui_output = plugins.egui(|ctx| {
         state.toasts.show(ctx);
+
+        // Handle dragging of selection handles
+        if let Some(handle) = state.dragging_selection_handle {
+            if ctx.input(|i| i.pointer.any_down()) {
+                if let Some(mut selection_rect) = state.selection_rect {
+                    if let Some(drag_start_pos) = state.selection_drag_start_pos {
+                        let current_pos = ctx.input(|i| i.pointer.latest_pos().unwrap_or(drag_start_pos));
+                        let delta = current_pos - drag_start_pos;
+
+                        if let Some(current_image) = &state.current_image {
+                            let image_rect = image_rect_from_image_geometry(
+                                &state.image_geometry,
+                                app.window().width() as f32,
+                                app.window().height() as f32,
+                            );
+
+                            let image_delta_x = delta.x / state.image_geometry.scale;
+                            let image_delta_y = delta.y / state.image_geometry.scale;
+
+                            match handle {
+                                SelectionHandle::Top => {
+                                    selection_rect.set_top(selection_rect.top() + image_delta_y);
+                                },
+                                SelectionHandle::Bottom => {
+                                    selection_rect.set_bottom(selection_rect.bottom() + image_delta_y);
+                                },
+                                SelectionHandle::Left => {
+                                    selection_rect.set_left(selection_rect.left() + image_delta_x);
+                                },
+                                SelectionHandle::Right => {
+                                    selection_rect.set_right(selection_rect.right() + image_delta_x);
+                                },
+                                SelectionHandle::TopLeft => {
+                                    selection_rect.set_top(selection_rect.top() + image_delta_y);
+                                    selection_rect.set_left(selection_rect.left() + image_delta_x);
+                                },
+                                SelectionHandle::TopRight => {
+                                    selection_rect.set_top(selection_rect.top() + image_delta_y);
+                                    selection_rect.set_right(selection_rect.right() + image_delta_x);
+                                },
+                                SelectionHandle::BottomLeft => {
+                                    selection_rect.set_bottom(selection_rect.bottom() + image_delta_y);
+                                    selection_rect.set_left(selection_rect.left() + image_delta_x);
+                                },
+                                SelectionHandle::BottomRight => {
+                                    selection_rect.set_bottom(selection_rect.bottom() + image_delta_y);
+                                    selection_rect.set_right(selection_rect.right() + image_delta_x);
+                                },
+                            }
+
+                            // Clamp selection to image boundaries
+                            selection_rect.min.x = selection_rect.min.x.max(0.0);
+                            selection_rect.min.y = selection_rect.min.y.max(0.0);
+                            selection_rect.max.x = selection_rect.max.x.min(current_image.width() as f32);
+                            selection_rect.max.y = selection_rect.max.y.min(current_image.height() as f32);
+
+                            // Ensure min <= max
+                            if selection_rect.min.x > selection_rect.max.x {
+                                std::mem::swap(&mut selection_rect.min.x, &mut selection_rect.max.x);
+                            }
+                            if selection_rect.min.y > selection_rect.max.y {
+                                std::mem::swap(&mut selection_rect.min.y, &mut selection_rect.max.y);
+                            }
+
+                            state.selection_rect = Some(selection_rect);
+                            state.selection_drag_start_pos = Some(current_pos);
+                        }
+                    }
+                }
+            } else {
+                state.dragging_selection_handle = None;
+                state.selection_drag_start_pos = None;
+            }
+        }
 
         if !state.pointer_over_ui
             && !state.mouse_grab
@@ -1284,6 +1362,82 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
 
         // Settings come last, as they block keyboard grab (for hotkey assigment)
         settings_ui(app, ctx, state, gfx);
+
+        // Draw and interact with selection handles
+        if let Some(mut selection_rect) = state.selection_rect {
+            if let Some(current_image) = &state.current_image {
+                let image_rect = image_rect_from_image_geometry(
+                    &state.image_geometry,
+                    app.window().width() as f32,
+                    app.window().height() as f32,
+                );
+
+                let to_screen_coords = |p: egui::Pos2| {
+                    egui::pos2(
+                        image_rect.min.x + p.x * state.image_geometry.scale,
+                        image_rect.min.y + p.y * state.image_geometry.scale,
+                    )
+                };
+
+                let to_image_coords = |p: egui::Pos2| {
+                    egui::pos2(
+                        (p.x - image_rect.min.x) / state.image_geometry.scale,
+                        (p.y - image_rect.min.y) / state.image_geometry.scale,
+                    )
+                };
+
+                let screen_selection_rect = egui::Rect::from_min_max(
+                    to_screen_coords(selection_rect.min),
+                    to_screen_coords(selection_rect.max),
+                );
+
+                let handle_rect = |center: egui::Pos2| {
+                    egui::Rect::from_center_size(center, egui::vec2(HANDLE_SIZE, HANDLE_SIZE))
+                };
+
+                let mut handle_interaction = |ui: &mut egui::Ui, handle_type: SelectionHandle, rect: egui::Rect, cursor_icon: egui::CursorIcon| {
+                    let response = ui.interact(rect, ui.id().with(handle_type), egui::Sense::drag());
+                    if response.hovered() {
+                        ctx.set_cursor_icon(cursor_icon);
+                    }
+                    if response.drag_started() {
+                        state.dragging_selection_handle = Some(handle_type);
+                        state.selection_drag_start_pos = response.interact_pointer_pos();
+                    }
+                    if response.drag_released() {
+                        state.dragging_selection_handle = None;
+                        state.selection_drag_start_pos = None;
+                    }
+                };
+
+                // Top handle
+                handle_interaction(ctx.ui(), SelectionHandle::Top, handle_rect(screen_selection_rect.center_top()), egui::CursorIcon::ResizeVertical);
+                // Bottom handle
+                handle_interaction(ctx.ui(), SelectionHandle::Bottom, handle_rect(screen_selection_rect.center_bottom()), egui::CursorIcon::ResizeVertical);
+                // Left handle
+                handle_interaction(ctx.ui(), SelectionHandle::Left, handle_rect(screen_selection_rect.center_left()), egui::CursorIcon::ResizeHorizontal);
+                // Right handle
+                handle_interaction(ctx.ui(), SelectionHandle::Right, handle_rect(screen_selection_rect.center_right()), egui::CursorIcon::ResizeHorizontal);
+
+                // Corners
+                handle_interaction(ctx.ui(), SelectionHandle::TopLeft, handle_rect(screen_selection_rect.left_top()), egui::CursorIcon::ResizeNorthWestSouthEast);
+                handle_interaction(ctx.ui(), SelectionHandle::TopRight, handle_rect(screen_selection_rect.right_top()), egui::CursorIcon::ResizeNorthEastSouthWest);
+                handle_interaction(ctx.ui(), SelectionHandle::BottomLeft, handle_rect(screen_selection_rect.left_bottom()), egui::CursorIcon::ResizeNorthEastSouthWest);
+                handle_interaction(ctx.ui(), SelectionHandle::BottomRight, handle_rect(screen_selection_rect.right_bottom()), egui::CursorIcon::ResizeNorthWestSouthEast);
+
+                // Draw handles (optional, for visibility)
+                let painter = ctx.layer_painter(egui::LayerId::debug());
+                let stroke = egui::Stroke::new(1.0, HANDLE_COLOR);
+                painter.rect(handle_rect(screen_selection_rect.center_top()), 0.0, HANDLE_COLOR, stroke);
+                painter.rect(handle_rect(screen_selection_rect.center_bottom()), 0.0, HANDLE_COLOR, stroke);
+                painter.rect(handle_rect(screen_selection_rect.center_left()), 0.0, HANDLE_COLOR, stroke);
+                painter.rect(handle_rect(screen_selection_rect.center_right()), 0.0, HANDLE_COLOR, stroke);
+                painter.rect(handle_rect(screen_selection_rect.left_top()), 0.0, HANDLE_COLOR, stroke);
+                painter.rect(handle_rect(screen_selection_rect.right_top()), 0.0, HANDLE_COLOR, stroke);
+                painter.rect(handle_rect(screen_selection_rect.left_bottom()), 0.0, HANDLE_COLOR, stroke);
+                painter.rect(handle_rect(screen_selection_rect.right_bottom()), 0.0, HANDLE_COLOR, stroke);
+            }
+        }
 
         state.pointer_over_ui = ctx.is_pointer_over_area();
     });
