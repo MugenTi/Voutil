@@ -1417,7 +1417,7 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                  screen_max_y - screen_min_y),
             )
             .stroke(1.0)
-            .color(Color::from_rgb(1.0, 0.0, 0.0)); // Red border for selection
+            .color(Color::from_rgb(1.0, 1.0, 1.0)); // White border for selection
         }
     }
 
