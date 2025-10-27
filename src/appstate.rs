@@ -97,6 +97,10 @@ pub struct OculanteState {
     pub toasts: Toasts,
     pub file_browser_visible: bool,
     pub thumbnails: Thumbnails,
+    /// A rectangle that defines the user's selection on the image
+    pub selection_rect: Option<egui::Rect>,
+    /// Is the user currently drawing a selection rectangle?
+    pub is_selecting: bool,
 }
 
 impl<'b> OculanteState {
@@ -173,6 +177,8 @@ impl<'b> Default for OculanteState {
             toasts: Toasts::default().with_anchor(egui_notify::Anchor::BottomLeft),
             file_browser_visible: false,
             thumbnails: Default::default(),
+            selection_rect: None,
+            is_selecting: false,
         }
     }
 }

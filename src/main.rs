@@ -2,7 +2,7 @@
 
 use clap::Arg;
 use clap::Command;
-use image::GenericImageView;
+use image::{GenericImageView, ImageBuffer, Rgba};
 use image_editing::LegacyEditState;
 use log::debug;
 use log::error;
@@ -473,6 +473,18 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
                     state.send_message_info("Image copied");
                 }
             }
+            if key_pressed(app, state, CopySelection) {
+                if let Some(selection_rect) = state.selection_rect {
+                    // Call a helper function to copy the selected region
+                    copy_selected_region(state, selection_rect);
+                }
+            }
+            if key_pressed(app, state, CropSelection) {
+                if let Some(selection_rect) = state.selection_rect {
+                    // Call a helper function to crop the image to the selected region
+                    crop_to_selected_region(state, selection_rect);
+                }
+            }
 
             if key_pressed(app, state, Paste) {
                 match clipboard_to_image() {
@@ -709,10 +721,18 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
             MouseButton::Middle => {
                 state.drag_enabled = true;
             }
+            MouseButton::Right => {
+                if !state.pointer_over_ui && !state.mouse_grab {
+                    state.is_selecting = true;
+                    // New selection, so clear the old one
+                    state.selection_rect = None;
+                }
+            }
             _ => {}
         },
         Event::MouseUp { button, .. } => match button {
             MouseButton::Left | MouseButton::Middle => state.drag_enabled = false,
+            MouseButton::Right => state.is_selecting = false,
             _ => {}
         },
         _ => {
@@ -752,6 +772,35 @@ fn update(app: &mut App, state: &mut OculanteState) {
     if state.drag_enabled && !state.mouse_grab || app.mouse.is_down(MouseButton::Middle) {
         state.image_geometry.offset += state.mouse_delta;
         limit_offset(app, state);
+    }
+
+    // Handle selection rectangle drawing
+    if state.is_selecting {
+        if let Some(current_image) = &state.current_image {
+            let image_rect = image_rect_from_image_geometry(
+                &state.image_geometry,
+                app.window().width() as f32,
+                app.window().height() as f32,
+            );
+
+            let start_pos = state.cursor - state.mouse_delta;
+            let end_pos = state.cursor;
+
+            let start_x = (start_pos.x - image_rect.min.x) / state.image_geometry.scale;
+            let start_y = (start_pos.y - image_rect.min.y) / state.image_geometry.scale;
+            let end_x = (end_pos.x - image_rect.min.x) / state.image_geometry.scale;
+            let end_y = (end_pos.y - image_rect.min.y) / state.image_geometry.scale;
+
+            let min_x = start_x.min(end_x).max(0.0);
+            let min_y = start_y.min(end_y).max(0.0);
+            let max_x = start_x.max(end_x).min(current_image.width() as f32);
+            let max_y = start_y.max(end_y).min(current_image.height() as f32);
+
+            state.selection_rect = Some(egui::Rect::from_min_max(
+                egui::pos2(min_x, min_y),
+                egui::pos2(max_x, max_y),
+            ));
+        }
     }
 
     // Since we can't access the window in the event loop, we store it in the state
@@ -1346,6 +1395,28 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                 // }
             }
         }
+
+        // Draw selection rectangle
+        if let Some(selection_rect) = state.selection_rect {
+            let image_rect = image_rect_from_image_geometry(
+                &state.image_geometry,
+                app.window().width() as f32,
+                app.window().height() as f32,
+            );
+
+            let screen_min_x = image_rect.min.x + selection_rect.min.x * state.image_geometry.scale;
+            let screen_min_y = image_rect.min.y + selection_rect.min.y * state.image_geometry.scale;
+            let screen_max_x = image_rect.min.x + selection_rect.max.x * state.image_geometry.scale;
+            let screen_max_y = image_rect.min.y + selection_rect.max.y * state.image_geometry.scale;
+
+            draw.rect(
+                (screen_min_x, screen_min_y),
+                (screen_max_x - screen_min_x,
+                 screen_max_y - screen_min_y),
+            )
+            .stroke(1.0)
+            .color(Color::from_rgb(1.0, 0.0, 0.0)); // Red border for selection
+        }
     }
 
     if state.network_mode {
@@ -1364,6 +1435,23 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
     gfx.render(&draw);
     gfx.render(&zoom_image);
     gfx.render(&egui_output);
+}
+
+fn image_rect_from_image_geometry(
+    image_geometry: &ImageGeometry,
+    window_width: f32,
+    window_height: f32,
+) -> egui::Rect {
+    let img_w = image_geometry.dimensions.0 as f32 * image_geometry.scale;
+    let img_h = image_geometry.dimensions.1 as f32 * image_geometry.scale;
+
+    let x = image_geometry.offset.x;
+    let y = image_geometry.offset.y;
+
+    egui::Rect::from_min_max(
+        egui::pos2(x, y),
+        egui::pos2(x + img_w, y + img_h),
+    )
 }
 
 // Make sure offset is restricted to window size so we don't offset to infinity
@@ -1411,4 +1499,48 @@ fn piped_paths(args: &clap::ArgMatches) -> Option<impl Iterator<Item = PathBuf>>
                 .collect::<Vec<_>>()
         })
     })
+}
+
+fn copy_selected_region(state: &mut OculanteState, selection_rect: egui::Rect) {
+    if let Some(current_image) = &state.current_image {
+        let (x, y, width, height) = (
+            selection_rect.min.x.round() as u32,
+            selection_rect.min.y.round() as u32,
+            selection_rect.width().round() as u32,
+            selection_rect.height().round() as u32,
+        );
+
+        if width > 0 && height > 0 {
+            let cropped_image = current_image.crop_imm(x, y, width, height);
+            clipboard_copy(&cropped_image);
+            state.send_message_info(&format!("Copied {}x{} region to clipboard", width, height));
+        } else {
+            state.send_message_warn("Selection is too small to copy.");
+        }
+    } else {
+        state.send_message_warn("No image to copy from.");
+    }
+}
+
+fn crop_to_selected_region(state: &mut OculanteState, selection_rect: egui::Rect) {
+    if let Some(current_image) = &mut state.current_image {
+        let (x, y, width, height) = (
+            selection_rect.min.x.round() as u32,
+            selection_rect.min.y.round() as u32,
+            selection_rect.width().round() as u32,
+            selection_rect.height().round() as u32,
+        );
+
+        if width > 0 && height > 0 {
+            *current_image = current_image.crop_imm(x, y, width, height);
+            state.reset_image = true;
+            state.send_frame(crate::utils::Frame::new_still(current_image.clone()));
+            state.send_message_info(&format!("Cropped image to {}x{}", width, height));
+            state.selection_rect = None; // Clear selection after cropping
+        } else {
+            state.send_message_warn("Selection is too small to crop.");
+        }
+    } else {
+        state.send_message_warn("No image to crop.");
+    }
 }

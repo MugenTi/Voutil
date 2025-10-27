@@ -40,6 +40,8 @@ pub enum InputEvent {
     LosslessRotateLeft,
     Copy,
     Paste,
+    CopySelection,
+    CropSelection,
     Browse,
     Quit,
     ZenMode,
@@ -140,30 +142,9 @@ impl ShortcutExt for Shortcuts {
             .add_keys(InputEvent::PanDown, &["LShift", "Down"])
             .add_keys(InputEvent::PanUp, &["LShift", "Up"])
             .add_keys(InputEvent::Paste, &["LControl", "V"])
-            .add_keys(InputEvent::Copy, &["LControl", "C"]);
-        #[cfg(target_os = "macos")]
-        {
-            for (_, keys) in s.iter_mut() {
-                *keys = keys.iter().map(|k| k.replace("LControl", "LWin")).collect();
-            }
-        }
-        s
-    }
-    fn add_key(mut self, function: InputEvent, key: &str) -> Self {
-        self.insert(
-            function,
-            vec![key].into_iter().map(|k| k.to_string()).collect(),
-        );
-        self
-    }
-    fn add_keys(mut self, function: InputEvent, keys: &[&str]) -> Self
-    where
-        Self: Sized,
-    {
-        self.insert(function, keys.iter().map(|k| k.to_string()).collect());
-        self
-    }
-}
+            .add_keys(InputEvent::Copy, &["LControl", "C"])
+            .add_keys(InputEvent::CopySelection, &["LControl", "C"])
+            .add_keys(InputEvent::CropSelection, &["LControl", "Y"]);
 
 pub fn key_pressed(app: &mut App, state: &mut OculanteState, command: InputEvent) -> bool {
     // let mut alternates: HashMap<String, String>;
