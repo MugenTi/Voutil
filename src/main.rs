@@ -400,6 +400,27 @@ fn init(_app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins) -> OculanteSt
     state
 }
 
+
+
+fn image_rect_from_image_geometry(
+    image_geometry: &ImageGeometry,
+    _window_width: f32,
+    _window_height: f32,
+) -> egui::Rect {
+    let img_w = image_geometry.dimensions.0 as f32 * image_geometry.scale;
+    let img_h = image_geometry.dimensions.1 as f32 * image_geometry.scale;
+
+    let x = image_geometry.offset.x;
+    let y = image_geometry.offset.y;
+
+    egui::Rect::from_min_max(
+        egui::pos2(x, y),
+        egui::pos2(x + img_w, y + img_h),
+    )
+}
+
+
+
 fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
     if state.key_grab {
         return;
@@ -724,10 +745,18 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
             }
             MouseButton::Right => {
                 if !state.pointer_over_ui && !state.mouse_grab {
-                    state.is_selecting = true;
-                    state.selection_start_mouse_pos = Some(egui::pos2(state.cursor.x, state.cursor.y));
-                    // New selection, so clear the old one
-                    state.selection_rect = None;
+                    let image_rect = image_rect_from_image_geometry(
+                        &state.image_geometry,
+                        app.window().width() as f32,
+                        app.window().height() as f32,
+                    );
+                    if image_rect.contains(egui::pos2(state.cursor.x, state.cursor.y)) {
+                        state.is_selecting = true;
+                        state.selection_start_mouse_pos =
+                            Some(egui::pos2(state.cursor.x, state.cursor.y));
+                        // New selection, so clear the old one
+                        state.selection_rect = None;
+                    }
                 }
             }
             _ => {}
@@ -1439,22 +1468,7 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
     gfx.render(&egui_output);
 }
 
-fn image_rect_from_image_geometry(
-    image_geometry: &ImageGeometry,
-    _window_width: f32,
-    _window_height: f32,
-) -> egui::Rect {
-    let img_w = image_geometry.dimensions.0 as f32 * image_geometry.scale;
-    let img_h = image_geometry.dimensions.1 as f32 * image_geometry.scale;
 
-    let x = image_geometry.offset.x;
-    let y = image_geometry.offset.y;
-
-    egui::Rect::from_min_max(
-        egui::pos2(x, y),
-        egui::pos2(x + img_w, y + img_h),
-    )
-}
 
 // Make sure offset is restricted to window size so we don't offset to infinity
 fn limit_offset(app: &mut App, state: &mut OculanteState) {
