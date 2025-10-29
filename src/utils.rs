@@ -1,3 +1,5 @@
+use notan::egui;
+use crate::appstate::SelectionDrag;
 use arboard::Clipboard;
 
 use img_parts::{Bytes, DynImage, ImageEXIF};
@@ -1018,4 +1020,57 @@ pub fn get_pixel_checked(img: &DynamicImage, x: u32, y: u32) -> Option<Rgba<u8>>
         return Some(img.get_pixel(x, y));
     }
     None
-}
+}    
+    pub fn get_resize_handle(
+        selection_rect: egui::Rect,
+        mouse_pos: egui::Pos2,
+        tolerance: f32,
+    ) -> SelectionDrag {
+        let mut handle = SelectionDrag::None;
+        let mut on_left_edge = false;
+        let mut on_right_edge = false;
+        let mut on_top_edge = false;
+        let mut on_bottom_edge = false;
+    
+        // Check if mouse is on edges
+        if (mouse_pos.x - selection_rect.left()).abs() < tolerance {
+            on_left_edge = true;
+        }
+        if (mouse_pos.x - selection_rect.right()).abs() < tolerance {
+            on_right_edge = true;
+        }
+        if (mouse_pos.y - selection_rect.top()).abs() < tolerance {
+            on_top_edge = true;
+        }
+        if (mouse_pos.y - selection_rect.bottom()).abs() < tolerance {
+            on_bottom_edge = true;
+        }
+    
+        // Determine handle based on edge proximity
+        if on_left_edge {
+            handle = SelectionDrag::Left;
+        }
+        if on_right_edge {
+            handle = SelectionDrag::Right;
+        }
+        if on_top_edge {
+            handle = SelectionDrag::Top;
+        }
+        if on_bottom_edge {
+            handle = SelectionDrag::Bottom;
+        }
+    
+        // Corner cases (prioritize corners for more intuitive resizing)
+        if on_left_edge && on_top_edge {
+            handle = SelectionDrag::TopLeft;
+        } else if on_right_edge && on_top_edge {
+            handle = SelectionDrag::TopRight;
+        } else if on_left_edge && on_bottom_edge {
+            handle = SelectionDrag::BottomLeft;
+        } else if on_right_edge && on_bottom_edge {
+            handle = SelectionDrag::BottomRight;
+        }
+    
+        handle
+    }
+    

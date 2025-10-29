@@ -48,6 +48,25 @@ impl Message {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SelectionDrag {
+    None,
+    Top,
+    Bottom,
+    Left,
+    Right,
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+impl Default for SelectionDrag {
+    fn default() -> Self {
+        SelectionDrag::None
+    }
+}
+
 /// The state of the application
 #[derive(AppState)]
 pub struct OculanteState {
@@ -103,6 +122,7 @@ pub struct OculanteState {
     /// Is the user currently drawing a selection rectangle?
     pub is_selecting: bool,
     pub selection_start_mouse_pos: Option<egui::Pos2>,
+    pub selection_drag: SelectionDrag,
 }
 
 impl<'b> OculanteState {
@@ -182,6 +202,7 @@ impl<'b> Default for OculanteState {
             selection_rect: None,
             is_selecting: false,
             selection_start_mouse_pos: None,
+            selection_drag: Default::default(),
         }
     }
 }

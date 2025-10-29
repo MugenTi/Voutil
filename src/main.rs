@@ -736,7 +736,9 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
         }
         Event::MouseDown { button, .. } => match button {
             MouseButton::Left => {
-                if !state.mouse_grab {
+                if state.selection_drag != SelectionDrag::None {
+                    // Do nothing, resizing will be handled in update
+                } else if !state.mouse_grab {
                     state.drag_enabled = true;
                 }
             }
@@ -762,7 +764,10 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
             _ => {}
         },
         Event::MouseUp { button, .. } => match button {
-            MouseButton::Left | MouseButton::Middle => state.drag_enabled = false,
+            MouseButton::Left | MouseButton::Middle => {
+                state.drag_enabled = false;
+                state.selection_drag = SelectionDrag::None;
+            }
             MouseButton::Right => state.is_selecting = false,
             _ => {}
         },
@@ -805,15 +810,15 @@ fn update(app: &mut App, state: &mut OculanteState) {
         limit_offset(app, state);
     }
 
-    // Handle selection rectangle drawing
-    if state.is_selecting {
-        if let Some(current_image) = &state.current_image {
-            let image_rect = image_rect_from_image_geometry(
-                &state.image_geometry,
-                app.window().width() as f32,
-                app.window().height() as f32,
-            );
+    // Handle selection rectangle drawing and resizing
+    if let Some(current_image) = &state.current_image {
+        let image_rect = image_rect_from_image_geometry(
+            &state.image_geometry,
+            app.window().width() as f32,
+            app.window().height() as f32,
+        );
 
+        if state.is_selecting {
             let start_pos = state.selection_start_mouse_pos.unwrap_or(egui::pos2(state.cursor.x, state.cursor.y));
             let end_pos = state.cursor;
 
@@ -831,6 +836,71 @@ fn update(app: &mut App, state: &mut OculanteState) {
                 egui::pos2(min_x, min_y),
                 egui::pos2(max_x, max_y),
             ));
+        } else if app.mouse.is_down(MouseButton::Left) && state.selection_drag != SelectionDrag::None {
+            // Resizing existing selection
+            if let Some(mut selection_rect) = state.selection_rect {
+                let mouse_delta_x = state.mouse_delta.x / state.image_geometry.scale;
+                let mouse_delta_y = state.mouse_delta.y / state.image_geometry.scale;
+
+                match state.selection_drag {
+                    SelectionDrag::Left => {
+                        selection_rect.min.x += mouse_delta_x;
+                    }
+                    SelectionDrag::Right => {
+                        selection_rect.max.x += mouse_delta_x;
+                    }
+                    SelectionDrag::Top => {
+                        selection_rect.min.y += mouse_delta_y;
+                    }
+                    SelectionDrag::Bottom => {
+                        selection_rect.max.y += mouse_delta_y;
+                    }
+                    SelectionDrag::TopLeft => {
+                        selection_rect.min.x += mouse_delta_x;
+                        selection_rect.min.y += mouse_delta_y;
+                    }
+                    SelectionDrag::TopRight => {
+                        selection_rect.max.x += mouse_delta_x;
+                        selection_rect.min.y += mouse_delta_y;
+                    }
+                    SelectionDrag::BottomLeft => {
+                        selection_rect.min.x += mouse_delta_x;
+                        selection_rect.max.y += mouse_delta_y;
+                    }
+                    SelectionDrag::BottomRight => {
+                        selection_rect.max.x += mouse_delta_x;
+                        selection_rect.max.y += mouse_delta_y;
+                    }
+                    _ => {}
+                }
+
+                // Ensure valid rectangle (min <= max)
+                selection_rect.min.x = selection_rect.min.x.min(selection_rect.max.x);
+                selection_rect.min.y = selection_rect.min.y.min(selection_rect.max.y);
+                selection_rect.max.x = selection_rect.max.x.max(selection_rect.min.x);
+                selection_rect.max.y = selection_rect.max.y.max(selection_rect.min.y);
+
+                // Clamp to image bounds
+                selection_rect.min.x = selection_rect.min.x.max(0.0);
+                selection_rect.min.y = selection_rect.min.y.max(0.0);
+                selection_rect.max.x = selection_rect.max.x.min(current_image.width() as f32);
+                selection_rect.max.y = selection_rect.max.y.min(current_image.height() as f32);
+
+                state.selection_rect = Some(selection_rect);
+            }
+        } else if let Some(selection_rect) = state.selection_rect {
+            // Check for hover over edges when not actively selecting or dragging
+            let screen_selection_rect = egui::Rect::from_min_max(
+                egui::pos2(
+                    image_rect.min.x + selection_rect.min.x * state.image_geometry.scale,
+                    image_rect.min.y + selection_rect.min.y * state.image_geometry.scale,
+                ),
+                egui::pos2(
+                    image_rect.min.x + selection_rect.max.x * state.image_geometry.scale,
+                    image_rect.min.y + selection_rect.max.y * state.image_geometry.scale,
+                ),
+            );
+            state.selection_drag = get_resize_handle(screen_selection_rect, egui::pos2(state.cursor.x, state.cursor.y), 5.0);
         }
     }
 
@@ -1317,6 +1387,21 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
         settings_ui(app, ctx, state, gfx);
 
         state.pointer_over_ui = ctx.is_pointer_over_area();
+
+        // Set cursor icon based on selection_drag state
+        if state.selection_drag != SelectionDrag::None {
+            ctx.set_cursor_icon(match state.selection_drag {
+                SelectionDrag::Left | SelectionDrag::Right => egui::CursorIcon::ResizeHorizontal,
+                SelectionDrag::Top | SelectionDrag::Bottom => egui::CursorIcon::ResizeVertical,
+                SelectionDrag::TopLeft | SelectionDrag::BottomRight => egui::CursorIcon::ResizeNwSe,
+                SelectionDrag::TopRight | SelectionDrag::BottomLeft => egui::CursorIcon::ResizeNeSw,
+                _ => egui::CursorIcon::Default,
+            });
+        } else if state.is_selecting {
+            ctx.set_cursor_icon(egui::CursorIcon::Crosshair);
+        } else {
+            ctx.set_cursor_icon(egui::CursorIcon::Default);
+        }
     });
 
     if let Some(texture) = &state.current_texture.get() {
