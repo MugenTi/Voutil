@@ -1040,24 +1040,19 @@ pub fn get_inverted_pixel_color(img: &DynamicImage, x: u32, y: u32) -> Color {
         tolerance: f32,
     ) -> SelectionDrag {
         let mut handle = SelectionDrag::None;
-        let mut on_left_edge = false;
-        let mut on_right_edge = false;
-        let mut on_top_edge = false;
-        let mut on_bottom_edge = false;
     
-        // Check if mouse is on edges
-        if (mouse_pos.x - selection_rect.left()).abs() < tolerance {
-            on_left_edge = true;
-        }
-        if (mouse_pos.x - selection_rect.right()).abs() < tolerance {
-            on_right_edge = true;
-        }
-        if (mouse_pos.y - selection_rect.top()).abs() < tolerance {
-            on_top_edge = true;
-        }
-        if (mouse_pos.y - selection_rect.bottom()).abs() < tolerance {
-            on_bottom_edge = true;
-        }
+        let on_left_edge = (mouse_pos.x - selection_rect.left()).abs() < tolerance
+            && mouse_pos.y > selection_rect.top() - tolerance
+            && mouse_pos.y < selection_rect.bottom() + tolerance;
+        let on_right_edge = (mouse_pos.x - selection_rect.right()).abs() < tolerance
+            && mouse_pos.y > selection_rect.top() - tolerance
+            && mouse_pos.y < selection_rect.bottom() + tolerance;
+        let on_top_edge = (mouse_pos.y - selection_rect.top()).abs() < tolerance
+            && mouse_pos.x > selection_rect.left() - tolerance
+            && mouse_pos.x < selection_rect.right() + tolerance;
+        let on_bottom_edge = (mouse_pos.y - selection_rect.bottom()).abs() < tolerance
+            && mouse_pos.x > selection_rect.left() - tolerance
+            && mouse_pos.x < selection_rect.right() + tolerance;
     
         // Determine handle based on edge proximity
         if on_left_edge {
@@ -1085,5 +1080,4 @@ pub fn get_inverted_pixel_color(img: &DynamicImage, x: u32, y: u32) -> Color {
         }
     
         handle
-    }
-    
+    }    
