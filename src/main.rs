@@ -280,6 +280,11 @@ fn init(_app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins) -> OculanteSt
         state.scrubber.entries = paths_to_open;
     }
 
+    // Clear selection after initial image load
+    state.selection_rect = None;
+    state.is_selecting = false;
+    state.selection_drag = SelectionDrag::None;
+
     if matches.contains_id("stdin") {
         debug!("Trying to read from pipe");
         let mut input = vec![];
@@ -992,6 +997,10 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
         }
         state.current_path = Some(p);
         state.scrubber.fixed_paths = false;
+        // Clear selection when a new image is loaded
+        state.selection_rect = None;
+        state.is_selecting = false;
+        state.selection_drag = SelectionDrag::None;
     }
 
     // check if a new loaded image has been sent

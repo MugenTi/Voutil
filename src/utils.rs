@@ -908,6 +908,10 @@ pub fn next_image(state: &mut OculanteState) {
         state.is_loaded = false;
         state.current_path = Some(next_img.clone());
         state.player.load(&next_img);
+        // Clear selection when a new image is loaded
+        state.selection_rect = None;
+        state.is_selecting = false;
+        state.selection_drag = SelectionDrag::None;
     }
 }
 
@@ -918,6 +922,10 @@ pub fn prev_image(state: &mut OculanteState) {
         state.is_loaded = false;
         state.current_path = Some(prev_img.clone());
         state.player.load(&prev_img);
+        // Clear selection when a new image is loaded
+        state.selection_rect = None;
+        state.is_selecting = false;
+        state.selection_drag = SelectionDrag::None;
     }
 }
 
