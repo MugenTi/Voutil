@@ -746,7 +746,9 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
                 state.drag_enabled = true;
             }
             MouseButton::Right => {
-                if !state.pointer_over_ui && !state.mouse_grab {
+                if state.selection_drag != SelectionDrag::None {
+                    // Do nothing, resizing will be handled in update
+                } else if !state.pointer_over_ui && !state.mouse_grab {
                     let image_rect = image_rect_from_image_geometry(
                         &state.image_geometry,
                         app.window().width() as f32,
@@ -770,6 +772,7 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
             }
             MouseButton::Right => {
                 state.is_selecting = false;
+                state.selection_drag = SelectionDrag::None; // Reset selection_drag on mouse up
                 // Clear selection if it's 1 pixel or less
                 if let Some(selection_rect) = state.selection_rect {
                     if selection_rect.width() <= 1.0 || selection_rect.height() <= 1.0 {
@@ -844,7 +847,7 @@ fn update(app: &mut App, state: &mut OculanteState) {
                 egui::pos2(min_x, min_y),
                 egui::pos2(max_x, max_y),
             ));
-        } else if app.mouse.is_down(MouseButton::Left) && state.selection_drag != SelectionDrag::None {
+        } else if (app.mouse.is_down(MouseButton::Left) || app.mouse.is_down(MouseButton::Right)) && state.selection_drag != SelectionDrag::None {
             // Resizing existing selection
             if let Some(mut selection_rect) = state.selection_rect {
                 let mouse_delta_x = state.mouse_delta.x / state.image_geometry.scale;
