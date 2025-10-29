@@ -1,3 +1,4 @@
+use notan::prelude::Color;
 use notan::egui;
 use crate::appstate::SelectionDrag;
 use arboard::Clipboard;
@@ -1020,6 +1021,18 @@ pub fn get_pixel_checked(img: &DynamicImage, x: u32, y: u32) -> Option<Rgba<u8>>
         return Some(img.get_pixel(x, y));
     }
     None
+}
+
+pub fn get_inverted_pixel_color(img: &DynamicImage, x: u32, y: u32) -> Color {
+    if let Some(pixel) = get_pixel_checked(img, x, y) {
+        Color::from_rgb(
+            (255 - pixel[0]) as f32 / 255.0,
+            (255 - pixel[1]) as f32 / 255.0,
+            (255 - pixel[2]) as f32 / 255.0,
+        )
+    } else {
+        Color::from_rgb(1.0, 1.0, 1.0) // Default to white if pixel is out of bounds
+    }
 }    
     pub fn get_resize_handle(
         selection_rect: egui::Rect,
