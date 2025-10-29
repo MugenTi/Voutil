@@ -768,7 +768,15 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
                 state.drag_enabled = false;
                 state.selection_drag = SelectionDrag::None;
             }
-            MouseButton::Right => state.is_selecting = false,
+            MouseButton::Right => {
+                state.is_selecting = false;
+                // Clear selection if it's 1 pixel or less
+                if let Some(selection_rect) = state.selection_rect {
+                    if selection_rect.width() <= 1.0 || selection_rect.height() <= 1.0 {
+                        state.selection_rect = None;
+                    }
+                }
+            }
             _ => {}
         },
         _ => {
