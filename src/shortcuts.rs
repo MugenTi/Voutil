@@ -40,6 +40,8 @@ pub enum InputEvent {
     LosslessRotateLeft,
     Copy,
     Paste,
+    CopySelection,
+    CropSelection,
     Browse,
     Quit,
     ZenMode,
@@ -140,13 +142,9 @@ impl ShortcutExt for Shortcuts {
             .add_keys(InputEvent::PanDown, &["LShift", "Down"])
             .add_keys(InputEvent::PanUp, &["LShift", "Up"])
             .add_keys(InputEvent::Paste, &["LControl", "V"])
-            .add_keys(InputEvent::Copy, &["LControl", "C"]);
-        #[cfg(target_os = "macos")]
-        {
-            for (_, keys) in s.iter_mut() {
-                *keys = keys.iter().map(|k| k.replace("LControl", "LWin")).collect();
-            }
-        }
+            .add_keys(InputEvent::Copy, &["LControl", "C"])
+            .add_keys(InputEvent::CopySelection, &["LControl", "C"])
+            .add_keys(InputEvent::CropSelection, &["LControl", "Y"]);
         s
     }
     fn add_key(mut self, function: InputEvent, key: &str) -> Self {

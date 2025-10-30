@@ -1,3 +1,6 @@
+use notan::prelude::Color;
+use notan::egui;
+use crate::appstate::SelectionDrag;
 use arboard::Clipboard;
 
 use img_parts::{Bytes, DynImage, ImageEXIF};
@@ -905,6 +908,10 @@ pub fn next_image(state: &mut OculanteState) {
         state.is_loaded = false;
         state.current_path = Some(next_img.clone());
         state.player.load(&next_img);
+        // Clear selection when a new image is loaded
+        state.selection_rect = None;
+        state.is_selecting = false;
+        state.selection_drag = SelectionDrag::None;
     }
 }
 
@@ -915,6 +922,10 @@ pub fn prev_image(state: &mut OculanteState) {
         state.is_loaded = false;
         state.current_path = Some(prev_img.clone());
         state.player.load(&prev_img);
+        // Clear selection when a new image is loaded
+        state.selection_rect = None;
+        state.is_selecting = false;
+        state.selection_drag = SelectionDrag::None;
     }
 }
 
@@ -1019,3 +1030,62 @@ pub fn get_pixel_checked(img: &DynamicImage, x: u32, y: u32) -> Option<Rgba<u8>>
     }
     None
 }
+
+pub fn get_inverted_pixel_color(img: &DynamicImage, x: u32, y: u32) -> Color {
+    if let Some(pixel) = get_pixel_checked(img, x, y) {
+        Color::from_rgb(
+            (255 - pixel[0]) as f32 / 255.0,
+            (255 - pixel[1]) as f32 / 255.0,
+            (255 - pixel[2]) as f32 / 255.0,
+        )
+    } else {
+        Color::from_rgb(1.0, 1.0, 1.0) // Default to white if pixel is out of bounds
+    }
+}    
+    pub fn get_resize_handle(
+        selection_rect: egui::Rect,
+        mouse_pos: egui::Pos2,
+        tolerance: f32,
+    ) -> SelectionDrag {
+        let mut handle = SelectionDrag::None;
+    
+        let on_left_edge = (mouse_pos.x - selection_rect.left()).abs() < tolerance
+            && mouse_pos.y > selection_rect.top() - tolerance
+            && mouse_pos.y < selection_rect.bottom() + tolerance;
+        let on_right_edge = (mouse_pos.x - selection_rect.right()).abs() < tolerance
+            && mouse_pos.y > selection_rect.top() - tolerance
+            && mouse_pos.y < selection_rect.bottom() + tolerance;
+        let on_top_edge = (mouse_pos.y - selection_rect.top()).abs() < tolerance
+            && mouse_pos.x > selection_rect.left() - tolerance
+            && mouse_pos.x < selection_rect.right() + tolerance;
+        let on_bottom_edge = (mouse_pos.y - selection_rect.bottom()).abs() < tolerance
+            && mouse_pos.x > selection_rect.left() - tolerance
+            && mouse_pos.x < selection_rect.right() + tolerance;
+    
+        // Determine handle based on edge proximity
+        if on_left_edge {
+            handle = SelectionDrag::Left;
+        }
+        if on_right_edge {
+            handle = SelectionDrag::Right;
+        }
+        if on_top_edge {
+            handle = SelectionDrag::Top;
+        }
+        if on_bottom_edge {
+            handle = SelectionDrag::Bottom;
+        }
+    
+        // Corner cases (prioritize corners for more intuitive resizing)
+        if on_left_edge && on_top_edge {
+            handle = SelectionDrag::TopLeft;
+        } else if on_right_edge && on_top_edge {
+            handle = SelectionDrag::TopRight;
+        } else if on_left_edge && on_bottom_edge {
+            handle = SelectionDrag::BottomLeft;
+        } else if on_right_edge && on_bottom_edge {
+            handle = SelectionDrag::BottomRight;
+        }
+    
+        handle
+    }    

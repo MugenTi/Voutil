@@ -2,7 +2,8 @@
 
 use clap::Arg;
 use clap::Command;
-use image::GenericImageView;
+#[allow(unused_imports)]
+use image::{GenericImageView, ImageBuffer, Rgba};
 use image_editing::LegacyEditState;
 use log::debug;
 use log::error;
@@ -279,6 +280,11 @@ fn init(_app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins) -> OculanteSt
         state.scrubber.entries = paths_to_open;
     }
 
+    // Clear selection after initial image load
+    state.selection_rect = None;
+    state.is_selecting = false;
+    state.selection_drag = SelectionDrag::None;
+
     if matches.contains_id("stdin") {
         debug!("Trying to read from pipe");
         let mut input = vec![];
@@ -399,6 +405,27 @@ fn init(_app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins) -> OculanteSt
     state
 }
 
+
+
+fn image_rect_from_image_geometry(
+    image_geometry: &ImageGeometry,
+    _window_width: f32,
+    _window_height: f32,
+) -> egui::Rect {
+    let img_w = image_geometry.dimensions.0 as f32 * image_geometry.scale;
+    let img_h = image_geometry.dimensions.1 as f32 * image_geometry.scale;
+
+    let x = image_geometry.offset.x;
+    let y = image_geometry.offset.y;
+
+    egui::Rect::from_min_max(
+        egui::pos2(x, y),
+        egui::pos2(x + img_w, y + img_h),
+    )
+}
+
+
+
 fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
     if state.key_grab {
         return;
@@ -471,6 +498,18 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
                 if let Some(img) = &state.current_image {
                     clipboard_copy(img);
                     state.send_message_info("Image copied");
+                }
+            }
+            if key_pressed(app, state, CopySelection) {
+                if let Some(selection_rect) = state.selection_rect {
+                    // Call a helper function to copy the selected region
+                    copy_selected_region(state, selection_rect);
+                }
+            }
+            if key_pressed(app, state, CropSelection) {
+                if let Some(selection_rect) = state.selection_rect {
+                    // Call a helper function to crop the image to the selected region
+                    crop_to_selected_region(state, selection_rect);
                 }
             }
 
@@ -702,17 +741,50 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
         }
         Event::MouseDown { button, .. } => match button {
             MouseButton::Left => {
-                if !state.mouse_grab {
+                if state.selection_drag != SelectionDrag::None {
+                    // Do nothing, resizing will be handled in update
+                } else if !state.mouse_grab {
                     state.drag_enabled = true;
                 }
             }
             MouseButton::Middle => {
                 state.drag_enabled = true;
             }
+            MouseButton::Right => {
+                if state.selection_drag != SelectionDrag::None {
+                    // Do nothing, resizing will be handled in update
+                } else if !state.pointer_over_ui && !state.mouse_grab {
+                    let image_rect = image_rect_from_image_geometry(
+                        &state.image_geometry,
+                        app.window().width() as f32,
+                        app.window().height() as f32,
+                    );
+                    if image_rect.contains(egui::pos2(state.cursor.x, state.cursor.y)) {
+                        state.is_selecting = true;
+                        state.selection_start_mouse_pos =
+                            Some(egui::pos2(state.cursor.x, state.cursor.y));
+                        // New selection, so clear the old one
+                        state.selection_rect = None;
+                    }
+                }
+            }
             _ => {}
         },
         Event::MouseUp { button, .. } => match button {
-            MouseButton::Left | MouseButton::Middle => state.drag_enabled = false,
+            MouseButton::Left | MouseButton::Middle => {
+                state.drag_enabled = false;
+                state.selection_drag = SelectionDrag::None;
+            }
+            MouseButton::Right => {
+                state.is_selecting = false;
+                state.selection_drag = SelectionDrag::None; // Reset selection_drag on mouse up
+                // Clear selection if it's 1 pixel or less
+                if let Some(selection_rect) = state.selection_rect {
+                    if selection_rect.width() <= 1.0 || selection_rect.height() <= 1.0 {
+                        state.selection_rect = None;
+                    }
+                }
+            }
             _ => {}
         },
         _ => {
@@ -752,6 +824,100 @@ fn update(app: &mut App, state: &mut OculanteState) {
     if state.drag_enabled && !state.mouse_grab || app.mouse.is_down(MouseButton::Middle) {
         state.image_geometry.offset += state.mouse_delta;
         limit_offset(app, state);
+    }
+
+    // Handle selection rectangle drawing and resizing
+    if let Some(current_image) = &state.current_image {
+        let image_rect = image_rect_from_image_geometry(
+            &state.image_geometry,
+            app.window().width() as f32,
+            app.window().height() as f32,
+        );
+
+        if state.is_selecting {
+            let start_pos = state.selection_start_mouse_pos.unwrap_or(egui::pos2(state.cursor.x, state.cursor.y));
+            let end_pos = state.cursor;
+
+            let start_x = (start_pos.x - image_rect.min.x) / state.image_geometry.scale;
+            let start_y = (start_pos.y - image_rect.min.y) / state.image_geometry.scale;
+            let end_x = (end_pos.x - image_rect.min.x) / state.image_geometry.scale;
+            let end_y = (end_pos.y - image_rect.min.y) / state.image_geometry.scale;
+
+            let min_x = start_x.min(end_x).max(0.0);
+            let min_y = start_y.min(end_y).max(0.0);
+            let max_x = start_x.max(end_x).min(current_image.width() as f32);
+            let max_y = start_y.max(end_y).min(current_image.height() as f32);
+
+            state.selection_rect = Some(egui::Rect::from_min_max(
+                egui::pos2(min_x, min_y),
+                egui::pos2(max_x, max_y),
+            ));
+        } else if (app.mouse.is_down(MouseButton::Left) || app.mouse.is_down(MouseButton::Right)) && state.selection_drag != SelectionDrag::None {
+            // Resizing existing selection
+            if let Some(mut selection_rect) = state.selection_rect {
+                let mouse_delta_x = state.mouse_delta.x / state.image_geometry.scale;
+                let mouse_delta_y = state.mouse_delta.y / state.image_geometry.scale;
+
+                match state.selection_drag {
+                    SelectionDrag::Left => {
+                        selection_rect.min.x += mouse_delta_x;
+                    }
+                    SelectionDrag::Right => {
+                        selection_rect.max.x += mouse_delta_x;
+                    }
+                    SelectionDrag::Top => {
+                        selection_rect.min.y += mouse_delta_y;
+                    }
+                    SelectionDrag::Bottom => {
+                        selection_rect.max.y += mouse_delta_y;
+                    }
+                    SelectionDrag::TopLeft => {
+                        selection_rect.min.x += mouse_delta_x;
+                        selection_rect.min.y += mouse_delta_y;
+                    }
+                    SelectionDrag::TopRight => {
+                        selection_rect.max.x += mouse_delta_x;
+                        selection_rect.min.y += mouse_delta_y;
+                    }
+                    SelectionDrag::BottomLeft => {
+                        selection_rect.min.x += mouse_delta_x;
+                        selection_rect.max.y += mouse_delta_y;
+                    }
+                    SelectionDrag::BottomRight => {
+                        selection_rect.max.x += mouse_delta_x;
+                        selection_rect.max.y += mouse_delta_y;
+                    }
+                    _ => {}
+                }
+
+                // Ensure valid rectangle (min <= max)
+                selection_rect.min.x = selection_rect.min.x.min(selection_rect.max.x);
+                selection_rect.min.y = selection_rect.min.y.min(selection_rect.max.y);
+                selection_rect.max.x = selection_rect.max.x.max(selection_rect.min.x);
+                selection_rect.max.y = selection_rect.max.y.max(selection_rect.min.y);
+
+                // Clamp to image bounds
+                selection_rect.min.x = selection_rect.min.x.max(0.0);
+                selection_rect.min.y = selection_rect.min.y.max(0.0);
+                selection_rect.max.x = selection_rect.max.x.min(current_image.width() as f32);
+                selection_rect.max.y = selection_rect.max.y.min(current_image.height() as f32);
+
+                state.selection_rect = Some(selection_rect);
+            }
+        } else if let Some(selection_rect) = state.selection_rect {
+            // Check for hover over edges when not actively selecting or dragging
+            let screen_selection_rect = egui::Rect::from_min_max(
+                egui::pos2(
+                    image_rect.min.x + selection_rect.min.x * state.image_geometry.scale,
+                    image_rect.min.y + selection_rect.min.y * state.image_geometry.scale,
+                ),
+                egui::pos2(
+                    image_rect.min.x + selection_rect.max.x * state.image_geometry.scale,
+                    image_rect.min.y + selection_rect.max.y * state.image_geometry.scale,
+                ),
+            );
+            state.selection_drag = get_resize_handle(screen_selection_rect, egui::pos2(state.cursor.x, state.cursor.y), 5.0);
+        }
     }
 
     // Since we can't access the window in the event loop, we store it in the state
@@ -831,6 +997,10 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
         }
         state.current_path = Some(p);
         state.scrubber.fixed_paths = false;
+        // Clear selection when a new image is loaded
+        state.selection_rect = None;
+        state.is_selecting = false;
+        state.selection_drag = SelectionDrag::None;
     }
 
     // check if a new loaded image has been sent
@@ -1237,6 +1407,21 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
         settings_ui(app, ctx, state, gfx);
 
         state.pointer_over_ui = ctx.is_pointer_over_area();
+
+        // Set cursor icon based on selection_drag state
+        if state.selection_drag != SelectionDrag::None {
+            ctx.set_cursor_icon(match state.selection_drag {
+                SelectionDrag::Left | SelectionDrag::Right => egui::CursorIcon::ResizeHorizontal,
+                SelectionDrag::Top | SelectionDrag::Bottom => egui::CursorIcon::ResizeVertical,
+                SelectionDrag::TopLeft | SelectionDrag::BottomRight => egui::CursorIcon::ResizeNwSe,
+                SelectionDrag::TopRight | SelectionDrag::BottomLeft => egui::CursorIcon::ResizeNeSw,
+                _ => egui::CursorIcon::Default,
+            });
+        } else if state.is_selecting {
+            ctx.set_cursor_icon(egui::CursorIcon::Crosshair);
+        } else {
+            ctx.set_cursor_icon(egui::CursorIcon::Default);
+        }
     });
 
     if let Some(texture) = &state.current_texture.get() {
@@ -1346,6 +1531,53 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                 // }
             }
         }
+
+        // Draw selection rectangle
+        if let Some(selection_rect) = state.selection_rect {
+            if let Some(current_image) = &state.current_image {
+                let image_rect = image_rect_from_image_geometry(
+                    &state.image_geometry,
+                    app.window().width() as f32,
+                    app.window().height() as f32,
+                );
+
+                let screen_min_x = image_rect.min.x + selection_rect.min.x * state.image_geometry.scale;
+                let screen_min_y = image_rect.min.y + selection_rect.min.y * state.image_geometry.scale;
+                let screen_max_x = image_rect.min.x + selection_rect.max.x * state.image_geometry.scale;
+                let screen_max_y = image_rect.min.y + selection_rect.max.y * state.image_geometry.scale;
+
+                let border_thickness = 1.0; // Thickness of the border
+
+                // Draw top border
+                for x in screen_min_x as i32..(screen_max_x + border_thickness) as i32 {
+                    let img_x = ((x as f32 - image_rect.min.x) / state.image_geometry.scale) as u32;
+                    let img_y = ((screen_min_y - image_rect.min.y) / state.image_geometry.scale) as u32;
+                    let color = get_inverted_pixel_color(current_image, img_x, img_y);
+                    draw.rect((x as f32, screen_min_y), (border_thickness, border_thickness)).color(color);
+                }
+                // Draw bottom border
+                for x in screen_min_x as i32..(screen_max_x + border_thickness) as i32 {
+                    let img_x = ((x as f32 - image_rect.min.x) / state.image_geometry.scale) as u32;
+                    let img_y = ((screen_max_y - image_rect.min.y) / state.image_geometry.scale) as u32;
+                    let color = get_inverted_pixel_color(current_image, img_x, img_y);
+                    draw.rect((x as f32, screen_max_y), (border_thickness, border_thickness)).color(color);
+                }
+                // Draw left border
+                for y in screen_min_y as i32..(screen_max_y + border_thickness) as i32 {
+                    let img_x = ((screen_min_x - image_rect.min.x) / state.image_geometry.scale) as u32;
+                    let img_y = ((y as f32 - image_rect.min.y) / state.image_geometry.scale) as u32;
+                    let color = get_inverted_pixel_color(current_image, img_x, img_y);
+                    draw.rect((screen_min_x, y as f32), (border_thickness, border_thickness)).color(color);
+                }
+                // Draw right border
+                for y in screen_min_y as i32..(screen_max_y + border_thickness) as i32 {
+                    let img_x = ((screen_max_x - image_rect.min.x) / state.image_geometry.scale) as u32;
+                    let img_y = ((y as f32 - image_rect.min.y) / state.image_geometry.scale) as u32;
+                    let color = get_inverted_pixel_color(current_image, img_x, img_y);
+                    draw.rect((screen_max_x, y as f32), (border_thickness, border_thickness)).color(color);
+                }
+            }
+        }
     }
 
     if state.network_mode {
@@ -1365,6 +1597,8 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
     gfx.render(&zoom_image);
     gfx.render(&egui_output);
 }
+
+
 
 // Make sure offset is restricted to window size so we don't offset to infinity
 fn limit_offset(app: &mut App, state: &mut OculanteState) {
@@ -1411,4 +1645,49 @@ fn piped_paths(args: &clap::ArgMatches) -> Option<impl Iterator<Item = PathBuf>>
                 .collect::<Vec<_>>()
         })
     })
+}
+
+fn copy_selected_region(state: &mut OculanteState, selection_rect: egui::Rect) {
+    if let Some(current_image) = &state.current_image {
+        let (x, y, width, height) = (
+            selection_rect.min.x.round() as u32,
+            selection_rect.min.y.round() as u32,
+            selection_rect.width().round() as u32,
+            selection_rect.height().round() as u32,
+        );
+
+        if width > 0 && height > 0 {
+            let cropped_image = current_image.crop_imm(x, y, width, height);
+            clipboard_copy(&cropped_image);
+            state.send_message_info(&format!("Copied {}x{} region to clipboard", width, height));
+        } else {
+            state.send_message_warn("Selection is too small to copy.");
+        }
+    } else {
+        state.send_message_warn("No image to copy from.");
+    }
+}
+
+fn crop_to_selected_region(state: &mut OculanteState, selection_rect: egui::Rect) {
+    if let Some(current_image) = &mut state.current_image {
+        let (x, y, width, height) = (
+            selection_rect.min.x.round() as u32,
+            selection_rect.min.y.round() as u32,
+            selection_rect.width().round() as u32,
+            selection_rect.height().round() as u32,
+        );
+
+        if width > 0 && height > 0 {
+            *current_image = current_image.crop_imm(x, y, width, height);
+            state.reset_image = true;
+            let cloned_image = current_image.clone();
+            state.send_frame(crate::utils::Frame::new_still(cloned_image));
+            state.send_message_info(&format!("Cropped image to {}x{}", width, height));
+            state.selection_rect = None; // Clear selection after cropping
+        } else {
+            state.send_message_warn("Selection is too small to crop.");
+        }
+    } else {
+        state.send_message_warn("No image to crop.");
+    }
 }

@@ -12,6 +12,7 @@ use egui_notify::Toasts;
 use image::DynamicImage;
 use nalgebra::Vector2;
 use notan::{prelude::Texture, AppState};
+use notan::egui;
 use std::{
     path::PathBuf,
     sync::mpsc::{self, Receiver, Sender},
@@ -44,6 +45,25 @@ impl Message {
     }
     pub fn err(m: &str) -> Self {
         Self::Error(m.into())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum SelectionDrag {
+    None,
+    Top,
+    Bottom,
+    Left,
+    Right,
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+impl Default for SelectionDrag {
+    fn default() -> Self {
+        SelectionDrag::None
     }
 }
 
@@ -97,6 +117,12 @@ pub struct OculanteState {
     pub toasts: Toasts,
     pub file_browser_visible: bool,
     pub thumbnails: Thumbnails,
+    /// A rectangle that defines the user's selection on the image
+    pub selection_rect: Option<egui::Rect>,
+    /// Is the user currently drawing a selection rectangle?
+    pub is_selecting: bool,
+    pub selection_start_mouse_pos: Option<egui::Pos2>,
+    pub selection_drag: SelectionDrag,
 }
 
 impl<'b> OculanteState {
@@ -173,6 +199,10 @@ impl<'b> Default for OculanteState {
             toasts: Toasts::default().with_anchor(egui_notify::Anchor::BottomLeft),
             file_browser_visible: false,
             thumbnails: Default::default(),
+            selection_rect: None,
+            is_selecting: false,
+            selection_start_mouse_pos: None,
+            selection_drag: Default::default(),
         }
     }
 }
