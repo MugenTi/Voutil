@@ -847,7 +847,7 @@ fn show_modal<R>(
 }
 
 /// Save an image to a path using encoding options and generate a thumbnail
-fn save_with_encoding(
+pub fn save_with_encoding(
     image: &DynamicImage,
     path: &Path,
     image_info: &Option<ExtendedImageInfo>,

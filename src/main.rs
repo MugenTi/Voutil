@@ -1368,10 +1368,11 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                     .min_width(250.0)
                     .show(ctx, |ui| {
                         ui.horizontal(|ui| {
-                            ui.label("File Browser");
+                            ui.label(if state.file_browser_save { "Save" } else { "File Browser" });
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                                 if ui.button("❌").clicked() {
                                     state.file_browser_visible = false;
+                                    state.file_browser_save = false;
                                 }
                             });
                         });
@@ -1382,21 +1383,42 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                             .data(|r| r.get_temp::<PathBuf>(Id::new("FBPATH")))
                             .unwrap_or(filebrowser::load_recent_dir().unwrap_or_default());
 
-                        filebrowser::browse(
-                            &mut path,
-                            SUPPORTED_EXTENSIONS,
-                            &mut state.volatile_settings,
-                            false, // save = false
-                            |p| {
-                                let _ = state.load_channel.0.clone().send(p.to_path_buf());
-                                // Hide browser after selection
-                                state.file_browser_visible = false;
-                            },
-                            ui,
-                        );
+                        if !state.file_browser_save {
+                            filebrowser::browse(
+                                &mut path,
+                                SUPPORTED_EXTENSIONS,
+                                &mut state.volatile_settings,
+                                false, // save = false
+                                |p| {
+                                    let _ = state.load_channel.0.clone().send(p.to_path_buf());
+                                    // Hide browser after selection
+                                    state.file_browser_visible = false;
+                                    state.file_browser_save = false;
+                                },
+                                ui,
+                            );
+                        } else {
+                            let keys = &state.volatile_settings.encoding_options.iter().map(|e|e.ext()).collect::<Vec<_>>();
+                            let key_slice = keys.iter().map(|k|k.as_str()).collect::<Vec<_>>();
+                            let encoders = state.volatile_settings.encoding_options.clone();
+                            filebrowser::browse(
+                                &mut path,
+                                key_slice.as_slice(),
+                                &mut state.volatile_settings,
+                                true, // save = true
+                                |p| {
+                                    let _ = save_with_encoding(&state.edit_state.result_pixel_op, p, &state.image_metadata, &encoders);
+                                    // Hide browser after selection
+                                    state.file_browser_visible = false;
+                                    state.file_browser_save = false;
+                                },
+                                ui,
+                            );
+                        }
 
                         if ui.ctx().input(|r| r.key_pressed(Key::Escape)) {
                             state.file_browser_visible = false;
+                            state.file_browser_save = false;
                         }
                         ui.ctx().data_mut(|w| w.insert_temp(Id::new("FBPATH"), path));
                     });
