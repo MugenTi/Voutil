@@ -513,6 +513,16 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
                 }
             }
 
+            if key_pressed(app, state, SelectAll) {
+                if let Some(image) = &state.current_image {
+                    let (w, h) = image.dimensions();
+                    state.selection_rect = Some(egui::Rect::from_min_max(
+                        egui::pos2(0.0, 0.0),
+                        egui::pos2(w as f32, h as f32),
+                    ));
+                }
+            }
+
             if key_pressed(app, state, Paste) {
                 match clipboard_to_image() {
                     Ok(img) => {
