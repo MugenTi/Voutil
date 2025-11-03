@@ -131,6 +131,11 @@ pub fn browse<F: FnMut(&PathBuf)>(
         .data(|r| r.get_temp::<BrowserState>(Id::new("FBSTATE")))
         .unwrap_or_default();
 
+    // One-time check to see if an initial filename has been provided
+    if let Some(initial_filename) = ui.ctx().data_mut(|d| d.remove_temp::<String>(Id::new("FILENAME"))) {
+        state.filename = initial_filename;
+    }
+
     if state.entries.is_none() {
         // mark prev_path as dirty. This is to cause a reload at first start
         prev_path = Default::default();
@@ -176,177 +181,194 @@ pub fn browse<F: FnMut(&PathBuf)>(
         })
         .collect::<Vec<_>>();
 
-    let num_entries = entries.len();
+    let num_entries = entries.len();    
 
-    ui.set_min_width(822.);
+//    let item_spacing = 6.;
+    let item_spacing = 0.0;
+
+    ui.set_min_width(842.);
     ui.set_min_height(600.);
 
-    let item_spacing = 6.;
-    ui.add_space(item_spacing);
+    egui::TopBottomPanel::top("top_panel")
+        .resizable(false)
+        .min_height(32.0)
+        .show_separator_line(false)
+        .show_inside(ui, |ui| {
 
-    // The navigation bar
-    ui.horizontal_wrapped(|ui| {
+        // let item_spacing = 6.;
+        //ui.add_space(item_spacing);
+
+        // The navigation bar
+        ui.horizontal_wrapped(|ui| {
+            //ui.add_space(item_spacing);
+
+            let search_icon = if state.search_active { BOLDX } else { SEARCH };
+            let mut lock_search_focus = false;
+
+            if ui
+                .add(
+                    egui::Button::new(
+                        RichText::new(format!("{search_icon}"))
+                            .color(ui.style().visuals.selection.bg_fill),
+                    )
+                    .rounding(ui.get_rounding(BUTTON_HEIGHT_LARGE))
+                    .min_size(vec2(BUTTON_HEIGHT_LARGE, BUTTON_HEIGHT_LARGE)), // .shortcut_text("sds")
+                )
+                .clicked()
+            {
+                lock_search_focus = true;
+                state.search_active = !state.search_active;
+                if !state.search_active {
+                    state.search_term.clear();
+                }
+            }
+            let textinput_width = if state.search_term.len() < 10 {
+                (ui.ctx().animate_bool("id".into(), state.search_active) * 88.) as usize
+            } else {
+                ui.available_width() as usize
+            };
+
+            if state.search_active {
+                ui.scope(|ui| {
+                    ui.visuals_mut().selection.stroke = Stroke::NONE;
+                    ui.visuals_mut().widgets.active.rounding =
+                        Rounding::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
+                    ui.visuals_mut().widgets.inactive.rounding =
+                        Rounding::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
+                    ui.visuals_mut().widgets.hovered.rounding =
+                        Rounding::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
+                    let resp = ui.add(
+                        TextEdit::singleline(&mut state.search_term)
+                            .min_size(vec2(0., BUTTON_HEIGHT_LARGE))
+                            .desired_width(textinput_width as f32)
+                            .vertical_align(Align::Center),
+                    );
+
+                    if lock_search_focus {
+                        ui.memory_mut(|r| r.request_focus(resp.id));
+                    }
+                });
+            }
+            if state.search_term.len() >= 10 {
+                ui.end_row();
+                ui.add_space(item_spacing);
+            }
+            if ui
+                .add(
+                    egui::Button::new(
+                        RichText::new(format!("{CHEVRON_UP}"))
+                            .color(ui.style().visuals.selection.bg_fill),
+                    )
+                    .rounding(ui.get_rounding(BUTTON_HEIGHT_LARGE))
+                    .min_size(vec2(BUTTON_HEIGHT_LARGE, BUTTON_HEIGHT_LARGE)), // .shortcut_text("sds")
+                )
+                .clicked()
+            {
+                if let Some(d) = path.parent() {
+                    let p = d.to_path_buf();
+                    *path = p;
+                }
+            }
+
+            let path_icon = if state.path_active { FOLDER } else { TERMINAL };
+
+            if ui
+                .add(
+                    egui::Button::new(
+                        RichText::new(path_icon).color(ui.style().visuals.selection.bg_fill),
+                    )
+                    .rounding(ui.get_rounding(BUTTON_HEIGHT_LARGE))
+                    .min_size(vec2(BUTTON_HEIGHT_LARGE, BUTTON_HEIGHT_LARGE)), // .shortcut_text("sds")
+                )
+                .clicked()
+            {
+                state.path_active = !state.path_active;
+            }
+
+            let current_dir = if path.is_dir() {
+                path.clone()
+            } else {
+                path.parent().map(|p| p.to_path_buf()).unwrap_or_default()
+            };
+
+            let cp = path.clone();
+            // Too many folders make the dialog too large, cap them at this amount
+            // the width, minus the left buttons roughly
+            let mut available_width = ui.available_size_before_wrap().x;
+            let mut max_nav_items = 0;
+            // go through ancestors from the back
+            for ancestor in cp.ancestors() {
+                let ancestor_stem = ancestor
+                    .file_name()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or("Computer".to_string());
+                let ancestor_len = ancestor_stem.len() as f32 * 11.5
+                    + ui.spacing().button_padding.x * 2.
+                    + ui.spacing().item_spacing.x * 2.;
+                if available_width - ancestor_len > 0. {
+                    max_nav_items += 1;
+                    available_width -= ancestor_len;
+                } else {
+                    break;
+                }
+            }
+
+            let mut ancestors = cp
+                .ancestors()
+                .take(max_nav_items.max(1))
+                .collect::<Vec<_>>();
+            ancestors.reverse();
+
+            if state.path_active {
+                ui.scope(|ui| {
+                    let textinput_width = (ui.ctx().animate_bool("path".into(), state.path_active)
+                        * ui.available_width()) as usize;
+                    let mut path_string = path.to_string_lossy().to_string();
+                    ui.visuals_mut().selection.stroke = Stroke::NONE;
+                    ui.visuals_mut().widgets.active.rounding =
+                        Rounding::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
+                    ui.visuals_mut().widgets.inactive.rounding =
+                        Rounding::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
+                    ui.visuals_mut().widgets.hovered.rounding =
+                        Rounding::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
+                    let resp = ui.add(
+                        TextEdit::singleline(&mut path_string)
+                            .min_size(vec2(0., BUTTON_HEIGHT_LARGE))
+                            .desired_width(textinput_width as f32)
+                            .vertical_align(Align::Center),
+                    );
+
+                    if resp.changed() {
+                        *path = PathBuf::from(path_string);
+                    }
+                });
+
+                // let r = ui.add(TextEdit::singleline(&mut path_string));
+            } else {
+                for c in ancestors {
+                    let label = c
+                        .file_name()
+                        .map(|f| f.to_string_lossy().to_string())
+                        .unwrap_or("Computer".into());
+                    if ui
+                        .styled_selectable_label(current_dir == c, format!("{label}  {CARET_RIGHT}"))
+                        .clicked()
+                    {
+                        *path = PathBuf::from(c);
+                    }
+                }
+            }
+        });
+
+        // let item_spacing = 6.;
         ui.add_space(item_spacing);
 
-        let search_icon = if state.search_active { BOLDX } else { SEARCH };
-        let mut lock_search_focus = false;
+    }); // egui::TopBottomPanel::top
 
-        if ui
-            .add(
-                egui::Button::new(
-                    RichText::new(format!("{search_icon}"))
-                        .color(ui.style().visuals.selection.bg_fill),
-                )
-                .rounding(ui.get_rounding(BUTTON_HEIGHT_LARGE))
-                .min_size(vec2(BUTTON_HEIGHT_LARGE, BUTTON_HEIGHT_LARGE)), // .shortcut_text("sds")
-            )
-            .clicked()
-        {
-            lock_search_focus = true;
-            state.search_active = !state.search_active;
-            if !state.search_active {
-                state.search_term.clear();
-            }
-        }
-        let textinput_width = if state.search_term.len() < 10 {
-            (ui.ctx().animate_bool("id".into(), state.search_active) * 88.) as usize
-        } else {
-            ui.available_width() as usize
-        };
+    egui::SidePanel::left("side_panel")
+        .show_separator_line(false)
+        .show_inside(ui, |ui| {
 
-        if state.search_active {
-            ui.scope(|ui| {
-                ui.visuals_mut().selection.stroke = Stroke::NONE;
-                ui.visuals_mut().widgets.active.rounding =
-                    Rounding::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
-                ui.visuals_mut().widgets.inactive.rounding =
-                    Rounding::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
-                ui.visuals_mut().widgets.hovered.rounding =
-                    Rounding::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
-                let resp = ui.add(
-                    TextEdit::singleline(&mut state.search_term)
-                        .min_size(vec2(0., BUTTON_HEIGHT_LARGE))
-                        .desired_width(textinput_width as f32)
-                        .vertical_align(Align::Center),
-                );
-
-                if lock_search_focus {
-                    ui.memory_mut(|r| r.request_focus(resp.id));
-                }
-            });
-        }
-        if state.search_term.len() >= 10 {
-            ui.end_row();
-            ui.add_space(item_spacing);
-        }
-        if ui
-            .add(
-                egui::Button::new(
-                    RichText::new(format!("{CHEVRON_UP}"))
-                        .color(ui.style().visuals.selection.bg_fill),
-                )
-                .rounding(ui.get_rounding(BUTTON_HEIGHT_LARGE))
-                .min_size(vec2(BUTTON_HEIGHT_LARGE, BUTTON_HEIGHT_LARGE)), // .shortcut_text("sds")
-            )
-            .clicked()
-        {
-            if let Some(d) = path.parent() {
-                let p = d.to_path_buf();
-                *path = p;
-            }
-        }
-
-        let path_icon = if state.path_active { FOLDER } else { TERMINAL };
-
-        if ui
-            .add(
-                egui::Button::new(
-                    RichText::new(path_icon).color(ui.style().visuals.selection.bg_fill),
-                )
-                .rounding(ui.get_rounding(BUTTON_HEIGHT_LARGE))
-                .min_size(vec2(BUTTON_HEIGHT_LARGE, BUTTON_HEIGHT_LARGE)), // .shortcut_text("sds")
-            )
-            .clicked()
-        {
-            state.path_active = !state.path_active;
-        }
-
-        let current_dir = if path.is_dir() {
-            path.clone()
-        } else {
-            path.parent().map(|p| p.to_path_buf()).unwrap_or_default()
-        };
-
-        let cp = path.clone();
-        // Too many folders make the dialog too large, cap them at this amount
-        // the width, minus the left buttons roughly
-        let mut available_width = ui.available_size_before_wrap().x;
-        let mut max_nav_items = 0;
-        // go through ancestors from the back
-        for ancestor in cp.ancestors() {
-            let ancestor_stem = ancestor
-                .file_name()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or("Computer".to_string());
-            let ancestor_len = ancestor_stem.len() as f32 * 11.5
-                + ui.spacing().button_padding.x * 2.
-                + ui.spacing().item_spacing.x * 2.;
-            if available_width - ancestor_len > 0. {
-                max_nav_items += 1;
-                available_width -= ancestor_len;
-            } else {
-                break;
-            }
-        }
-
-        let mut ancestors = cp
-            .ancestors()
-            .take(max_nav_items.max(1))
-            .collect::<Vec<_>>();
-        ancestors.reverse();
-
-        if state.path_active {
-            ui.scope(|ui| {
-                let textinput_width = (ui.ctx().animate_bool("path".into(), state.path_active)
-                    * ui.available_width()) as usize;
-                let mut path_string = path.to_string_lossy().to_string();
-                ui.visuals_mut().selection.stroke = Stroke::NONE;
-                ui.visuals_mut().widgets.active.rounding =
-                    Rounding::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
-                ui.visuals_mut().widgets.inactive.rounding =
-                    Rounding::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
-                ui.visuals_mut().widgets.hovered.rounding =
-                    Rounding::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
-                let resp = ui.add(
-                    TextEdit::singleline(&mut path_string)
-                        .min_size(vec2(0., BUTTON_HEIGHT_LARGE))
-                        .desired_width(textinput_width as f32)
-                        .vertical_align(Align::Center),
-                );
-
-                if resp.changed() {
-                    *path = PathBuf::from(path_string);
-                }
-            });
-
-            // let r = ui.add(TextEdit::singleline(&mut path_string));
-        } else {
-            for c in ancestors {
-                let label = c
-                    .file_name()
-                    .map(|f| f.to_string_lossy().to_string())
-                    .unwrap_or("Computer".into());
-                if ui
-                    .styled_selectable_label(current_dir == c, format!("{label}  {CARET_RIGHT}"))
-                    .clicked()
-                {
-                    *path = PathBuf::from(c);
-                }
-            }
-        }
-    });
-
-    ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
         ui.add_space(item_spacing);
         ui.allocate_ui_with_layout(
             Vec2::new(120., ui.available_height()),
@@ -443,152 +465,158 @@ pub fn browse<F: FnMut(&PathBuf)>(
                 });
             },
         );
+    }); // egui::SidePanel::left
 
-        ui.vertical(|ui| {
-            let panel_bg_color = match ui.style().visuals.dark_mode {
-                true => Color32::from_gray(13),
-                false => Color32::from_gray(217),
-            };
+    egui::TopBottomPanel::bottom("bottom_panel")
+        .resizable(false)
+        .min_height(0.0)
+        .show_separator_line(false)
+        .show_inside(ui, |ui| {
 
-            let r = ui.available_rect_before_wrap();
+        if save {
+            let mut ext = Path::new(&state.filename).ext();
 
-            let spacing = ui.style().spacing.item_spacing.x;
-            let w = r.width() - spacing * 3. + 2.;
+            // Safeguard: if saving as lut, ase etc, make sure the extension matches. If not, choose the first filter item.
+            if !filter.contains(&ext.as_str()) {
+                ext = filter.first().map(|e| e.to_string()).unwrap_or(ext.clone());
+                state.filename = Path::new(&state.filename)
+                    .with_extension(&ext)
+                    .to_string_lossy()
+                    .to_string();
+            }
 
-            let thumbs_per_row = (w / (THUMB_SIZE[0] as f32 + spacing))
-                .floor()
-                .max(1.)
-                .min(num_entries as f32);
-            let num_rows = (num_entries as f32 / (thumbs_per_row).max(1.)).ceil() as usize;
+            ui.label("Filename");
+            ui.horizontal(|ui| {
+                ui.spacing_mut().button_padding = Vec2::new(2., 5.);
+                let textinput = ui.add(
+                    egui::TextEdit::singleline(&mut state.filename)
+                        .min_size(Vec2::new(10., 28.)),
+                );
 
-            egui::Frame::none()
-                .fill(panel_bg_color)
-                .rounding(ui.style().visuals.widgets.active.rounding * 2.0)
-                .inner_margin(Margin::same(10.))
-                .show(ui, |ui| {
-                    egui::ScrollArea::new([false, true])
-                        .min_scrolled_height(400.)
-                        .auto_shrink([false, false])
-                        .show_rows(
-                            ui,
-                            (THUMB_SIZE[1] + THUMB_CAPTION_HEIGHT) as f32,
-                            num_rows,
-                            |ui, row_range| {
-                                let range = (row_range.start * thumbs_per_row as usize)
-                                    ..(row_range.end * thumbs_per_row as usize).min(num_entries);
-                                let mut visible_entries: Vec<&PathBuf> = vec![];
-                                for i in range {
-                                    if let Some(e) = entries.get(i) {
-                                        visible_entries.push(e);
-                                    }
-                                }
-                                if state.listview_active {
-                                } else {
-                                    ui.horizontal_wrapped(|ui| {
-                                        if visible_entries.is_empty() {
-                                            let r = ui.label("Empty directory");
-                                            let r = r.interact(Sense::click());
-                                            if r.clicked() {
-                                                if let Some(parent) = path.parent() {
-                                                    *path = parent.to_path_buf();
-                                                }
-                                            }
-                                        } else {
-                                            for de in visible_entries.iter().filter(|e| e.is_dir())
-                                            {
-                                                if render_file_icon(de, ui, &mut state.thumbnails)
-                                                    .clicked()
-                                                {
-                                                    *path = de.to_path_buf();
-                                                }
-                                            }
-
-                                            for de in visible_entries {
-                                                if de.is_file()
-                                                    && render_file_icon(
-                                                        de,
-                                                        ui,
-                                                        &mut state.thumbnails,
-                                                    )
-                                                    .clicked()
-                                                {
-                                                    _ = save_recent_dir(de);
-                                                    if !save {
-                                                        state.search_active = false;
-                                                        state.search_term.clear();
-                                                        callback(de);
-                                                    } else {
-                                                        state.filename = de
-                                                            .file_name()
-                                                            .map(|f| {
-                                                                f.to_string_lossy().to_string()
-                                                            })
-                                                            .unwrap_or_default();
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    });
-                                }
-                            },
-                        );
-                });
-
-            // ui.add_space(10.);
-
-            if save {
-                let mut ext = Path::new(&state.filename).ext();
-
-                // Safeguard: if saving as lut, ase etc, make sure the extension matches. If not, choose the first filter item.
-                if !filter.contains(&ext.as_str()) {
-                    ext = filter.first().map(|e| e.to_string()).unwrap_or(ext.clone());
-                    state.filename = Path::new(&state.filename)
-                        .with_extension(&ext)
-                        .to_string_lossy()
-                        .to_string();
+                if prev_path == PathBuf::default() {
+                    textinput.request_focus();
                 }
 
-                ui.label("Filename");
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().button_padding = Vec2::new(2., 5.);
-                    let textinput = ui.add(
-                        egui::TextEdit::singleline(&mut state.filename)
-                            .min_size(Vec2::new(10., 28.)),
-                    );
-
-                    if prev_path == PathBuf::default() {
-                        textinput.request_focus();
+                for f in FileEncoder::iter() {
+                    if !filter.contains(&f.ext().as_str()) {
+                        continue;
                     }
-
-                    for f in FileEncoder::iter() {
-                        if !filter.contains(&f.ext().as_str()) {
-                            continue;
-                        }
-                        let e = f.ext();
-                        if ui.selectable_label(ext == e, &e).clicked() {
-                            state.filename = Path::new(&state.filename)
-                                .with_extension(&e)
-                                .to_string_lossy()
-                                .to_string();
-                        }
+                    let e = f.ext();
+                    if ui.selectable_label(ext == e, &e).clicked() {
+                        state.filename = Path::new(&state.filename)
+                            .with_extension(&e)
+                            .to_string_lossy()
+                            .to_string();
                     }
+                }
 
-                    if ui.button("   Save file   ".to_string()).clicked() {
-                        state.search_active = false;
-                        state.search_term.clear();
-                        prev_path = Default::default();
-                        callback(&path.join(state.filename.clone()));
-                    }
-                });
+                if ui.button("   Save file   ".to_string()).clicked() {
+                    state.search_active = false;
+                    state.search_term.clear();
+                    prev_path = Default::default();
+                    callback(&path.join(state.filename.clone()));
+                }
+            });
 
-                for fe in settings.encoding_options.iter_mut() {
-                    if ext.to_lowercase() == fe.ext() {
-                        fe.ui(ui);
-                    }
+            for fe in settings.encoding_options.iter_mut() {
+                if ext.to_lowercase() == fe.ext() {
+                    fe.ui(ui);
                 }
             }
+        } // if save
+    }); // egui::TopBottomPanel::bottom
+
+    egui::CentralPanel::default().show_inside(ui, |ui| {
+
+        let panel_bg_color = match ui.style().visuals.dark_mode {
+            true => Color32::from_gray(13),
+            false => Color32::from_gray(217),
+        };
+
+        let r = ui.available_rect_before_wrap();
+
+        let spacing = ui.style().spacing.item_spacing.x;
+        let w = r.width() - spacing * 3. + 2.;
+
+        let thumbs_per_row = (w / (THUMB_SIZE[0] as f32 + spacing))
+            .floor()
+            .max(1.)
+            .min(num_entries as f32);
+        let num_rows = (num_entries as f32 / (thumbs_per_row).max(1.)).ceil() as usize;
+
+        egui::Frame::none()
+            .fill(panel_bg_color)
+            .rounding(ui.style().visuals.widgets.active.rounding * 2.0)
+            .inner_margin(Margin::same(10.))
+            .show(ui, |ui| {
+            egui::ScrollArea::new([false, true])
+                .min_scrolled_height(400.)
+                .auto_shrink([false, false])
+                .show_rows(
+                ui,
+                (THUMB_SIZE[1] + THUMB_CAPTION_HEIGHT) as f32,
+                num_rows,
+                |ui, row_range| {
+                    let range = (row_range.start * thumbs_per_row as usize)
+                        ..(row_range.end * thumbs_per_row as usize).min(num_entries);
+                    let mut visible_entries: Vec<&PathBuf> = vec![];
+                    for i in range {
+                        if let Some(e) = entries.get(i) {
+                            visible_entries.push(e);
+                        }
+                    }
+                    if state.listview_active {
+                    } else {
+                        ui.horizontal_wrapped(|ui| {
+                            if visible_entries.is_empty() {
+                                let r = ui.label("Empty directory");
+                                let r = r.interact(Sense::click());
+                                if r.clicked() {
+                                    if let Some(parent) = path.parent() {
+                                        *path = parent.to_path_buf();
+                                    }
+                                }
+                            } else {
+                                for de in visible_entries.iter().filter(|e| e.is_dir())
+                                {
+                                    if render_file_icon(de, ui, &mut state.thumbnails)
+                                        .clicked()
+                                    {
+                                        *path = de.to_path_buf();
+                                    }
+                                }
+
+                                for de in visible_entries {
+                                    if de.is_file()
+                                        && render_file_icon(
+                                            de,
+                                            ui,
+                                            &mut state.thumbnails,
+                                        )
+                                        .clicked()
+                                    {
+                                        _ = save_recent_dir(de);
+                                        if !save {
+                                            state.search_active = false;
+                                            state.search_term.clear();
+                                            callback(de);
+                                        } else {
+                                            state.filename = de
+                                                .file_name()
+                                                .map(|f| {
+                                                    f.to_string_lossy().to_string()
+                                                })
+                                                .unwrap_or_default();
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                },
+            );
         });
-    });
+    }); // egui::CentralPanel
 
     if prev_path != *path {
         match fs::read_dir(&path) {

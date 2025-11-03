@@ -13,16 +13,18 @@ pub fn main_menu(ui: &mut Ui, state: &mut OculanteState, app: &mut App, gfx: &mu
         draw_hamburger_menu(ui, state, app);
 
         // Move folder and hamburger to the left
-        if tooltip(
-            unframed_button_colored(FOLDER, state.file_browser_visible, ui),
-            "Browse for an image",
-            &lookup(&state.persistent_settings.shortcuts, &Browse),
-            ui,
-        )
-        .clicked()
-        {
-            state.file_browser_visible = !state.file_browser_visible;
-        }
+        ui.add_enabled_ui(!state.file_browser_save, |ui| {
+            if tooltip(
+                unframed_button_colored(FOLDER, state.file_browser_visible && !state.file_browser_save, ui),
+                "Browse for an image",
+                &lookup(&state.persistent_settings.shortcuts, &Browse),
+                ui,
+            )
+            .clicked()
+            {
+                state.file_browser_visible = !state.file_browser_visible;
+            }
+        });
 
         // The Close button
         if state.persistent_settings.borderless && unframed_button(X, ui).clicked() {
@@ -396,6 +398,27 @@ pub fn draw_hamburger_menu(ui: &mut Ui, state: &mut OculanteState, app: &mut App
                 state.settings_enabled = !state.settings_enabled;
                 ui.close_menu();
             }
+
+            ui.add_enabled_ui(state.current_image.is_some() && !state.file_browser_visible, |ui| {
+                if ui.styled_button(format!("{DRIVE} Save as...")).clicked() {
+                    state.file_browser_visible = true;
+                    state.file_browser_save = true;
+
+                    // Set the initial directory and filename for the save dialog
+                    let filename = if let Some(current_path) = &state.current_path {
+                        current_path.file_name().unwrap_or_default().to_string_lossy().to_string()
+                    } else {
+                        "unnamed.png".to_string()
+                    };
+
+                    ui.ctx().data_mut(|d| {
+                        d.insert_temp(Id::new("FBPATH"), state.volatile_settings.last_open_directory.clone());
+                        d.insert_temp(Id::new("FILENAME"), filename);
+                    });
+
+                    ui.close_menu();
+                }
+            });
 
             if ui.styled_button(format!("{EXIT} Quit")).clicked() {
                 _ = state.persistent_settings.save_blocking();

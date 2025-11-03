@@ -534,7 +534,10 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
             }
 
             if app.keyboard.was_pressed(KeyCode::Escape) {
-                if app.window().is_fullscreen() {
+                if state.file_browser_visible {
+                    state.file_browser_visible = false;
+                    state.file_browser_save = false;
+                } else if app.window().is_fullscreen() {
                     toggle_fullscreen(app, state);
                     set_zen_mode(state, app, state.persistent_settings.zen_mode_normal);
                     state.reset_image = true;
@@ -794,6 +797,19 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
 }
 
 fn update(app: &mut App, state: &mut OculanteState) {
+    if state.new_image_loaded {
+        if let Some(current_image) = &state.current_image {
+            // If the edit state is still empty, populate it with the current image
+            if state.edit_state.result_pixel_op.width() == 0 {
+                state.edit_state.result_pixel_op = current_image.clone();
+            }
+            if state.edit_state.result_image_op.width() == 0 {
+                state.edit_state.result_image_op = current_image.clone();
+            }
+        }
+        state.new_image_loaded = false;
+    }
+
     if state.first_start {
         app.window().set_always_on_top(false);
         state.last_window_pos = app.window().position();
@@ -1045,9 +1061,6 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
 
         match &frame {
             Frame::Still(ref img) | Frame::ImageCollectionMember(ref img) => {
-                state.edit_state.result_image_op = Default::default();
-                state.edit_state.result_pixel_op = Default::default();
-
                 if !state.persistent_settings.keep_view {
                     state.reset_image = true;
 
@@ -1130,6 +1143,7 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                         }
                     }
                 }
+
                 state.redraw = false;
                 // state.image_info = None;
             }
@@ -1179,6 +1193,9 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                     state.send_message_warn(&format!("Error while displaying image: {error}"));
                 }
                 state.current_image = Some(img);
+                state.new_image_loaded = true;
+
+
             }
             Frame::UpdateTexture => {
                 // Only update the texture.
@@ -1362,16 +1379,17 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
         #[cfg(not(feature = "file_open"))]
         {
             if state.file_browser_visible {
-                egui::SidePanel::left("file_browser_panel")
+                let panel_response = egui::SidePanel::left("file_browser_panel")
                     .resizable(true)
                     .default_width(400.0)
                     .min_width(250.0)
                     .show(ctx, |ui| {
                         ui.horizontal(|ui| {
-                            ui.label("File Browser");
+                            ui.label(if state.file_browser_save { "Save" } else { "File Browser" });
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                                 if ui.button("❌").clicked() {
                                     state.file_browser_visible = false;
+                                    state.file_browser_save = false;
                                 }
                             });
                         });
@@ -1382,24 +1400,49 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                             .data(|r| r.get_temp::<PathBuf>(Id::new("FBPATH")))
                             .unwrap_or(filebrowser::load_recent_dir().unwrap_or_default());
 
-                        filebrowser::browse(
-                            &mut path,
-                            SUPPORTED_EXTENSIONS,
-                            &mut state.volatile_settings,
-                            false, // save = false
-                            |p| {
-                                let _ = state.load_channel.0.clone().send(p.to_path_buf());
-                                // Hide browser after selection
-                                state.file_browser_visible = false;
-                            },
-                            ui,
-                        );
+                        if !state.file_browser_save {
+                            filebrowser::browse(
+                                &mut path,
+                                SUPPORTED_EXTENSIONS,
+                                &mut state.volatile_settings,
+                                false, // save = false
+                                |p| {
+                                    let _ = state.load_channel.0.clone().send(p.to_path_buf());
+                                    // Hide browser after selection
+                                    state.file_browser_visible = false;
+                                    state.file_browser_save = false;
+                                },
+                                ui,
+                            );
+                        } else {
+                            let keys = &state.volatile_settings.encoding_options.iter().map(|e|e.ext()).collect::<Vec<_>>();
+                            let key_slice = keys.iter().map(|k|k.as_str()).collect::<Vec<_>>();
+                            let encoders = state.volatile_settings.encoding_options.clone();
+                            filebrowser::browse(
+                                &mut path,
+                                key_slice.as_slice(),
+                                &mut state.volatile_settings,
+                                true, // save = true
+                                |p| {
+                                    let _ = save_with_encoding(&state.edit_state.result_pixel_op, p, &state.image_metadata, &encoders);
+                                    // Hide browser after selection
+                                    state.file_browser_visible = false;
+                                    state.file_browser_save = false;
+                                },
+                                ui,
+                            );
+                        }
 
                         if ui.ctx().input(|r| r.key_pressed(Key::Escape)) {
                             state.file_browser_visible = false;
+                            state.file_browser_save = false;
                         }
                         ui.ctx().data_mut(|w| w.insert_temp(Id::new("FBPATH"), path));
                     });
+
+                if panel_response.response.rect.contains(egui::pos2(state.cursor.x, state.cursor.y)) {
+                    state.mouse_grab = true;
+                }
             }
         }
 

@@ -116,6 +116,7 @@ pub struct OculanteState {
     pub first_start: bool,
     pub toasts: Toasts,
     pub file_browser_visible: bool,
+    pub file_browser_save: bool,
     pub thumbnails: Thumbnails,
     /// A rectangle that defines the user's selection on the image
     pub selection_rect: Option<egui::Rect>,
@@ -123,6 +124,7 @@ pub struct OculanteState {
     pub is_selecting: bool,
     pub selection_start_mouse_pos: Option<egui::Pos2>,
     pub selection_drag: SelectionDrag,
+    pub new_image_loaded: bool,
 }
 
 impl<'b> OculanteState {
@@ -198,11 +200,13 @@ impl<'b> Default for OculanteState {
             first_start: true,
             toasts: Toasts::default().with_anchor(egui_notify::Anchor::BottomLeft),
             file_browser_visible: false,
+            file_browser_save: false,
             thumbnails: Default::default(),
             selection_rect: None,
             is_selecting: false,
             selection_start_mouse_pos: None,
             selection_drag: Default::default(),
+            new_image_loaded: false,
         }
     }
 }
