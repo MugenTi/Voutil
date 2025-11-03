@@ -1376,7 +1376,7 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
         #[cfg(not(feature = "file_open"))]
         {
             if state.file_browser_visible {
-                egui::SidePanel::left("file_browser_panel")
+                let panel_response = egui::SidePanel::left("file_browser_panel")
                     .resizable(true)
                     .default_width(400.0)
                     .min_width(250.0)
@@ -1436,6 +1436,10 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                         }
                         ui.ctx().data_mut(|w| w.insert_temp(Id::new("FBPATH"), path));
                     });
+
+                if panel_response.response.rect.contains(egui::pos2(state.cursor.x, state.cursor.y)) {
+                    state.mouse_grab = true;
+                }
             }
         }
 
