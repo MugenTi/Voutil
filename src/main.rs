@@ -1287,20 +1287,38 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                 egui::TopBottomPanel::bottom("statusbar")
                     .show_separator_line(false)
                     .show(ctx, |ui| {
-                        if state.current_image.is_some() {
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                ui.add_space(5.0);
-                                let dims = state.image_geometry.dimensions;
-                                if dims.0 > 0 {
-                                    ui.label(format!("{} x {}", dims.0, dims.1));
-                                }
+                        ui.horizontal(|ui| {
+                            if let Some(rect) = state.selection_rect {
+                                let aspect_ratio = if rect.height() > 0.0 {
+                                    rect.width() / rect.height()
+                                } else {
+                                    0.0
+                                };
+                                ui.label(format!(
+                                    "Selection: {:.0}, {:.0}; {:.0} x {:.0}; {:.3}",
+                                    rect.min.x,
+                                    rect.min.y,
+                                    rect.width(),
+                                    rect.height(),
+                                    aspect_ratio
+                                ));
+                            }
 
-                                ui.separator();
+                            if state.current_image.is_some() {
+                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                    ui.add_space(5.0);
+                                    let dims = state.image_geometry.dimensions;
+                                    if dims.0 > 0 {
+                                        ui.label(format!("{} x {}", dims.0, dims.1));
+                                    }
 
-                                let scale_percent = state.image_geometry.scale * 100.0;
-                                ui.label(format!("{:.1}%", scale_percent));
-                            });
-                        }
+                                    ui.separator();
+
+                                    let scale_percent = state.image_geometry.scale * 100.0;
+                                    ui.label(format!("{:.1}%", scale_percent));
+                                });
+                            }
+                        });
                     });
             }
         }
