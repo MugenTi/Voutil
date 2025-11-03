@@ -866,6 +866,27 @@ fn update(app: &mut App, state: &mut OculanteState) {
                 let size = width.max(height);
                 end_x = start_x + size * (end_x - start_x).signum();
                 end_y = start_y + size * (end_y - start_y).signum();
+
+                // Clamp the selection to the image bounds while maintaining aspect ratio
+                let dx = end_x - start_x;
+                let dy = end_y - start_y;
+                let mut scale: f32 = 1.0;
+
+                if dx > 0.0 && end_x > current_image.width() as f32 {
+                    scale = scale.min((current_image.width() as f32 - start_x) / dx);
+                }
+                if dx < 0.0 && end_x < 0.0 {
+                    scale = scale.min(-start_x / dx);
+                }
+                if dy > 0.0 && end_y > current_image.height() as f32 {
+                    scale = scale.min((current_image.height() as f32 - start_y) / dy);
+                }
+                if dy < 0.0 && end_y < 0.0 {
+                    scale = scale.min(-start_y / dy);
+                }
+
+                end_x = start_x + dx * scale;
+                end_y = start_y + dy * scale;
             }
 
             let min_x = start_x.min(end_x).max(0.0);
@@ -959,6 +980,29 @@ fn update(app: &mut App, state: &mut OculanteState) {
                         } else {
                             new_width = new_height * aspect_ratio;
                         }
+                    }
+
+                    let anchor = match state.selection_drag {
+                        SelectionDrag::Right | SelectionDrag::Bottom | SelectionDrag::BottomRight => original_min,
+                        SelectionDrag::Left | SelectionDrag::Top | SelectionDrag::TopLeft => original_max,
+                        SelectionDrag::TopRight => egui::pos2(original_min.x, original_max.y),
+                        SelectionDrag::BottomLeft => egui::pos2(original_max.x, original_min.y),
+                        _ => original_min,
+                    };
+
+                    // Clamp new_width and new_height to image bounds while maintaining aspect ratio
+                    let max_w = if anchor.x == original_min.x { current_image.width() as f32 - anchor.x } else { anchor.x };
+                    let max_h = if anchor.y == original_min.y { current_image.height() as f32 - anchor.y } else { anchor.y };
+
+                    if new_width > max_w {
+                        let scale = max_w / new_width;
+                        new_width *= scale;
+                        new_height *= scale;
+                    }
+                    if new_height > max_h {
+                        let scale = max_h / new_height;
+                        new_width *= scale;
+                        new_height *= scale;
                     }
 
                     match state.selection_drag {
