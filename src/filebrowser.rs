@@ -131,6 +131,11 @@ pub fn browse<F: FnMut(&PathBuf)>(
         .data(|r| r.get_temp::<BrowserState>(Id::new("FBSTATE")))
         .unwrap_or_default();
 
+    // One-time check to see if an initial filename has been provided
+    if let Some(initial_filename) = ui.ctx().data_mut(|d| d.remove_temp::<String>(Id::new("FILENAME"))) {
+        state.filename = initial_filename;
+    }
+
     if state.entries.is_none() {
         // mark prev_path as dirty. This is to cause a reload at first start
         prev_path = Default::default();

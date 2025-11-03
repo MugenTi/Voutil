@@ -401,8 +401,21 @@ pub fn draw_hamburger_menu(ui: &mut Ui, state: &mut OculanteState, app: &mut App
 
             ui.add_enabled_ui(state.current_image.is_some() && !state.file_browser_visible, |ui| {
                 if ui.styled_button(format!("{DRIVE} Save as...")).clicked() {
-                    state.file_browser_visible = !state.file_browser_visible;
-                    state.file_browser_save = !state.file_browser_save;
+                    state.file_browser_visible = true;
+                    state.file_browser_save = true;
+
+                    // Set the initial directory and filename for the save dialog
+                    let filename = if let Some(current_path) = &state.current_path {
+                        current_path.file_name().unwrap_or_default().to_string_lossy().to_string()
+                    } else {
+                        "unnamed.png".to_string()
+                    };
+
+                    ui.ctx().data_mut(|d| {
+                        d.insert_temp(Id::new("FBPATH"), state.volatile_settings.last_open_directory.clone());
+                        d.insert_temp(Id::new("FILENAME"), filename);
+                    });
+
                     ui.close_menu();
                 }
             });
