@@ -534,7 +534,10 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
             }
 
             if app.keyboard.was_pressed(KeyCode::Escape) {
-                if app.window().is_fullscreen() {
+                if state.file_browser_visible {
+                    state.file_browser_visible = false;
+                    state.file_browser_save = false;
+                } else if app.window().is_fullscreen() {
                     toggle_fullscreen(app, state);
                     set_zen_mode(state, app, state.persistent_settings.zen_mode_normal);
                     state.reset_image = true;
