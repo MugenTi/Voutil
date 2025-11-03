@@ -794,6 +794,19 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
 }
 
 fn update(app: &mut App, state: &mut OculanteState) {
+    if state.new_image_loaded {
+        if let Some(current_image) = &state.current_image {
+            // If the edit state is still empty, populate it with the current image
+            if state.edit_state.result_pixel_op.width() == 0 {
+                state.edit_state.result_pixel_op = current_image.clone();
+            }
+            if state.edit_state.result_image_op.width() == 0 {
+                state.edit_state.result_image_op = current_image.clone();
+            }
+        }
+        state.new_image_loaded = false;
+    }
+
     if state.first_start {
         app.window().set_always_on_top(false);
         state.last_window_pos = app.window().position();
@@ -1045,9 +1058,6 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
 
         match &frame {
             Frame::Still(ref img) | Frame::ImageCollectionMember(ref img) => {
-                state.edit_state.result_image_op = Default::default();
-                state.edit_state.result_pixel_op = Default::default();
-
                 if !state.persistent_settings.keep_view {
                     state.reset_image = true;
 
@@ -1130,6 +1140,7 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                         }
                     }
                 }
+
                 state.redraw = false;
                 // state.image_info = None;
             }
@@ -1179,6 +1190,9 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                     state.send_message_warn(&format!("Error while displaying image: {error}"));
                 }
                 state.current_image = Some(img);
+                state.new_image_loaded = true;
+
+
             }
             Frame::UpdateTexture => {
                 // Only update the texture.

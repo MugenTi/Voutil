@@ -397,7 +397,7 @@ pub fn draw_hamburger_menu(ui: &mut Ui, state: &mut OculanteState, app: &mut App
                 ui.close_menu();
             }
 
-            if ui.styled_button(format!("{DRIVE} Save as")).clicked() {
+            if ui.styled_button(format!("{DRIVE} Save as...")).clicked() {
                 state.file_browser_visible = !state.file_browser_visible;
                 state.file_browser_save = !state.file_browser_save;
                 ui.close_menu();

@@ -124,6 +124,7 @@ pub struct OculanteState {
     pub is_selecting: bool,
     pub selection_start_mouse_pos: Option<egui::Pos2>,
     pub selection_drag: SelectionDrag,
+    pub new_image_loaded: bool,
 }
 
 impl<'b> OculanteState {
@@ -205,6 +206,7 @@ impl<'b> Default for OculanteState {
             is_selecting: false,
             selection_start_mouse_pos: None,
             selection_drag: Default::default(),
+            new_image_loaded: false,
         }
     }
 }
