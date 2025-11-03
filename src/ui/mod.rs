@@ -853,8 +853,17 @@ pub fn save_with_encoding(
     image_info: &Option<ExtendedImageInfo>,
     encoders: &Vec<FileEncoder>,
 ) -> anyhow::Result<()> {
+    // If saving as PNG, and the color type is not Rgba8, explicitly convert to avoid encoding issues.
+    // Use a Cow to avoid cloning when not necessary.
+    let image_to_save: std::borrow::Cow<DynamicImage> =
+        if path.extension().map_or(false, |ext| ext.to_string_lossy().to_lowercase() == "png") && image.color() != image::ColorType::Rgba8 {
+            std::borrow::Cow::Owned(image::DynamicImage::ImageRgba8(image.to_rgba8()))
+        } else {
+            std::borrow::Cow::Borrowed(image)
+        };
+
     let encoding_options = FileEncoder::matching_variant(path, encoders);
-    encoding_options.save(image, path)?;
+    encoding_options.save(&image_to_save, path)?;
     debug!("Saved to {}", path.display());
     // Re-apply exif
     if let Some(info) = &image_info {
