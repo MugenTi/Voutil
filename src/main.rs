@@ -1735,40 +1735,40 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                     app.window().height() as f32,
                 );
 
-                let screen_min_x = image_rect.min.x + selection_rect.min.x * state.image_geometry.scale;
-                let screen_min_y = image_rect.min.y + selection_rect.min.y * state.image_geometry.scale;
-                let screen_max_x = image_rect.min.x + selection_rect.max.x * state.image_geometry.scale;
-                let screen_max_y = image_rect.min.y + selection_rect.max.y * state.image_geometry.scale;
+                let screen_min_x = (image_rect.min.x + selection_rect.min.x * state.image_geometry.scale).round();
+                let screen_min_y = (image_rect.min.y + selection_rect.min.y * state.image_geometry.scale).round();
+                let screen_max_x = (image_rect.min.x + selection_rect.max.x * state.image_geometry.scale).round();
+                let screen_max_y = (image_rect.min.y + selection_rect.max.y * state.image_geometry.scale).round();
 
                 let border_thickness = 1.0; // Thickness of the border
 
                 // Draw top border
-                for x in screen_min_x as i32..(screen_max_x + border_thickness) as i32 {
+                for x in (screen_min_x as i32)..(screen_max_x as i32) {
                     let img_x = ((x as f32 - image_rect.min.x) / state.image_geometry.scale) as u32;
                     let img_y = ((screen_min_y - image_rect.min.y) / state.image_geometry.scale) as u32;
                     let color = get_inverted_pixel_color(current_image, img_x, img_y);
                     draw.rect((x as f32, screen_min_y), (border_thickness, border_thickness)).color(color);
                 }
                 // Draw bottom border
-                for x in screen_min_x as i32..(screen_max_x + border_thickness) as i32 {
+                for x in (screen_min_x as i32)..(screen_max_x as i32) {
                     let img_x = ((x as f32 - image_rect.min.x) / state.image_geometry.scale) as u32;
-                    let img_y = ((screen_max_y - image_rect.min.y) / state.image_geometry.scale) as u32;
+                    let img_y = ((screen_max_y - border_thickness - image_rect.min.y) / state.image_geometry.scale) as u32;
                     let color = get_inverted_pixel_color(current_image, img_x, img_y);
-                    draw.rect((x as f32, screen_max_y), (border_thickness, border_thickness)).color(color);
+                    draw.rect((x as f32, screen_max_y - border_thickness), (border_thickness, border_thickness)).color(color);
                 }
                 // Draw left border
-                for y in screen_min_y as i32..(screen_max_y + border_thickness) as i32 {
+                for y in (screen_min_y as i32)..(screen_max_y as i32) {
                     let img_x = ((screen_min_x - image_rect.min.x) / state.image_geometry.scale) as u32;
                     let img_y = ((y as f32 - image_rect.min.y) / state.image_geometry.scale) as u32;
                     let color = get_inverted_pixel_color(current_image, img_x, img_y);
                     draw.rect((screen_min_x, y as f32), (border_thickness, border_thickness)).color(color);
                 }
                 // Draw right border
-                for y in screen_min_y as i32..(screen_max_y + border_thickness) as i32 {
-                    let img_x = ((screen_max_x - image_rect.min.x) / state.image_geometry.scale) as u32;
+                for y in (screen_min_y as i32)..(screen_max_y as i32) {
+                    let img_x = ((screen_max_x - border_thickness - image_rect.min.x) / state.image_geometry.scale) as u32;
                     let img_y = ((y as f32 - image_rect.min.y) / state.image_geometry.scale) as u32;
                     let color = get_inverted_pixel_color(current_image, img_x, img_y);
-                    draw.rect((screen_max_x, y as f32), (border_thickness, border_thickness)).color(color);
+                    draw.rect((screen_max_x - border_thickness, y as f32), (border_thickness, border_thickness)).color(color);
                 }
             }
         }
