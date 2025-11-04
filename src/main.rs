@@ -27,7 +27,6 @@ use notan::prelude::*;
 use oculante::comparelist::CompareItem;
 use std::io::{stdin, IsTerminal, Read};
 use std::path::PathBuf;
-use std::sync::mpsc;
 use std::time::Duration;
 
 #[cfg(feature = "file_open")]
@@ -203,11 +202,7 @@ fn init(_app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins) -> OculanteSt
 
     debug!("Completed argument parsing.");
 
-    let mut state = OculanteState {
-        texture_channel: mpsc::channel(),
-        // current_path: maybe_img_location.cloned(/),
-        ..Default::default()
-    };
+    let mut state = OculanteState::default();
 
     state.player = Player::new(
         state.texture_channel.0.clone(),
@@ -695,14 +690,12 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
 
     match evt {
         Event::Exit => {
-            info!("About to exit");
+            info!("About to exit, saving window geometry.");
             // save position
             state.volatile_settings.window_geometry = (
                 app.window().position(),
                 app.window().size(),
             );
-            _ = state.persistent_settings.save_blocking();
-            _ = state.volatile_settings.save_blocking();
         }
         Event::MouseWheel { delta_y, .. } => {
             trace!("Mouse wheel event");

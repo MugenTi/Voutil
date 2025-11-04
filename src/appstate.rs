@@ -210,3 +210,10 @@ impl<'b> Default for OculanteState {
         }
     }
 }
+
+impl Drop for OculanteState {
+    fn drop(&mut self) {
+        _ = self.persistent_settings.save_blocking();
+        _ = self.volatile_settings.save_blocking();
+    }
+}
