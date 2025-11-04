@@ -523,6 +523,10 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
                 }
             }
 
+            if key_pressed(app, state, Deselect) {
+                state.selection_rect = None;
+            }
+
             if key_pressed(app, state, Paste) {
                 match clipboard_to_image() {
                     Ok(img) => {
