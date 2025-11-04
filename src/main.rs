@@ -513,6 +513,20 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
                 }
             }
 
+            if key_pressed(app, state, SelectAll) {
+                if let Some(image) = &state.current_image {
+                    let (w, h) = image.dimensions();
+                    state.selection_rect = Some(egui::Rect::from_min_max(
+                        egui::pos2(0.0, 0.0),
+                        egui::pos2(w as f32, h as f32),
+                    ));
+                }
+            }
+
+            if key_pressed(app, state, Deselect) {
+                state.selection_rect = None;
+            }
+
             if key_pressed(app, state, Paste) {
                 match clipboard_to_image() {
                     Ok(img) => {
@@ -856,8 +870,38 @@ fn update(app: &mut App, state: &mut OculanteState) {
 
             let start_x = (start_pos.x - image_rect.min.x) / state.image_geometry.scale;
             let start_y = (start_pos.y - image_rect.min.y) / state.image_geometry.scale;
-            let end_x = (end_pos.x - image_rect.min.x) / state.image_geometry.scale;
-            let end_y = (end_pos.y - image_rect.min.y) / state.image_geometry.scale;
+            let mut end_x = (end_pos.x - image_rect.min.x) / state.image_geometry.scale;
+            let mut end_y = (end_pos.y - image_rect.min.y) / state.image_geometry.scale;
+
+            // Lock aspect ratio with CTRL or ALT
+            if app.keyboard.ctrl() || app.keyboard.alt() {
+                let width = (end_x - start_x).abs();
+                let height = (end_y - start_y).abs();
+                let size = width.max(height);
+                end_x = start_x + size * (end_x - start_x).signum();
+                end_y = start_y + size * (end_y - start_y).signum();
+
+                // Clamp the selection to the image bounds while maintaining aspect ratio
+                let dx = end_x - start_x;
+                let dy = end_y - start_y;
+                let mut scale: f32 = 1.0;
+
+                if dx > 0.0 && end_x > current_image.width() as f32 {
+                    scale = scale.min((current_image.width() as f32 - start_x) / dx);
+                }
+                if dx < 0.0 && end_x < 0.0 {
+                    scale = scale.min(-start_x / dx);
+                }
+                if dy > 0.0 && end_y > current_image.height() as f32 {
+                    scale = scale.min((current_image.height() as f32 - start_y) / dy);
+                }
+                if dy < 0.0 && end_y < 0.0 {
+                    scale = scale.min(-start_y / dy);
+                }
+
+                end_x = start_x + dx * scale;
+                end_y = start_y + dy * scale;
+            }
 
             let min_x = start_x.min(end_x).max(0.0);
             let min_y = start_y.min(end_y).max(0.0);
@@ -871,22 +915,24 @@ fn update(app: &mut App, state: &mut OculanteState) {
         } else if (app.mouse.is_down(MouseButton::Left) || app.mouse.is_down(MouseButton::Right)) && state.selection_drag != SelectionDrag::None {
             // Resizing existing selection
             if let Some(mut selection_rect) = state.selection_rect {
+                let original_aspect_ratio = if selection_rect.height() > 0.0 {
+                    selection_rect.width() / selection_rect.height()
+                } else {
+                    1.0
+                };
+
                 let mouse_delta_x = state.mouse_delta.x / state.image_geometry.scale;
                 let mouse_delta_y = state.mouse_delta.y / state.image_geometry.scale;
 
+                // Store original state for reference
+                let original_min = selection_rect.min;
+                let original_max = selection_rect.max;
+
                 match state.selection_drag {
-                    SelectionDrag::Left => {
-                        selection_rect.min.x += mouse_delta_x;
-                    }
-                    SelectionDrag::Right => {
-                        selection_rect.max.x += mouse_delta_x;
-                    }
-                    SelectionDrag::Top => {
-                        selection_rect.min.y += mouse_delta_y;
-                    }
-                    SelectionDrag::Bottom => {
-                        selection_rect.max.y += mouse_delta_y;
-                    }
+                    SelectionDrag::Left => selection_rect.min.x += mouse_delta_x,
+                    SelectionDrag::Right => selection_rect.max.x += mouse_delta_x,
+                    SelectionDrag::Top => selection_rect.min.y += mouse_delta_y,
+                    SelectionDrag::Bottom => selection_rect.max.y += mouse_delta_y,
                     SelectionDrag::TopLeft => {
                         selection_rect.min.x += mouse_delta_x;
                         selection_rect.min.y += mouse_delta_y;
@@ -904,6 +950,97 @@ fn update(app: &mut App, state: &mut OculanteState) {
                         selection_rect.max.y += mouse_delta_y;
                     }
                     _ => {}
+                }
+
+                // Aspect ratio correction
+                if app.keyboard.alt() || app.keyboard.ctrl() {
+                    let aspect_ratio = if app.keyboard.ctrl() { 1.0 } else { original_aspect_ratio };
+
+                    // Determine which dimension's change is dominant based on the drag handle
+                    let width_is_dominant = matches!(state.selection_drag, SelectionDrag::Left | SelectionDrag::Right);
+                    let height_is_dominant = matches!(state.selection_drag, SelectionDrag::Top | SelectionDrag::Bottom);
+
+                    let mut new_width = selection_rect.width();
+                    let mut new_height = selection_rect.height();
+
+                    if width_is_dominant {
+                        new_height = new_width / aspect_ratio;
+                    } else if height_is_dominant {
+                        new_width = new_height * aspect_ratio;
+                    } else { // Corner drag
+                        // For corner drags, base the calculation on the distance from the anchor to the current mouse position
+                        // to avoid cursor drift.
+                        let anchor = match state.selection_drag {
+                            SelectionDrag::TopLeft => original_max,
+                            SelectionDrag::TopRight => egui::pos2(original_min.x, original_max.y),
+                            SelectionDrag::BottomLeft => egui::pos2(original_max.x, original_min.y),
+                            SelectionDrag::BottomRight => original_min,
+                            _ => selection_rect.min, // Should not happen
+                        };
+
+                        let image_rect = image_rect_from_image_geometry(
+                            &state.image_geometry,
+                            app.window().width() as f32,
+                            app.window().height() as f32,
+                        );
+                        let cursor_on_image_x = (state.cursor.x - image_rect.min.x) / state.image_geometry.scale;
+                        let cursor_on_image_y = (state.cursor.y - image_rect.min.y) / state.image_geometry.scale;
+
+                        new_width = (cursor_on_image_x - anchor.x).abs();
+                        new_height = (cursor_on_image_y - anchor.y).abs();
+
+                        if new_height > 0.0 && new_width / new_height > aspect_ratio {
+                            new_height = new_width / aspect_ratio;
+                        } else {
+                            new_width = new_height * aspect_ratio;
+                        }
+                    }
+
+                    let anchor = match state.selection_drag {
+                        SelectionDrag::Right | SelectionDrag::Bottom | SelectionDrag::BottomRight => original_min,
+                        SelectionDrag::Left | SelectionDrag::Top | SelectionDrag::TopLeft => original_max,
+                        SelectionDrag::TopRight => egui::pos2(original_min.x, original_max.y),
+                        SelectionDrag::BottomLeft => egui::pos2(original_max.x, original_min.y),
+                        _ => original_min,
+                    };
+
+                    // Clamp new_width and new_height to image bounds while maintaining aspect ratio
+                    let max_w = if anchor.x == original_min.x { current_image.width() as f32 - anchor.x } else { anchor.x };
+                    let max_h = if anchor.y == original_min.y { current_image.height() as f32 - anchor.y } else { anchor.y };
+
+                    if new_width > max_w {
+                        let scale = max_w / new_width;
+                        new_width *= scale;
+                        new_height *= scale;
+                    }
+                    if new_height > max_h {
+                        let scale = max_h / new_height;
+                        new_width *= scale;
+                        new_height *= scale;
+                    }
+
+                    match state.selection_drag {
+                        // Edges and corners that expand from the top-left anchor
+                        SelectionDrag::Right | SelectionDrag::Bottom | SelectionDrag::BottomRight => {
+                            selection_rect.max.x = original_min.x + new_width;
+                            selection_rect.max.y = original_min.y + new_height;
+                        }
+                        // Edges and corners that expand from the bottom-right anchor
+                        SelectionDrag::Left | SelectionDrag::Top | SelectionDrag::TopLeft => {
+                            selection_rect.min.x = original_max.x - new_width;
+                            selection_rect.min.y = original_max.y - new_height;
+                        }
+                        // Remaining corners
+                        SelectionDrag::TopRight => {
+                            selection_rect.max.x = original_min.x + new_width;
+                            selection_rect.min.y = original_max.y - new_height;
+                        }
+                        SelectionDrag::BottomLeft => {
+                            selection_rect.min.x = original_max.x - new_width;
+                            selection_rect.max.y = original_min.y + new_height;
+                        }
+                        _ => {}
+                    }
                 }
 
                 // Ensure valid rectangle (min <= max)
@@ -1287,20 +1424,38 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                 egui::TopBottomPanel::bottom("statusbar")
                     .show_separator_line(false)
                     .show(ctx, |ui| {
-                        if state.current_image.is_some() {
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                ui.add_space(5.0);
-                                let dims = state.image_geometry.dimensions;
-                                if dims.0 > 0 {
-                                    ui.label(format!("{} x {}", dims.0, dims.1));
-                                }
+                        ui.horizontal(|ui| {
+                            if let Some(rect) = state.selection_rect {
+                                let aspect_ratio = if rect.height() > 0.0 {
+                                    rect.width() / rect.height()
+                                } else {
+                                    0.0
+                                };
+                                ui.label(format!(
+                                    "Selection: {:.0}, {:.0}; {:.0} x {:.0}; {:.3}",
+                                    rect.min.x,
+                                    rect.min.y,
+                                    rect.width(),
+                                    rect.height(),
+                                    aspect_ratio
+                                ));
+                            }
 
-                                ui.separator();
+                            if state.current_image.is_some() {
+                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                    ui.add_space(5.0);
+                                    let dims = state.image_geometry.dimensions;
+                                    if dims.0 > 0 {
+                                        ui.label(format!("{} x {}", dims.0, dims.1));
+                                    }
 
-                                let scale_percent = state.image_geometry.scale * 100.0;
-                                ui.label(format!("{:.1}%", scale_percent));
-                            });
-                        }
+                                    ui.separator();
+
+                                    let scale_percent = state.image_geometry.scale * 100.0;
+                                    ui.label(format!("{:.1}%", scale_percent));
+                                });
+                            }
+                        });
                     });
             }
         }
@@ -1584,40 +1739,40 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                     app.window().height() as f32,
                 );
 
-                let screen_min_x = image_rect.min.x + selection_rect.min.x * state.image_geometry.scale;
-                let screen_min_y = image_rect.min.y + selection_rect.min.y * state.image_geometry.scale;
-                let screen_max_x = image_rect.min.x + selection_rect.max.x * state.image_geometry.scale;
-                let screen_max_y = image_rect.min.y + selection_rect.max.y * state.image_geometry.scale;
+                let screen_min_x = (image_rect.min.x + selection_rect.min.x * state.image_geometry.scale).round();
+                let screen_min_y = (image_rect.min.y + selection_rect.min.y * state.image_geometry.scale).round();
+                let screen_max_x = (image_rect.min.x + selection_rect.max.x * state.image_geometry.scale).round();
+                let screen_max_y = (image_rect.min.y + selection_rect.max.y * state.image_geometry.scale).round();
 
                 let border_thickness = 1.0; // Thickness of the border
 
                 // Draw top border
-                for x in screen_min_x as i32..(screen_max_x + border_thickness) as i32 {
+                for x in (screen_min_x as i32)..(screen_max_x as i32) {
                     let img_x = ((x as f32 - image_rect.min.x) / state.image_geometry.scale) as u32;
                     let img_y = ((screen_min_y - image_rect.min.y) / state.image_geometry.scale) as u32;
                     let color = get_inverted_pixel_color(current_image, img_x, img_y);
                     draw.rect((x as f32, screen_min_y), (border_thickness, border_thickness)).color(color);
                 }
                 // Draw bottom border
-                for x in screen_min_x as i32..(screen_max_x + border_thickness) as i32 {
+                for x in (screen_min_x as i32)..(screen_max_x as i32) {
                     let img_x = ((x as f32 - image_rect.min.x) / state.image_geometry.scale) as u32;
-                    let img_y = ((screen_max_y - image_rect.min.y) / state.image_geometry.scale) as u32;
+                    let img_y = ((screen_max_y - border_thickness - image_rect.min.y) / state.image_geometry.scale) as u32;
                     let color = get_inverted_pixel_color(current_image, img_x, img_y);
-                    draw.rect((x as f32, screen_max_y), (border_thickness, border_thickness)).color(color);
+                    draw.rect((x as f32, screen_max_y - border_thickness), (border_thickness, border_thickness)).color(color);
                 }
                 // Draw left border
-                for y in screen_min_y as i32..(screen_max_y + border_thickness) as i32 {
+                for y in (screen_min_y as i32)..(screen_max_y as i32) {
                     let img_x = ((screen_min_x - image_rect.min.x) / state.image_geometry.scale) as u32;
                     let img_y = ((y as f32 - image_rect.min.y) / state.image_geometry.scale) as u32;
                     let color = get_inverted_pixel_color(current_image, img_x, img_y);
                     draw.rect((screen_min_x, y as f32), (border_thickness, border_thickness)).color(color);
                 }
                 // Draw right border
-                for y in screen_min_y as i32..(screen_max_y + border_thickness) as i32 {
-                    let img_x = ((screen_max_x - image_rect.min.x) / state.image_geometry.scale) as u32;
+                for y in (screen_min_y as i32)..(screen_max_y as i32) {
+                    let img_x = ((screen_max_x - border_thickness - image_rect.min.x) / state.image_geometry.scale) as u32;
                     let img_y = ((y as f32 - image_rect.min.y) / state.image_geometry.scale) as u32;
                     let color = get_inverted_pixel_color(current_image, img_x, img_y);
-                    draw.rect((screen_max_x, y as f32), (border_thickness, border_thickness)).color(color);
+                    draw.rect((screen_max_x - border_thickness, y as f32), (border_thickness, border_thickness)).color(color);
                 }
             }
         }
