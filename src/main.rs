@@ -1147,6 +1147,7 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
         state.selection_rect = None;
         state.is_selecting = false;
         state.selection_drag = SelectionDrag::None;
+        state.reset_image = true;
     }
 
     // check if a new loaded image has been sent
@@ -1415,6 +1416,7 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
 
             if state.persistent_settings.show_status_bar {
                 egui::TopBottomPanel::bottom("statusbar")
+                    .min_height(25.0)
                     .show_separator_line(false)
                     .show(ctx, |ui| {
                         ui.horizontal(|ui| {
