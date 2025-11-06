@@ -373,10 +373,17 @@ fn init(_app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins) -> OculanteSt
             .unwrap()
             .insert(0, "inter".to_owned());
 
-        let fonts = load_system_fonts(fonts);
+        fonts.font_data.insert(
+            "notosans_jp".to_owned(),
+            FontData::from_static(include_bytes!("../res/fonts/NotoSansJP-Regular.ttf")),
+        );
 
-        debug!("Theme {:?}", state.persistent_settings.theme);
-        apply_theme(&mut state, ctx);
+        fonts
+            .families
+            .get_mut(&FontFamily::Proportional)
+            .unwrap()
+            .insert(1, "notosans_jp".to_owned());
+
         ctx.set_fonts(fonts);
     });
 
