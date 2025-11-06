@@ -152,7 +152,7 @@ pub fn settings_ui(app: &mut App, ctx: &Context, state: &mut OculanteState, _gfx
                                         }
                                     }, ui);
 
-                                    configuration_item_ui("Do not reset image view", "When a new image is loaded, keep the current zoom and offset.", |ui| {
+                                    configuration_item_ui("Do not reset image view", "When a new image is loaded, keep the current zoom and maintain the image's center point.", |ui| {
                                         ui.styled_checkbox(&mut state.persistent_settings.keep_view, "");
                                     }, ui);
 

@@ -1192,13 +1192,20 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
 
         match &frame {
             Frame::Still(ref img) | Frame::ImageCollectionMember(ref img) => {
-                if !state.persistent_settings.keep_view {
+                if state.persistent_settings.keep_view {
+                    if let Some(old_image) = &state.current_image {
+                        let old_center_screen = state.image_geometry.offset
+                            + (old_image.size_vec() * state.image_geometry.scale) / 2.0;
+                        state.image_geometry.offset = old_center_screen
+                            - (img.size_vec() * state.image_geometry.scale) / 2.0;
+                    }
+                } else {
                     state.reset_image = true;
+                }
 
-                    if let Some(p) = state.current_path.clone() {
-                        if state.persistent_settings.max_cache != 0 {
-                            state.player.cache.insert(&p, img.clone());
-                        }
+                if let Some(p) = state.current_path.clone() {
+                    if state.persistent_settings.max_cache != 0 {
+                        state.player.cache.insert(&p, img.clone());
                     }
                 }
                 // always reset if first image
