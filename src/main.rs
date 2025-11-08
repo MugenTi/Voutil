@@ -385,6 +385,9 @@ fn init(_app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins) -> OculanteSt
             .insert(1, "notosans_jp".to_owned());
 
         ctx.set_fonts(fonts);
+
+        debug!("Theme {:?}", state.persistent_settings.theme);
+        apply_theme(&mut state, ctx);
     });
 
     // load checker texture
