@@ -855,7 +855,7 @@ fn update(app: &mut App, state: &mut OculanteState) {
     state.mouse_delta = Vector2::new(mouse_pos.0, mouse_pos.1) - state.cursor;
     state.cursor = mouse_pos.size_vec();
     if state.drag_enabled && !state.mouse_grab || app.mouse.is_down(MouseButton::Middle) {
-        state.image_geometry.offset += state.mouse_delta;
+        state.image_geometry.offset += state.mouse_delta * state.persistent_settings.pan_speed_multiplier;
         limit_offset(app, state);
     }
 
