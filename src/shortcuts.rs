@@ -137,8 +137,7 @@ impl ShortcutExt for Shortcuts {
             .add_key(InputEvent::PerfectFullscreen, "Return")
             .add_key(InputEvent::DeleteFile, "Delete")
             .add_keys(InputEvent::ClearImage, &["LShift", "Delete"])
-            // .add_key(InputEvent::Browse, "F1") // FIXME: As Shortcuts is a HashMap, only the newer key-sequence will be registered
-            .add_keys(InputEvent::Browse, &["LControl", "O"])
+            .add_key(InputEvent::Browse, "B")
             .add_keys(InputEvent::PanRight, &["LShift", "Right"])
             .add_keys(InputEvent::PanLeft, &["LShift", "Left"])
             .add_keys(InputEvent::PanDown, &["LShift", "Down"])
