@@ -761,6 +761,15 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
         }
         Event::MouseDown { button, .. } => match button {
             MouseButton::Left => {
+                // Navigate on click
+                if state.current_texture.get().is_some() && !state.pointer_over_ui && !state.drag_enabled {
+                    if state.cursor.x > app.window().width() as f32 / 2. {
+                        next_image(state);
+                    } else {
+                        prev_image(state);
+                    }
+                }
+
                 if state.selection_drag != SelectionDrag::None {
                     // Do nothing, resizing will be handled in update
                 } else if !state.mouse_grab {
@@ -1404,18 +1413,6 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
     let mut bbox_br: egui::Pos2 = Default::default();
     let mut info_panel_color = egui::Color32::from_gray(200);
     let egui_output = plugins.egui(|ctx| {
-        state.toasts.show(ctx);
-
-        if !state.pointer_over_ui
-            && !state.mouse_grab
-            && ctx.input(|r| {
-                r.pointer
-                    .button_double_clicked(egui::PointerButton::Primary)
-            })
-        {
-            toggle_fullscreen(app, state);
-        }
-
         // set info panel color dynamically
         info_panel_color = ctx.style().visuals.panel_fill;
 
