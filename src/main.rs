@@ -761,14 +761,8 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
         }
         Event::MouseDown { button, .. } => match button {
             MouseButton::Left => {
-                // Navigate on click
-                if state.current_texture.get().is_some() && !state.pointer_over_ui && !state.drag_enabled {
-                    if state.cursor.x > app.window().width() as f32 / 2. {
-                        next_image(state);
-                    } else {
-                        prev_image(state);
-                    }
-                }
+                state.mouse_down_start_time = app.timer.elapsed_f32();
+                state.mouse_down_start_pos = state.cursor;
 
                 if state.selection_drag != SelectionDrag::None {
                     // Do nothing, resizing will be handled in update
@@ -800,7 +794,27 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
             _ => {}
         },
         Event::MouseUp { button, .. } => match button {
-            MouseButton::Left | MouseButton::Middle => {
+            MouseButton::Left => {
+                let time_since_mouse_down = app.timer.elapsed_f32() - state.mouse_down_start_time;
+                let dist = state.cursor.metric_distance(&state.mouse_down_start_pos);
+
+                // Navigate on click
+                if state.current_texture.get().is_some()
+                    && !state.pointer_over_ui
+                    && time_since_mouse_down < 0.2
+                    && dist < 5.0
+                {
+                    if state.cursor.x > app.window().width() as f32 / 2. {
+                        next_image(state);
+                    } else {
+                        prev_image(state);
+                    }
+                }
+
+                state.drag_enabled = false;
+                state.selection_drag = SelectionDrag::None;
+            }
+            MouseButton::Middle => {
                 state.drag_enabled = false;
                 state.selection_drag = SelectionDrag::None;
             }
