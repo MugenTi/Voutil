@@ -125,6 +125,8 @@ pub struct OculanteState {
     pub selection_start_mouse_pos: Option<egui::Pos2>,
     pub selection_drag: SelectionDrag,
     pub new_image_loaded: bool,
+    pub mouse_down_start_time: f32,
+    pub mouse_down_start_pos: Vector2<f32>,
 }
 
 impl<'b> OculanteState {
@@ -207,6 +209,15 @@ impl<'b> Default for OculanteState {
             selection_start_mouse_pos: None,
             selection_drag: Default::default(),
             new_image_loaded: false,
+            mouse_down_start_time: 0.0,
+            mouse_down_start_pos: Default::default(),
         }
+    }
+}
+
+impl Drop for OculanteState {
+    fn drop(&mut self) {
+        _ = self.persistent_settings.save_blocking();
+        _ = self.volatile_settings.save_blocking();
     }
 }

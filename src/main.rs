@@ -27,7 +27,6 @@ use notan::prelude::*;
 use oculante::comparelist::CompareItem;
 use std::io::{stdin, IsTerminal, Read};
 use std::path::PathBuf;
-use std::sync::mpsc;
 use std::time::Duration;
 
 #[cfg(feature = "file_open")]
@@ -203,11 +202,7 @@ fn init(_app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins) -> OculanteSt
 
     debug!("Completed argument parsing.");
 
-    let mut state = OculanteState {
-        texture_channel: mpsc::channel(),
-        // current_path: maybe_img_location.cloned(/),
-        ..Default::default()
-    };
+    let mut state = OculanteState::default();
 
     state.player = Player::new(
         state.texture_channel.0.clone(),
@@ -378,11 +373,21 @@ fn init(_app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins) -> OculanteSt
             .unwrap()
             .insert(0, "inter".to_owned());
 
-        let fonts = load_system_fonts(fonts);
+        fonts.font_data.insert(
+            "notosans_jp".to_owned(),
+            FontData::from_static(include_bytes!("../res/fonts/NotoSansJP-Regular.ttf")),
+        );
+
+        fonts
+            .families
+            .get_mut(&FontFamily::Proportional)
+            .unwrap()
+            .insert(1, "notosans_jp".to_owned());
+
+        ctx.set_fonts(fonts);
 
         debug!("Theme {:?}", state.persistent_settings.theme);
         apply_theme(&mut state, ctx);
-        ctx.set_fonts(fonts);
     });
 
     // load checker texture
@@ -695,14 +700,12 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
 
     match evt {
         Event::Exit => {
-            info!("About to exit");
+            info!("About to exit, saving window geometry.");
             // save position
             state.volatile_settings.window_geometry = (
                 app.window().position(),
                 app.window().size(),
             );
-            _ = state.persistent_settings.save_blocking();
-            _ = state.volatile_settings.save_blocking();
         }
         Event::MouseWheel { delta_y, .. } => {
             trace!("Mouse wheel event");
@@ -758,6 +761,9 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
         }
         Event::MouseDown { button, .. } => match button {
             MouseButton::Left => {
+                state.mouse_down_start_time = app.timer.elapsed_f32();
+                state.mouse_down_start_pos = state.cursor;
+
                 if state.selection_drag != SelectionDrag::None {
                     // Do nothing, resizing will be handled in update
                 } else if !state.mouse_grab {
@@ -788,7 +794,27 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
             _ => {}
         },
         Event::MouseUp { button, .. } => match button {
-            MouseButton::Left | MouseButton::Middle => {
+            MouseButton::Left => {
+                let time_since_mouse_down = app.timer.elapsed_f32() - state.mouse_down_start_time;
+                let dist = state.cursor.metric_distance(&state.mouse_down_start_pos);
+
+                // Navigate on click
+                if state.current_texture.get().is_some()
+                    && !state.pointer_over_ui
+                    && time_since_mouse_down < 0.2
+                    && dist < 5.0
+                {
+                    if state.cursor.x > app.window().width() as f32 / 2. {
+                        next_image(state);
+                    } else {
+                        prev_image(state);
+                    }
+                }
+
+                state.drag_enabled = false;
+                state.selection_drag = SelectionDrag::None;
+            }
+            MouseButton::Middle => {
                 state.drag_enabled = false;
                 state.selection_drag = SelectionDrag::None;
             }
@@ -852,7 +878,7 @@ fn update(app: &mut App, state: &mut OculanteState) {
     state.mouse_delta = Vector2::new(mouse_pos.0, mouse_pos.1) - state.cursor;
     state.cursor = mouse_pos.size_vec();
     if state.drag_enabled && !state.mouse_grab || app.mouse.is_down(MouseButton::Middle) {
-        state.image_geometry.offset += state.mouse_delta;
+        state.image_geometry.offset += state.mouse_delta * state.persistent_settings.pan_speed_multiplier;
         limit_offset(app, state);
     }
 
@@ -1154,6 +1180,7 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
         state.selection_rect = None;
         state.is_selecting = false;
         state.selection_drag = SelectionDrag::None;
+        state.reset_image = true;
     }
 
     // check if a new loaded image has been sent
@@ -1198,13 +1225,20 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
 
         match &frame {
             Frame::Still(ref img) | Frame::ImageCollectionMember(ref img) => {
-                if !state.persistent_settings.keep_view {
+                if state.persistent_settings.keep_view {
+                    if let Some(old_image) = &state.current_image {
+                        let old_center_screen = state.image_geometry.offset
+                            + (old_image.size_vec() * state.image_geometry.scale) / 2.0;
+                        state.image_geometry.offset = old_center_screen
+                            - (img.size_vec() * state.image_geometry.scale) / 2.0;
+                    }
+                } else {
                     state.reset_image = true;
+                }
 
-                    if let Some(p) = state.current_path.clone() {
-                        if state.persistent_settings.max_cache != 0 {
-                            state.player.cache.insert(&p, img.clone());
-                        }
+                if let Some(p) = state.current_path.clone() {
+                    if state.persistent_settings.max_cache != 0 {
+                        state.player.cache.insert(&p, img.clone());
                     }
                 }
                 // always reset if first image
@@ -1393,16 +1427,8 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
     let mut bbox_br: egui::Pos2 = Default::default();
     let mut info_panel_color = egui::Color32::from_gray(200);
     let egui_output = plugins.egui(|ctx| {
-        state.toasts.show(ctx);
-
-        if !state.pointer_over_ui
-            && !state.mouse_grab
-            && ctx.input(|r| {
-                r.pointer
-                    .button_double_clicked(egui::PointerButton::Primary)
-            })
-        {
-            toggle_fullscreen(app, state);
+        if state.new_image_loaded {
+            ctx.memory_mut(|m| m.data.remove::<f64>(Id::new("resize_aspect_ratio")));
         }
 
         // set info panel color dynamically
@@ -1422,6 +1448,7 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
 
             if state.persistent_settings.show_status_bar {
                 egui::TopBottomPanel::bottom("statusbar")
+                    .min_height(25.0)
                     .show_separator_line(false)
                     .show(ctx, |ui| {
                         ui.horizontal(|ui| {

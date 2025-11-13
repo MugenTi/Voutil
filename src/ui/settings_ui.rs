@@ -152,7 +152,7 @@ pub fn settings_ui(app: &mut App, ctx: &Context, state: &mut OculanteState, _gfx
                                         }
                                     }, ui);
 
-                                    configuration_item_ui("Do not reset image view", "When a new image is loaded, keep the current zoom and offset.", |ui| {
+                                    configuration_item_ui("Do not reset image view", "When a new image is loaded, keep the current zoom and maintain the image's center point.", |ui| {
                                         ui.styled_checkbox(&mut state.persistent_settings.keep_view, "");
                                     }, ui);
 
@@ -178,6 +178,10 @@ pub fn settings_ui(app: &mut App, ctx: &Context, state: &mut OculanteState, _gfx
 
                                     configuration_item_ui("Zoom multiplier", "Multiplier of how fast the image will change size when using your mouse wheel or trackpad.", |ui| {
                                         ui.add(egui::DragValue::new(&mut state.persistent_settings.zoom_multiplier).clamp_range(0.05..=10.0).speed(0.01));
+                                    }, ui);
+
+                                    configuration_item_ui("Pan speed multiplier", "Multiplier for how fast the image pans when dragging with the mouse.", |ui| {
+                                        ui.add(egui::DragValue::new(&mut state.persistent_settings.pan_speed_multiplier).clamp_range(1.0..=10.0).speed(0.01));
                                     }, ui);
 
                                     #[cfg(not(any(target_os = "netbsd", target_os = "freebsd")))]
