@@ -1466,6 +1466,8 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                                     rect.height(),
                                     aspect_ratio
                                 ));
+                            } else {
+                                ui.label("Selection: none");
                             }
 
                             if state.current_image.is_some() {
