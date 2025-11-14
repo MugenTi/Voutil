@@ -127,6 +127,7 @@ pub struct OculanteState {
     pub new_image_loaded: bool,
     pub mouse_down_start_time: f32,
     pub mouse_down_start_pos: Vector2<f32>,
+    pub is_dragging_selection: bool,
 }
 
 impl<'b> OculanteState {
@@ -211,6 +212,7 @@ impl<'b> Default for OculanteState {
             new_image_loaded: false,
             mouse_down_start_time: 0.0,
             mouse_down_start_pos: Default::default(),
+            is_dragging_selection: false,
         }
     }
 }
