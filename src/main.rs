@@ -776,19 +776,25 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
             MouseButton::Right => {
                 if state.selection_drag != SelectionDrag::None {
                     // Do nothing, resizing will be handled in update
-                } else if !state.pointer_over_ui && !state.mouse_grab {
+                } else if !state.pointer_over_ui && !state.mouse_grab && state.current_image.is_some() {
                     let image_rect = image_rect_from_image_geometry(
                         &state.image_geometry,
                         app.window().width() as f32,
                         app.window().height() as f32,
                     );
-                    if image_rect.contains(egui::pos2(state.cursor.x, state.cursor.y)) {
-                        state.is_selecting = true;
-                        state.selection_start_mouse_pos =
-                            Some(egui::pos2(state.cursor.x, state.cursor.y));
-                        // New selection, so clear the old one
-                        state.selection_rect = None;
-                    }
+
+                    let click_pos = egui::pos2(state.cursor.x, state.cursor.y);
+
+                    // Clamp the start position to the image bounds
+                    let clamped_pos = egui::pos2(
+                        click_pos.x.clamp(image_rect.min.x, image_rect.max.x),
+                        click_pos.y.clamp(image_rect.min.y, image_rect.max.y),
+                    );
+
+                    state.is_selecting = true;
+                    state.selection_start_mouse_pos = Some(clamped_pos);
+                    // New selection, so clear the old one
+                    state.selection_rect = None;
                 }
             }
             _ => {}
