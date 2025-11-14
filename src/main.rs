@@ -776,19 +776,44 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
             MouseButton::Right => {
                 if state.selection_drag != SelectionDrag::None {
                     // Do nothing, resizing will be handled in update
-                } else if !state.pointer_over_ui && !state.mouse_grab {
+                } else if !state.pointer_over_ui && !state.mouse_grab && state.current_image.is_some() {
+                    let click_pos = egui::pos2(state.cursor.x, state.cursor.y);
+
+                    // Check if we are clicking inside an existing selection
+                    if let Some(selection_rect) = state.selection_rect {
+                        let image_rect = image_rect_from_image_geometry(
+                            &state.image_geometry,
+                            app.window().width() as f32,
+                            app.window().height() as f32,
+                        );
+                        let screen_selection_rect = egui::Rect::from_min_max(
+                            image_rect.min + selection_rect.min.to_vec2() * state.image_geometry.scale,
+                            image_rect.min + selection_rect.max.to_vec2() * state.image_geometry.scale,
+                        );
+
+                        if screen_selection_rect.contains(click_pos) {
+                            state.is_dragging_selection = true;
+                            return; // Early return to prevent starting a new selection
+                        }
+                    }
+
+                    // If not dragging, start a new selection
                     let image_rect = image_rect_from_image_geometry(
                         &state.image_geometry,
                         app.window().width() as f32,
                         app.window().height() as f32,
                     );
-                    if image_rect.contains(egui::pos2(state.cursor.x, state.cursor.y)) {
-                        state.is_selecting = true;
-                        state.selection_start_mouse_pos =
-                            Some(egui::pos2(state.cursor.x, state.cursor.y));
-                        // New selection, so clear the old one
-                        state.selection_rect = None;
-                    }
+
+                    // Clamp the start position to the image bounds
+                    let clamped_pos = egui::pos2(
+                        click_pos.x.clamp(image_rect.min.x, image_rect.max.x),
+                        click_pos.y.clamp(image_rect.min.y, image_rect.max.y),
+                    );
+
+                    state.is_selecting = true;
+                    state.selection_start_mouse_pos = Some(clamped_pos);
+                    // New selection, so clear the old one
+                    state.selection_rect = None;
                 }
             }
             _ => {}
@@ -820,6 +845,7 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
             }
             MouseButton::Right => {
                 state.is_selecting = false;
+                state.is_dragging_selection = false;
                 state.selection_drag = SelectionDrag::None; // Reset selection_drag on mouse up
                 // Clear selection if it's 1 pixel or less
                 if let Some(selection_rect) = state.selection_rect {
@@ -938,6 +964,29 @@ fn update(app: &mut App, state: &mut OculanteState) {
                 egui::pos2(min_x, min_y),
                 egui::pos2(max_x, max_y),
             ));
+        } else if state.is_dragging_selection {
+             if let Some(mut selection_rect) = state.selection_rect {
+                let mouse_delta_x = state.mouse_delta.x / state.image_geometry.scale;
+                let mouse_delta_y = state.mouse_delta.y / state.image_geometry.scale;
+
+                selection_rect.min.x += mouse_delta_x;
+                selection_rect.min.y += mouse_delta_y;
+                selection_rect.max.x += mouse_delta_x;
+                selection_rect.max.y += mouse_delta_y;
+
+                // Clamp to image bounds
+                let width = selection_rect.width();
+                let height = selection_rect.height();
+                selection_rect.min.x = selection_rect.min.x.max(0.0);
+                selection_rect.min.y = selection_rect.min.y.max(0.0);
+                selection_rect.max.x = (selection_rect.min.x + width).min(current_image.width() as f32);
+                selection_rect.max.y = (selection_rect.min.y + height).min(current_image.height() as f32);
+                // Readjust min if max was clamped
+                selection_rect.min.x = selection_rect.max.x - width;
+                selection_rect.min.y = selection_rect.max.y - height;
+
+                state.selection_rect = Some(selection_rect);
+            }
         } else if (app.mouse.is_down(MouseButton::Left) || app.mouse.is_down(MouseButton::Right)) && state.selection_drag != SelectionDrag::None {
             // Resizing existing selection
             if let Some(mut selection_rect) = state.selection_rect {
@@ -1466,6 +1515,8 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                                     rect.height(),
                                     aspect_ratio
                                 ));
+                            } else {
+                                ui.label("Selection: none");
                             }
 
                             if state.current_image.is_some() {
