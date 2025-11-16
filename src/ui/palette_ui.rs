@@ -38,6 +38,7 @@ pub fn palette_ui(ui: &mut Ui, state: &mut OculanteState) {
                                         rect,
                                         1.,
                                         Stroke::new(2., ui.style().visuals.selection.bg_fill),
+                                        StrokeKind::Inside,
                                     );
                                 }
                                 if resp.hovered() {
@@ -53,8 +54,7 @@ pub fn palette_ui(ui: &mut Ui, state: &mut OculanteState) {
                                         });
                                     }
                                     if ui.ctx().input(|r| r.pointer.primary_clicked()) {
-                                        ui.ctx()
-                                            .output_mut(|w| w.copied_text = egui_color.to_hex());
+                                        ui.ctx().copy_text(egui_color.to_hex());
                                         state.send_message_info(&format!(
                                             "Copied color: {}",
                                             egui_color.to_hex()
