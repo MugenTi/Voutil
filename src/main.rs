@@ -27,6 +27,8 @@ use notan::prelude::*;
 use oculante::comparelist::CompareItem;
 use std::io::{stdin, IsTerminal, Read};
 use std::path::PathBuf;
+// use std::sync::mpsc;
+use std::sync::Arc;
 use std::time::Duration;
 
 #[cfg(feature = "file_open")]
@@ -329,22 +331,22 @@ fn init(_app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins) -> OculanteSt
 
         fonts.font_data.insert(
             "inter".to_owned(),
-            FontData::from_static(FONT).tweak(FontTweak {
+            Arc::new(FontData::from_static(FONT).tweak(FontTweak {
                 scale: 1.0,
                 y_offset_factor: 0.0,
                 y_offset: offset,
                 baseline_offset_factor: 0.0,
-            }),
+            })),
         );
 
         fonts.font_data.insert(
             "inter_bold".to_owned(),
-            FontData::from_static(BOLD_FONT).tweak(FontTweak {
+            Arc::new(FontData::from_static(BOLD_FONT).tweak(FontTweak {
                 scale: 1.0,
                 y_offset_factor: 0.0,
                 y_offset: offset,
                 baseline_offset_factor: 0.0,
-            }),
+            })),
         );
         fonts.families.insert(
             FontFamily::Name("bold".to_owned().into()),
@@ -353,12 +355,14 @@ fn init(_app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins) -> OculanteSt
 
         fonts.font_data.insert(
             "icons".to_owned(),
-            FontData::from_static(include_bytes!("../res/fonts/icons.ttf")).tweak(FontTweak {
-                scale: 1.0,
-                y_offset_factor: 0.0,
-                y_offset: 1.0,
-                baseline_offset_factor: 0.0,
-            }),
+            Arc::new(
+                FontData::from_static(include_bytes!("../res/fonts/icons.ttf")).tweak(FontTweak {
+                    scale: 1.0,
+                    y_offset_factor: 0.0,
+                    y_offset: 1.0,
+                    baseline_offset_factor: 0.0,
+                }),
+            ),
         );
 
         fonts
@@ -375,7 +379,7 @@ fn init(_app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins) -> OculanteSt
 
         fonts.font_data.insert(
             "notosans_jp".to_owned(),
-            FontData::from_static(include_bytes!("../res/fonts/NotoSansJP-Regular.ttf")),
+            FontData::from_static(include_bytes!("../res/fonts/NotoSansJP-Regular.ttf")).into(),
         );
 
         fonts
@@ -1190,10 +1194,7 @@ fn update(app: &mut App, state: &mut OculanteState) {
                 state.current_texture.clear();
             }
             Message::Info(m) => {
-                state
-                    .toasts
-                    .info(m)
-                    .set_duration(Some(Duration::from_secs(1)));
+                state.toasts.info(m).duration(Some(Duration::from_secs(1)));
             }
             Message::Warning(m) => {
                 state.toasts.warning(m);
@@ -1542,7 +1543,7 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                 .min_height(40.)
                 .default_height(40.)
                 .show_separator_line(false)
-                .frame(egui::containers::Frame::none())
+                .frame(egui::Frame::new())
                 .show(ctx, |ui| {
                     ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
                         drag_area(ui, state, app);
@@ -1765,7 +1766,7 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
             && !state.settings_enabled
             && !state.persistent_settings.zen_mode
         {
-            draw.rect((0., 0.), (PANEL_WIDTH + 24., state.window_size.y))
+            draw.rect((0., 0.), (PANEL_WIDTH + 4., state.window_size.y))
                 .color(Color::from_rgb(
                     info_panel_color.r() as f32 / 255.,
                     info_panel_color.g() as f32 / 255.,
