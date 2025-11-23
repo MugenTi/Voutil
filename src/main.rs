@@ -414,12 +414,8 @@ fn init(_app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins) -> OculanteSt
     state
 }
 
-
-
 fn image_rect_from_image_geometry(
     image_geometry: &ImageGeometry,
-    _window_width: f32,
-    _window_height: f32,
 ) -> egui::Rect {
     let img_w = image_geometry.dimensions.0 as f32 * image_geometry.scale;
     let img_h = image_geometry.dimensions.1 as f32 * image_geometry.scale;
@@ -432,8 +428,6 @@ fn image_rect_from_image_geometry(
         egui::pos2(x + img_w, y + img_h),
     )
 }
-
-
 
 fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
     if state.key_grab {
@@ -787,8 +781,6 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
                     if let Some(selection_rect) = state.selection_rect {
                         let image_rect = image_rect_from_image_geometry(
                             &state.image_geometry,
-                            app.window().width() as f32,
-                            app.window().height() as f32,
                         );
                         let screen_selection_rect = egui::Rect::from_min_max(
                             image_rect.min + selection_rect.min.to_vec2() * state.image_geometry.scale,
@@ -804,8 +796,6 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
                     // If not dragging, start a new selection
                     let image_rect = image_rect_from_image_geometry(
                         &state.image_geometry,
-                        app.window().width() as f32,
-                        app.window().height() as f32,
                     );
 
                     // Clamp the start position to the image bounds
@@ -916,8 +906,6 @@ fn update(app: &mut App, state: &mut OculanteState) {
     if let Some(current_image) = &state.current_image {
         let image_rect = image_rect_from_image_geometry(
             &state.image_geometry,
-            app.window().width() as f32,
-            app.window().height() as f32,
         );
 
         if state.is_selecting {
@@ -1059,8 +1047,6 @@ fn update(app: &mut App, state: &mut OculanteState) {
 
                         let image_rect = image_rect_from_image_geometry(
                             &state.image_geometry,
-                            app.window().width() as f32,
-                            app.window().height() as f32,
                         );
                         let cursor_on_image_x = (state.cursor.x - image_rect.min.x) / state.image_geometry.scale;
                         let cursor_on_image_y = (state.cursor.y - image_rect.min.y) / state.image_geometry.scale;
@@ -1420,8 +1406,6 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
                 }
                 state.current_image = Some(img);
                 state.new_image_loaded = true;
-
-
             }
             Frame::UpdateTexture => {
                 // Only update the texture.
@@ -1488,8 +1472,6 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
 
         // set info panel color dynamically
         info_panel_color = ctx.style().visuals.panel_fill;
-
-        
 
         // the top menu bar
         if !state.persistent_settings.zen_mode {
@@ -1822,8 +1804,6 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
             if let Some(current_image) = &state.current_image {
                 let image_rect = image_rect_from_image_geometry(
                     &state.image_geometry,
-                    app.window().width() as f32,
-                    app.window().height() as f32,
                 );
 
                 let screen_min_x = (image_rect.min.x + selection_rect.min.x * state.image_geometry.scale).round();
@@ -1882,8 +1862,6 @@ fn drawe(app: &mut App, gfx: &mut Graphics, plugins: &mut Plugins, state: &mut O
     gfx.render(&zoom_image);
     gfx.render(&egui_output);
 }
-
-
 
 // Make sure offset is restricted to window size so we don't offset to infinity
 fn limit_offset(app: &mut App, state: &mut OculanteState) {

@@ -501,4 +501,3 @@ pub fn draw_hamburger_menu(ui: &mut Ui, state: &mut OculanteState, app: &mut App
         });
     });
 }
-

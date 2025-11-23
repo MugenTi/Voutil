@@ -10,7 +10,12 @@ use std::{collections::HashMap, fs::read, sync::Arc};
 
 pub fn apply_theme(state: &mut OculanteState, ctx: &Context) {
     let mut button_color = Color32::from_hex("#262626").unwrap_or_default();
-    let mut panel_color = Color32::from_gray(25);
+    // state.persistent_settings.background_color を panel_color に反映
+    let panel_color = Color32::from_rgb(
+        state.persistent_settings.background_color[0],
+        state.persistent_settings.background_color[1],
+        state.persistent_settings.background_color[2],
+    );
 
     match state.persistent_settings.theme {
         ColorTheme::Light => ctx.set_visuals(Visuals::light()),
@@ -47,7 +52,6 @@ pub fn apply_theme(state: &mut OculanteState, ctx: &Context) {
             Color32::from_hex("#333333").unwrap_or_default();
 
         button_color = Color32::from_gray(255);
-        panel_color = Color32::from_gray(230);
         if state.persistent_settings.background_color
             == PersistentSettings::default().background_color
         {
@@ -69,8 +73,6 @@ pub fn apply_theme(state: &mut OculanteState, ctx: &Context) {
 
     // button color
     style.visuals.widgets.inactive.weak_bg_fill = button_color;
-    // style.visuals.widgets.inactive.bg_fill = button_color;
-    // style.visuals.widgets.inactive.bg_fill = button_color;
 
     // button rounding
     style.visuals.widgets.inactive.corner_radius = CornerRadius::same(4);

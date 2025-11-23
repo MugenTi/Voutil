@@ -52,7 +52,6 @@ pub struct PersistentSettings {
     /// How many recent images to keep track of
     pub max_recents: u8,
     pub show_scrub_bar: bool,
-    pub show_status_bar: bool,
     pub wrap_folder: bool,
     /// Whether to keep the image edit stack
     pub keep_edits: bool,
@@ -67,14 +66,12 @@ pub struct PersistentSettings {
     /// How much to scale SVG images when rendering
     pub svg_scale: f32,
     pub zen_mode: bool,
-    pub zen_mode_normal: bool,
     pub theme: ColorTheme,
     pub linear_mag_filter: bool,
     pub linear_min_filter: bool,
     pub use_mipmaps: bool,
     pub fit_image_on_window_resize: bool,
     pub zoom_multiplier: f32,
-    pub pan_speed_multiplier: f32,
     /// Automatically scale/zoom the image to fit the frame
     pub auto_scale: bool,
     pub borderless: bool,
@@ -82,6 +79,9 @@ pub struct PersistentSettings {
     pub experimental_features: bool,
     /// Tunables for decoders, such as max memory usage
     pub decoders: DecoderSettings,
+    pub show_status_bar: bool,
+    pub zen_mode_normal: bool,
+    pub pan_speed_multiplier: f32,
 }
 
 impl Default for PersistentSettings {
@@ -96,7 +96,6 @@ impl Default for PersistentSettings {
             max_cache: 30,
             max_recents: 12,
             show_scrub_bar: Default::default(),
-            show_status_bar: true,
             wrap_folder: true,
             keep_edits: Default::default(),
             title_format: "{APP} | {VERSION} | {FULLPATH}".into(),
@@ -108,19 +107,20 @@ impl Default for PersistentSettings {
             current_channel: ColorChannel::Rgba,
             svg_scale: 1.0,
             zen_mode: false,
-            zen_mode_normal: false,
             theme: ColorTheme::Dark,
             linear_mag_filter: false,
             linear_min_filter: true,
             use_mipmaps: true,
             fit_image_on_window_resize: false,
             zoom_multiplier: 1.0,
-            pan_speed_multiplier: 1.0,
             auto_scale: false,
             borderless: false,
             min_window_size: (100, 100),
             experimental_features: false,
             decoders: Default::default(),
+            show_status_bar: true,
+            zen_mode_normal: false,
+            pan_speed_multiplier: 1.0,
         }
     }
 }

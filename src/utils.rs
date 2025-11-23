@@ -1049,51 +1049,52 @@ pub fn get_inverted_pixel_color(img: &DynamicImage, x: u32, y: u32) -> Color {
     } else {
         Color::from_rgb(1.0, 1.0, 1.0) // Default to white if pixel is out of bounds
     }
+}
+
+pub fn get_resize_handle(
+    selection_rect: egui::Rect,
+    mouse_pos: egui::Pos2,
+    tolerance: f32,
+) -> SelectionDrag {
+    let mut handle = SelectionDrag::None;
+
+    let on_left_edge = (mouse_pos.x - selection_rect.left()).abs() < tolerance
+        && mouse_pos.y > selection_rect.top() - tolerance
+        && mouse_pos.y < selection_rect.bottom() + tolerance;
+    let on_right_edge = (mouse_pos.x - selection_rect.right()).abs() < tolerance
+        && mouse_pos.y > selection_rect.top() - tolerance
+        && mouse_pos.y < selection_rect.bottom() + tolerance;
+    let on_top_edge = (mouse_pos.y - selection_rect.top()).abs() < tolerance
+        && mouse_pos.x > selection_rect.left() - tolerance
+        && mouse_pos.x < selection_rect.right() + tolerance;
+    let on_bottom_edge = (mouse_pos.y - selection_rect.bottom()).abs() < tolerance
+        && mouse_pos.x > selection_rect.left() - tolerance
+        && mouse_pos.x < selection_rect.right() + tolerance;
+
+    // Determine handle based on edge proximity
+    if on_left_edge {
+        handle = SelectionDrag::Left;
+    }
+    if on_right_edge {
+        handle = SelectionDrag::Right;
+    }
+    if on_top_edge {
+        handle = SelectionDrag::Top;
+    }
+    if on_bottom_edge {
+        handle = SelectionDrag::Bottom;
+    }
+
+    // Corner cases (prioritize corners for more intuitive resizing)
+    if on_left_edge && on_top_edge {
+        handle = SelectionDrag::TopLeft;
+    } else if on_right_edge && on_top_edge {
+        handle = SelectionDrag::TopRight;
+    } else if on_left_edge && on_bottom_edge {
+        handle = SelectionDrag::BottomLeft;
+    } else if on_right_edge && on_bottom_edge {
+        handle = SelectionDrag::BottomRight;
+    }
+
+    handle
 }    
-    pub fn get_resize_handle(
-        selection_rect: egui::Rect,
-        mouse_pos: egui::Pos2,
-        tolerance: f32,
-    ) -> SelectionDrag {
-        let mut handle = SelectionDrag::None;
-    
-        let on_left_edge = (mouse_pos.x - selection_rect.left()).abs() < tolerance
-            && mouse_pos.y > selection_rect.top() - tolerance
-            && mouse_pos.y < selection_rect.bottom() + tolerance;
-        let on_right_edge = (mouse_pos.x - selection_rect.right()).abs() < tolerance
-            && mouse_pos.y > selection_rect.top() - tolerance
-            && mouse_pos.y < selection_rect.bottom() + tolerance;
-        let on_top_edge = (mouse_pos.y - selection_rect.top()).abs() < tolerance
-            && mouse_pos.x > selection_rect.left() - tolerance
-            && mouse_pos.x < selection_rect.right() + tolerance;
-        let on_bottom_edge = (mouse_pos.y - selection_rect.bottom()).abs() < tolerance
-            && mouse_pos.x > selection_rect.left() - tolerance
-            && mouse_pos.x < selection_rect.right() + tolerance;
-    
-        // Determine handle based on edge proximity
-        if on_left_edge {
-            handle = SelectionDrag::Left;
-        }
-        if on_right_edge {
-            handle = SelectionDrag::Right;
-        }
-        if on_top_edge {
-            handle = SelectionDrag::Top;
-        }
-        if on_bottom_edge {
-            handle = SelectionDrag::Bottom;
-        }
-    
-        // Corner cases (prioritize corners for more intuitive resizing)
-        if on_left_edge && on_top_edge {
-            handle = SelectionDrag::TopLeft;
-        } else if on_right_edge && on_top_edge {
-            handle = SelectionDrag::TopRight;
-        } else if on_left_edge && on_bottom_edge {
-            handle = SelectionDrag::BottomLeft;
-        } else if on_right_edge && on_bottom_edge {
-            handle = SelectionDrag::BottomRight;
-        }
-    
-        handle
-    }    
