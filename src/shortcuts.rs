@@ -41,7 +41,6 @@ pub enum InputEvent {
     Copy,
     Paste,
     CropSelection,
-    CopySelection,
     SelectAll,
     Deselect,
     Browse,
@@ -144,7 +143,6 @@ impl ShortcutExt for Shortcuts {
             .add_keys(InputEvent::PanUp, &["LShift", "Up"])
             .add_keys(InputEvent::Paste, &["LControl", "V"])
             .add_keys(InputEvent::Copy, &["LControl", "C"])
-            .add_keys(InputEvent::CopySelection, &["LControl", "C"])
             .add_keys(InputEvent::CropSelection, &["LControl", "Y"])
             .add_keys(InputEvent::SelectAll, &["LControl", "A"])
             .add_keys(InputEvent::Deselect, &["LControl", "D"]);

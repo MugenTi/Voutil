@@ -498,15 +498,13 @@ fn process_events(app: &mut App, state: &mut OculanteState, evt: Event) {
                 set_zoom(5.0, None, state);
             }
             if key_pressed(app, state, Copy) {
-                if let Some(img) = &state.current_image {
+                if let Some(selection_rect) = state.selection_rect {
+                    // If there is a selection, copy the selected region
+                    copy_selected_region(state, selection_rect);
+                } else if let Some(img) = &state.current_image {
+                    // Otherwise, copy the entire image
                     clipboard_copy(img);
                     state.send_message_info("Image copied");
-                }
-            }
-            if key_pressed(app, state, CopySelection) {
-                if let Some(selection_rect) = state.selection_rect {
-                    // Call a helper function to copy the selected region
-                    copy_selected_region(state, selection_rect);
                 }
             }
             if key_pressed(app, state, CropSelection) {
@@ -1932,7 +1930,7 @@ fn copy_selected_region(state: &mut OculanteState, selection_rect: egui::Rect) {
 }
 
 fn crop_to_selected_region(state: &mut OculanteState, selection_rect: egui::Rect) {
-    if let Some(current_image) = &mut state.current_image {
+    if let Some(current_image) = &state.current_image {
         let (x, y, width, height) = (
             selection_rect.min.x.round() as u32,
             selection_rect.min.y.round() as u32,
@@ -1941,12 +1939,12 @@ fn crop_to_selected_region(state: &mut OculanteState, selection_rect: egui::Rect
         );
 
         if width > 0 && height > 0 {
-            *current_image = current_image.crop_imm(x, y, width, height);
+            let cropped_image = current_image.crop_imm(x, y, width, height);
             state.reset_image = true;
-            let cloned_image = current_image.clone();
-            state.send_frame(crate::utils::Frame::new_still(cloned_image));
+            state.send_frame(crate::utils::Frame::new_still(cropped_image));
             state.send_message_info(&format!("Cropped image to {}x{}", width, height));
             state.selection_rect = None; // Clear selection after cropping
+            state.current_path = None; // Dissociate from file
         } else {
             state.send_message_warn("Selection is too small to crop.");
         }
