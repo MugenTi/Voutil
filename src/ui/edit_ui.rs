@@ -394,7 +394,7 @@ pub fn edit_ui(app: &mut App, ctx: &Context, state: &mut OculanteState, gfx: &mu
 
                 #[cfg(feature = "file_open")]
                 if state.current_image.is_some()
-                    && ui.button(format!("Save as...")).clicked() {
+                    && ui.button("Save as...").clicked() {
                         let start_directory = state.volatile_settings.last_open_directory.clone();
                         let encoders = state.volatile_settings.encoding_options.clone();
                         let default_filename = if let Some(p) = &state.current_path {

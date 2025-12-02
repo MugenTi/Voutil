@@ -189,21 +189,17 @@ pub fn browse<F: FnMut(&PathBuf)>(
     ui.set_min_width(842.);
     ui.set_min_height(600.);
 
+    let search_icon = if state.search_active { BOLDX } else { SEARCH };
+    let mut lock_search_focus = false;
+
     egui::TopBottomPanel::top("top_panel")
         .resizable(false)
         .min_height(32.0)
         .show_separator_line(false)
         .show_inside(ui, |ui| {
 
-        // let item_spacing = 6.;
-        //ui.add_space(item_spacing);
-
         // The navigation bar
         ui.horizontal_wrapped(|ui| {
-            //ui.add_space(item_spacing);
-
-            let search_icon = if state.search_active { BOLDX } else { SEARCH };
-            let mut lock_search_focus = false;
 
             if ui
                 .add(
@@ -369,6 +365,160 @@ pub fn browse<F: FnMut(&PathBuf)>(
         .show_separator_line(false)
         .show_inside(ui, |ui| {
 
+        if ui
+            .add(
+                egui::Button::new(
+                    RichText::new(search_icon).color(ui.style().visuals.selection.bg_fill),
+                )
+                .corner_radius(ui.get_rounding(BUTTON_HEIGHT_LARGE))
+                .min_size(vec2(BUTTON_HEIGHT_LARGE, BUTTON_HEIGHT_LARGE)), // .shortcut_text("sds")
+            )
+            .clicked()
+        {
+            lock_search_focus = true;
+            state.search_active = !state.search_active;
+            if !state.search_active {
+                state.search_term.clear();
+            }
+        }
+        let textinput_width = if state.search_term.len() < 10 {
+            (ui.ctx().animate_bool("id".into(), state.search_active) * 88.) as usize
+        } else {
+            ui.available_width() as usize
+        };
+
+        if state.search_active {
+            ui.scope(|ui| {
+                ui.visuals_mut().selection.stroke = Stroke::NONE;
+                ui.visuals_mut().widgets.active.corner_radius =
+                    CornerRadius::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
+                ui.visuals_mut().widgets.inactive.corner_radius =
+                    CornerRadius::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
+                ui.visuals_mut().widgets.hovered.corner_radius =
+                    CornerRadius::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
+                let resp = ui.add(
+                    TextEdit::singleline(&mut state.search_term)
+                        .min_size(vec2(0., BUTTON_HEIGHT_LARGE))
+                        .desired_width(textinput_width as f32)
+                        .vertical_align(Align::Center),
+                );
+
+                if lock_search_focus {
+                    ui.memory_mut(|r| r.request_focus(resp.id));
+                }
+            });
+        }
+        if state.search_term.len() >= 10 {
+            ui.end_row();
+            ui.add_space(item_spacing);
+        }
+        if ui
+            .add(
+                egui::Button::new(
+                    RichText::new(CHEVRON_UP).color(ui.style().visuals.selection.bg_fill),
+                )
+                .corner_radius(ui.get_rounding(BUTTON_HEIGHT_LARGE))
+                .min_size(vec2(BUTTON_HEIGHT_LARGE, BUTTON_HEIGHT_LARGE)), // .shortcut_text("sds")
+            )
+            .clicked()
+        {
+            if let Some(d) = path.parent() {
+                let p = d.to_path_buf();
+                *path = p;
+            }
+        }
+
+        let path_icon = if state.path_active { FOLDER } else { TERMINAL };
+
+        if ui
+            .add(
+                egui::Button::new(
+                    RichText::new(path_icon).color(ui.style().visuals.selection.bg_fill),
+                )
+                .corner_radius(ui.get_rounding(BUTTON_HEIGHT_LARGE))
+                .min_size(vec2(BUTTON_HEIGHT_LARGE, BUTTON_HEIGHT_LARGE)), // .shortcut_text("sds")
+            )
+            .clicked()
+        {
+            state.path_active = !state.path_active;
+        }
+
+        let current_dir = if path.is_dir() {
+            path.clone()
+        } else {
+            path.parent().map(|p| p.to_path_buf()).unwrap_or_default()
+        };
+
+        let cp = path.clone();
+        // Too many folders make the dialog too large, cap them at this amount
+        // the width, minus the left buttons roughly
+        let mut available_width = ui.available_size_before_wrap().x;
+        let mut max_nav_items = 0;
+        // go through ancestors from the back
+        for ancestor in cp.ancestors() {
+            let ancestor_stem = ancestor
+                .file_name()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or("Computer".to_string());
+            let ancestor_len = ancestor_stem.len() as f32 * 11.5
+                + ui.spacing().button_padding.x * 2.
+                + ui.spacing().item_spacing.x * 2.;
+            if available_width - ancestor_len > 0. {
+                max_nav_items += 1;
+                available_width -= ancestor_len;
+            } else {
+                break;
+            }
+        }
+
+        let mut ancestors = cp
+            .ancestors()
+            .take(max_nav_items.max(1))
+            .collect::<Vec<_>>();
+        ancestors.reverse();
+
+        if state.path_active {
+            ui.scope(|ui| {
+                let textinput_width = (ui.ctx().animate_bool("path".into(), state.path_active)
+                    * ui.available_width()) as usize;
+                let mut path_string = path.to_string_lossy().to_string();
+                ui.visuals_mut().selection.stroke = Stroke::NONE;
+                ui.visuals_mut().widgets.active.corner_radius =
+                    CornerRadius::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
+                ui.visuals_mut().widgets.inactive.corner_radius =
+                    CornerRadius::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
+                ui.visuals_mut().widgets.hovered.corner_radius =
+                    CornerRadius::same(ui.get_rounding(BUTTON_HEIGHT_LARGE));
+                let resp = ui.add(
+                    TextEdit::singleline(&mut path_string)
+                        .min_size(vec2(0., BUTTON_HEIGHT_LARGE))
+                        .desired_width(textinput_width as f32)
+                        .vertical_align(Align::Center),
+                );
+
+                if resp.changed() {
+                    *path = PathBuf::from(path_string);
+                }
+            });
+
+            // let r = ui.add(TextEdit::singleline(&mut path_string));
+        } else {
+            for c in ancestors {
+                let label = c
+                    .file_name()
+                    .map(|f| f.to_string_lossy().to_string())
+                    .unwrap_or("Computer".into());
+                if ui
+                    .styled_selectable_label(current_dir == c, format!("{label}  {CARET_RIGHT}"))
+                    .clicked()
+                {
+                    *path = PathBuf::from(c);
+                }
+            }
+        }
+    });
+
+    ui.horizontal(|ui| {
         ui.add_space(item_spacing);
         ui.allocate_ui_with_layout(
             Vec2::new(120., ui.available_height()),
@@ -694,11 +844,11 @@ pub fn browse_for_image_path(state: &mut OculanteState) {
     std::thread::spawn(move || {
         let uppercase_lowercase_ext = [
             crate::utils::SUPPORTED_EXTENSIONS
-                .into_iter()
+                .iter()
                 .map(|e| e.to_ascii_lowercase())
                 .collect::<Vec<_>>(),
             crate::utils::SUPPORTED_EXTENSIONS
-                .into_iter()
+                .iter()
                 .map(|e| e.to_ascii_uppercase())
                 .collect::<Vec<_>>(),
         ]
