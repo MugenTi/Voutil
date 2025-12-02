@@ -23,7 +23,13 @@ pub fn main_menu(ui: &mut Ui, state: &mut OculanteState, app: &mut App, gfx: &mu
             )
             .clicked()
             {
-                state.file_browser_visible = !state.file_browser_visible;
+                #[cfg(feature = "file_open")]
+                browse_for_image_path(state);
+                #[cfg(not(feature = "file_open"))]
+                {
+                    state.file_browser_visible = !state.file_browser_visible;
+                }
+                // state.file_browser_visible = !state.file_browser_visible;
             }
         });
 
@@ -400,22 +406,60 @@ pub fn draw_hamburger_menu(ui: &mut Ui, state: &mut OculanteState, app: &mut App
 
             ui.add_enabled_ui(state.current_image.is_some() && !state.file_browser_visible, |ui| {
                 if ui.styled_button(format!("{DRIVE} Save as...")).clicked() {
-                    state.file_browser_visible = true;
-                    state.file_browser_save = true;
 
-                    // Set the initial directory and filename for the save dialog
-                    let filename = if let Some(current_path) = &state.current_path {
-                        current_path.file_name().unwrap_or_default().to_string_lossy().to_string()
-                    } else {
-                        "unnamed.png".to_string()
-                    };
+                    #[cfg(feature = "file_open")]
+                    {
+                        let start_directory = state.volatile_settings.last_open_directory.clone();
+                        let encoders = state.volatile_settings.encoding_options.clone();
+                        let default_filename = if let Some(p) = &state.current_path {
+                            p.file_name().unwrap_or_default().to_string_lossy().to_string()
+                        } else {
+                            "unnamed.png".to_string()
+                        };
 
-                    ui.ctx().data_mut(|d| {
-                        d.insert_temp(Id::new("FBPATH"), state.volatile_settings.last_open_directory.clone());
-                        d.insert_temp(Id::new("FILENAME"), filename);
-                    });
+                        let image_to_save = state.edit_state.result_pixel_op.clone();
+                        let msg_sender = state.message_channel.0.clone();
+                        let image_info = state.image_metadata.clone();
 
-                    ui.close_menu();
+                        std::thread::spawn(move || {
+                            let mut dialog = rfd::FileDialog::new()
+                                .set_directory(start_directory)
+                                .set_file_name(&default_filename);
+                            
+                            for enc in &encoders {
+                                dialog = dialog.add_filter(enc.ext(), &[enc.ext()]);
+                            }
+                            
+                            let file_dialog_result = dialog.save_file();
+
+                            if let Some(file_path) = file_dialog_result {
+                                if save_with_encoding(&image_to_save, &file_path, &image_info, &encoders).is_ok() {
+                                    _ = msg_sender.send(crate::appstate::Message::Saved(file_path.clone()));
+                                }
+                            }
+                        });
+                        ui.close_menu();
+                    }
+
+                    #[cfg(not(feature = "file_open"))]
+                    {
+                        state.file_browser_visible = true;
+                        state.file_browser_save = true;
+
+                        // Set the initial directory and filename for the save dialog
+                        let filename = if let Some(current_path) = &state.current_path {
+                            current_path.file_name().unwrap_or_default().to_string_lossy().to_string()
+                        } else {
+                            "unnamed.png".to_string()
+                        };
+
+                        ui.ctx().data_mut(|d| {
+                            d.insert_temp(Id::new("FBPATH"), state.volatile_settings.last_open_directory.clone());
+                            d.insert_temp(Id::new("FILENAME"), filename);
+                        });
+
+                        ui.close_menu();
+                    }
                 }
             });
 

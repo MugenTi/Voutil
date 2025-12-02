@@ -396,16 +396,28 @@ pub fn edit_ui(app: &mut App, ctx: &Context, state: &mut OculanteState, gfx: &mu
                 if state.current_image.is_some()
                     && ui.button(format!("Save as...")).clicked() {
                         let start_directory = state.volatile_settings.last_open_directory.clone();
+                        let encoders = state.volatile_settings.encoding_options.clone();
+                        let default_filename = if let Some(p) = &state.current_path {
+                            p.file_name().unwrap_or_default().to_string_lossy().to_string()
+                        } else {
+                            "unnamed.png".to_string()
+                        };
 
                         let image_to_save = state.edit_state.result_pixel_op.clone();
                         let msg_sender = state.message_channel.0.clone();
                         let err_sender = state.message_channel.0.clone();
-                        let image_info = state.image_info.clone();
+                        let image_info = state.image_metadata.clone();
 
                         std::thread::spawn(move || {
-                            let file_dialog_result = rfd::FileDialog::new()
+                            let mut dialog = rfd::FileDialog::new()
                                 .set_directory(start_directory)
-                                .save_file();
+                                .set_file_name(&default_filename);
+                            
+                            for enc in &encoders {
+                                dialog = dialog.add_filter(enc.ext(), &[enc.ext()]);
+                            }
+                            
+                            let file_dialog_result = dialog.save_file();
 
                                 if let Some(file_path) = file_dialog_result {
                                     debug!("Selected File Path = {:?}", file_path);
