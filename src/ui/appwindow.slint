@@ -41,7 +41,7 @@ export component AppWindow inherits Window {
                     if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
                         _is_dragging = true;
                         _last_mouse_pos_x = ta.mouse-x;
-                        _last_mouse_pos_y = ta.mouse-y; // Corrected: use mouse-y
+                        _last_mouse_pos_y = ta.mouse-y;
                     } else if (event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
                         _is_dragging = false;
                     } else if (event.kind == PointerEventKind.move) {
@@ -50,8 +50,13 @@ export component AppWindow inherits Window {
                             image_y += ta.mouse-y - _last_mouse_pos_y;
                         }
                         _last_mouse_pos_x = ta.mouse-x;
-                        _last_mouse_pos_y = ta.mouse-y; // Corrected: use mouse-y
+                        _last_mouse_pos_y = ta.mouse-y;
                     }
+                }
+                scroll-event(event) => {
+                    // divide by 1px to convert length to float
+                    root.zoom_image(event.delta-y / 1px, ta.mouse-x / 1px, ta.mouse-y / 1px);
+                    return accept;
                 }
                 Image {
                     source: root.image_display;
@@ -77,4 +82,5 @@ export component AppWindow inherits Window {
     }
     callback request_open_file();
     callback exit();
+    callback zoom_image(float, float, float);
 }

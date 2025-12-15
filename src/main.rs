@@ -2,24 +2,8 @@ use slint::{Image, SharedPixelBuffer, ComponentHandle, LogicalPosition, Weak};
 use std::rc::Rc;
 use std::path::PathBuf;
 use rfd::FileDialog;
- 
+
 slint::include_modules!();
-
-// AppState は、slint 側で状態を管理するため不要になるが、
-// Rust 側で他の状態が必要になる可能性を考慮して残しておく
-struct AppState {
-    // last_mouse_pos: LogicalPosition, // .slint 側で管理
-    // is_dragging: bool, // .slint 側で管理
-    // image_x: f32, // .slint 側で管理
-    // image_y: f32, // .slint 側で管理
-    // image_scale: f32, // .slint 側で管理
-}
-
-impl Default for AppState {
-    fn default() -> Self {
-        AppState {}
-    }
-}
 
 fn main() -> Result<(), slint::PlatformError> {
     let ui = AppWindow::new()?;
@@ -49,7 +33,7 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.on_exit(move || {
         slint::quit_event_loop().unwrap();
     });
-/*
+
     let ui_handle_zoom = ui.as_weak();
     ui.on_zoom_image(move |delta_y, mouse_x, mouse_y| {
         let ui = ui_handle_zoom.unwrap();
@@ -57,34 +41,29 @@ fn main() -> Result<(), slint::PlatformError> {
         let zoom_amount = 0.1;
         let old_scale = ui.get_image_scale();
         
-        // Convert mouse_x, mouse_y from Slint's `length` type to `float` for calculation
-        // Assuming 1 Slint unit == 1 pixel for now.
-        let mouse_pos_x = mouse_x.to_pixels();
-        let mouse_pos_y = mouse_y.to_pixels();
-
-        let new_scale = if delta_y > 0.0 { // Inverted scroll for natural zoom (delta_y is negative for scroll down)
+        let new_scale = if delta_y < 0.0 { // Scroll down zooms in
             old_scale * (1.0 + zoom_amount)
         } else {
             old_scale * (1.0 - zoom_amount)
         };
         let new_scale = new_scale.max(0.1).min(10.0);
         
-        let old_image_x = ui.get_image_x().to_pixels();
-        let old_image_y = ui.get_image_y().to_pixels();
+        let old_image_x = ui.get_image_x();
+        let old_image_y = ui.get_image_y();
 
-        let mouse_img_x = (mouse_pos_x - old_image_x) / old_scale;
-        let mouse_img_y = (mouse_pos_y - old_image_y) / old_scale;
+        let mouse_img_x = (mouse_x - old_image_x) / old_scale;
+        let mouse_img_y = (mouse_y - old_image_y) / old_scale;
 
-        let new_image_x = mouse_pos_x - mouse_img_x * new_scale;
-        let new_image_y = mouse_pos_y - mouse_img_y * new_scale;
+        let new_image_x = mouse_x - mouse_img_x * new_scale;
+        let new_image_y = mouse_y - mouse_img_y * new_scale;
 
         ui.set_image_scale(new_scale);
-        ui.set_image_x(new_image_x.into()); // Convert back to Slint's length
-        ui.set_image_y(new_image_y.into()); // Convert back to Slint's length
+        ui.set_image_x(new_image_x);
+        ui.set_image_y(new_image_y);
         
         ui.set_status_text(format!("Zoom: {:.0}%", new_scale * 100.0).into());
     });
-*/
+
     ui.run()
 }
 
