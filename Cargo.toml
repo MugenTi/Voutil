@@ -35,6 +35,7 @@ benchmark = []
 [dependencies]
 slint = "1.3" # Slint UI library
 image = "0.25" # Image processing library
+rfd = "0.14"
 
 # Temporarily comment out Bevy, Egui, and Notan related dependencies
 # Bevy

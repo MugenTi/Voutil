@@ -1,6 +1,80 @@
 export component AppWindow inherits Window {
+    title: "Oculante Slint";
+    min-width: 400px;
+    min-height: 300px;
+    preferred-width: 800px;
+    preferred-height: 600px;
+
     in-out property <image> image_display;
-    Image {
-        source: image_display;
+    in-out property <string> status_text: "Ready";
+    
+    in-out property <length> image_x: 0px;
+    in-out property <length> image_y: 0px;
+    in-out property <float> image_scale: 1.0;
+
+    private property <bool> _is_dragging: false;
+    private property <length> _last_mouse_pos_x: 0px;
+    private property <length> _last_mouse_pos_y: 0px;
+
+    VerticalLayout {
+        spacing: 0;
+        Rectangle {
+            height: 30px;
+            background: #333;
+            HorizontalLayout {
+                padding: 5px;
+                TouchArea {
+                    Text { text: "File"; color: white; }
+                    clicked => { root.request_open_file(); }
+                }
+                TouchArea {
+                    Text { text: "Exit"; color: white; }
+                    clicked => { root.exit(); }
+                }
+            }
+        }
+        Rectangle {
+            background: #333333;
+            clip: true;
+            ta := TouchArea {
+                pointer-event(event) => {
+                    if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                        _is_dragging = true;
+                        _last_mouse_pos_x = ta.mouse-x;
+                        _last_mouse_pos_y = ta.mouse-y; // Corrected: use mouse-y
+                    } else if (event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
+                        _is_dragging = false;
+                    } else if (event.kind == PointerEventKind.move) {
+                        if (_is_dragging) {
+                            image_x += ta.mouse-x - _last_mouse_pos_x;
+                            image_y += ta.mouse-y - _last_mouse_pos_y;
+                        }
+                        _last_mouse_pos_x = ta.mouse-x;
+                        _last_mouse_pos_y = ta.mouse-y; // Corrected: use mouse-y
+                    }
+                }
+                Image {
+                    source: root.image_display;
+                    x: root.image_x;
+                    y: root.image_y;
+                    width: root.image_display.width * root.image_scale * 1px;
+                    height: root.image_display.height * root.image_scale * 1px;
+                }
+            }
+        }
+        Rectangle {
+            height: 25px;
+            background: #333;
+            HorizontalLayout {
+                padding-left: 10px;
+                Text {
+                    text: root.status_text;
+                    vertical-alignment: center;
+                    color: white;
+                }
+            }
+        }
     }
+    callback request_open_file();
+    callback exit();
 }
