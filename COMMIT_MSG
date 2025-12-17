@@ -1,0 +1,6 @@
+feat: Implement dynamic Reset View and layout switching
+
+- Implemented an `auto_fit` property in Slint to toggle between "fit-to-window" and manual pan/zoom modes.
+- Panning or zooming now automatically switches to manual mode.
+- The `Reset View` button now switches back to `auto_fit` mode.
+- Loading a new image also defaults to `auto_fit` mode.

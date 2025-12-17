@@ -8,17 +8,22 @@ export component AppWindow inherits Window {
     in-out property <image> image_display;
     in-out property <string> status_text: "Ready";
     
+    // --- Properties for manual pan and zoom ---
     in-out property <length> image_x: 0px;
     in-out property <length> image_y: 0px;
     in-out property <float> image_scale: 1.0;
+    
+    // --- Property to control layout mode ---
+    in-out property <bool> auto_fit: true;
 
+    // --- Internal state for dragging ---
     private property <bool> _is_dragging: false;
     private property <length> _last_mouse_pos_x: 0px;
     private property <length> _last_mouse_pos_y: 0px;
 
     VerticalLayout {
         spacing: 0;
-        Rectangle {
+        menu_bar := Rectangle {
             height: 30px;
             background: #333;
             HorizontalLayout {
@@ -28,17 +33,32 @@ export component AppWindow inherits Window {
                     clicked => { root.request_open_file(); }
                 }
                 TouchArea {
+                    Text { text: "Reset View"; color: white; }
+                    clicked => { root.reset_view(); }
+                }
+                TouchArea {
                     Text { text: "Exit"; color: white; }
                     clicked => { root.exit(); }
                 }
             }
         }
-        Rectangle {
+        image_container := Rectangle {
             background: #333333;
             clip: true;
+            
+            img_element := Image {
+                source: root.image_display;
+                x: root.auto_fit ? 0px : root.image_x;
+                y: root.auto_fit ? 0px : root.image_y;
+                width: root.auto_fit ? parent.width : (root.image_display.width * root.image_scale * 1px);
+                height: root.auto_fit ? parent.height : (root.image_display.height * root.image_scale * 1px);
+                image-fit: root.auto_fit ? contain : fill;
+            }
+
             ta := TouchArea {
                 pointer-event(event) => {
                     if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                        root.auto_fit = false; // Switch to manual mode on drag
                         _is_dragging = true;
                         _last_mouse_pos_x = ta.mouse-x;
                         _last_mouse_pos_y = ta.mouse-y;
@@ -54,20 +74,13 @@ export component AppWindow inherits Window {
                     }
                 }
                 scroll-event(event) => {
-                    // divide by 1px to convert length to float
-                    root.zoom_image(event.delta-y / 1px, ta.mouse-x / 1px, ta.mouse-y / 1px);
+                    root.auto_fit = false; // Switch to manual mode on zoom
+                    root.zoom_image(event.delta-y / 1px, ta.mouse-x, ta.mouse-y);
                     return accept;
-                }
-                Image {
-                    source: root.image_display;
-                    x: root.image_x;
-                    y: root.image_y;
-                    width: root.image_display.width * root.image_scale * 1px;
-                    height: root.image_display.height * root.image_scale * 1px;
                 }
             }
         }
-        Rectangle {
+        status_bar := Rectangle {
             height: 25px;
             background: #333;
             HorizontalLayout {
@@ -82,5 +95,6 @@ export component AppWindow inherits Window {
     }
     callback request_open_file();
     callback exit();
-    callback zoom_image(float, float, float);
+    callback reset_view();
+    callback zoom_image(float, length, length);
 }

@@ -1,4 +1,4 @@
-use slint::{Image, SharedPixelBuffer, ComponentHandle, LogicalPosition, Weak};
+use slint::{Image, SharedPixelBuffer, ComponentHandle, Weak};
 use std::rc::Rc;
 use std::path::PathBuf;
 use rfd::FileDialog;
@@ -16,10 +16,7 @@ fn main() -> Result<(), slint::PlatformError> {
         if let Some(path) = rfd::FileDialog::new().pick_file() {
             let path_str = path.to_string_lossy().to_string();
             if let Some(new_slint_image) = load_image_to_slint(path) {
-                // Reset state on new image
-                ui.set_image_x(0.0);
-                ui.set_image_y(0.0);
-                ui.set_image_scale(1.0);
+                // The 'image_display-changed' callback in .slint will now handle the reset.
                 ui.set_image_display(new_slint_image);
                 ui.set_status_text(format!("Loaded: {}", path_str).into());
             } else {
@@ -34,6 +31,14 @@ fn main() -> Result<(), slint::PlatformError> {
         slint::quit_event_loop().unwrap();
     });
 
+    let ui_handle_reset_view = ui.as_weak();
+    ui.on_reset_view(move || {
+        let ui = ui_handle_reset_view.unwrap();
+        // Just set the auto_fit property, Slint will handle the rest.
+        ui.set_auto_fit(true); 
+        ui.set_status_text("View reset.".into());
+    });
+
     let ui_handle_zoom = ui.as_weak();
     ui.on_zoom_image(move |delta_y, mouse_x, mouse_y| {
         let ui = ui_handle_zoom.unwrap();
@@ -41,7 +46,7 @@ fn main() -> Result<(), slint::PlatformError> {
         let zoom_amount = 0.1;
         let old_scale = ui.get_image_scale();
         
-        let new_scale = if delta_y < 0.0 { // Scroll down zooms in
+        let new_scale = if delta_y < 0.0 {
             old_scale * (1.0 + zoom_amount)
         } else {
             old_scale * (1.0 - zoom_amount)
