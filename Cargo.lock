@@ -2163,6 +2163,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dirs-next"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b98cf8ebf19c3d1b223e151f99a4f9f0690dca41414773390fc824184ac833e1"
+dependencies = [
+ "cfg-if 1.0.4",
+ "dirs-sys-next",
+]
+
+[[package]]
 name = "dirs-sys"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5845,6 +5855,7 @@ dependencies = [
 name = "oculante"
 version = "0.9.2"
 dependencies = [
+ "anyhow",
  "arboard",
  "ase-swatch",
  "avif-decode",
@@ -5860,6 +5871,7 @@ dependencies = [
  "dicom-object",
  "dicom-pixeldata",
  "directories-next",
+ "dirs-next",
  "env_logger 0.11.8",
  "evalexpr",
  "exr",
@@ -5896,6 +5908,7 @@ dependencies = [
  "rfd",
  "ruzstd",
  "serde",
+ "serde_json",
  "slint",
  "slint-build",
  "sys-info",

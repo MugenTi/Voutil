@@ -1,18 +1,27 @@
 use slint::{Image, SharedPixelBuffer, ComponentHandle, Weak};
 use std::rc::Rc;
+use std::cell::RefCell;
 use std::path::PathBuf;
 use rfd::FileDialog;
+use oculante::appstate::PersistentSettings;
 
 slint::include_modules!();
 
 fn main() -> Result<(), slint::PlatformError> {
-    let ui = AppWindow::new()?;
+    let persistent_settings = Rc::new(RefCell::new(PersistentSettings::load().unwrap_or_default()));
 
-    ui.set_status_text("Ready. Open a file to begin.".into());
-    let ui_handle = ui.as_weak();
+    let main_window = AppWindow::new()?;
+    let settings_window = SettingsWindow::new()?;
 
-    ui.on_request_open_file(move || {
-        let ui = ui_handle.unwrap();
+    // --- Initial state setup ---
+    main_window.set_status_text("Ready. Open a file to begin.".into());
+    settings_window.set_vsync_enabled(persistent_settings.borrow().vsync);
+    settings_window.set_show_checker_background(persistent_settings.borrow().show_checker_background);
+
+    // --- Main window callbacks ---
+    let main_window_handle = main_window.as_weak();
+    main_window.on_request_open_file(move || {
+        let ui = main_window_handle.unwrap();
         if let Some(path) = rfd::FileDialog::new().pick_file() {
             let path_str = path.to_string_lossy().to_string();
             if let Some(new_slint_image) = load_image_to_slint(path) {
@@ -27,22 +36,28 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
-    ui.on_exit(move || {
+    main_window.on_exit(move || {
         slint::quit_event_loop().unwrap();
     });
 
-    let ui_handle_reset_view = ui.as_weak();
-    ui.on_reset_view(move || {
-        let ui = ui_handle_reset_view.unwrap();
+    let main_window_handle_reset = main_window.as_weak();
+    main_window.on_reset_view(move || {
+        let ui = main_window_handle_reset.unwrap();
         // Just set the auto_fit property, Slint will handle the rest.
         ui.set_auto_fit(true); 
         ui.set_status_text("View reset.".into());
     });
 
-    let ui_handle_zoom = ui.as_weak();
-    ui.on_zoom_image(move |delta_y, mouse_x, mouse_y| {
-        let ui = ui_handle_zoom.unwrap();
+    let settings_window_handle = settings_window.as_weak();
+    main_window.on_show_settings_window(move || {
+        if let Some(settings_ui) = settings_window_handle.upgrade() {
+            settings_ui.run();
+        }
+    });
 
+    let main_window_handle_zoom = main_window.as_weak();
+    main_window.on_zoom_image(move |delta_y, mouse_x, mouse_y| {
+        let ui = main_window_handle_zoom.unwrap();
         let zoom_amount = 0.1;
         let old_scale = ui.get_image_scale();
         
@@ -69,7 +84,22 @@ fn main() -> Result<(), slint::PlatformError> {
         ui.set_status_text(format!("Zoom: {:.0}%", new_scale * 100.0).into());
     });
 
-    ui.run()
+    // --- Settings window callbacks ---
+    let settings_clone1 = Rc::clone(&persistent_settings);
+    settings_window.on_vsync_changed(move |enabled| {
+        let mut settings = settings_clone1.borrow_mut();
+        settings.vsync = enabled;
+        let _ = settings.save_blocking();
+    });
+
+    let settings_clone2 = Rc::clone(&persistent_settings);
+    settings_window.on_show_checker_background_changed(move |enabled| {
+        let mut settings = settings_clone2.borrow_mut();
+        settings.show_checker_background = enabled;
+        let _ = settings.save_blocking();
+    });
+
+    main_window.run()
 }
 
 fn load_image_to_slint(path: PathBuf) -> Option<Image> {

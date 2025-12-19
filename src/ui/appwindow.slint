@@ -1,9 +1,9 @@
 export component AppWindow inherits Window {
     title: "Oculante Slint";
-    min-width: 400px;
-    min-height: 300px;
-    preferred-width: 800px;
-    preferred-height: 600px;
+    min-width: 640px;
+    min-height: 360px;
+    preferred-width: 1280px;
+    preferred-height: 720px;
 
     in-out property <image> image_display;
     in-out property <string> status_text: "Ready";
@@ -36,6 +36,12 @@ export component AppWindow inherits Window {
                     Text { text: "Reset View"; color: white; }
                     clicked => { root.reset_view(); }
                 }
+                
+                TouchArea {
+                    Text { text: "Preferences..."; color: white; }
+                    clicked => { root.show_settings_window(); }
+                }
+                
                 TouchArea {
                     Text { text: "Exit"; color: white; }
                     clicked => { root.exit(); }
@@ -96,5 +102,6 @@ export component AppWindow inherits Window {
     callback request_open_file();
     callback exit();
     callback reset_view();
+    callback show_settings_window();
     callback zoom_image(float, length, length);
 }
