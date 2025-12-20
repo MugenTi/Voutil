@@ -1,15 +1,12 @@
-use crate::{file_encoder::FileEncoder, shortcuts::*, utils::ColorChannel};
+// use crate::{
+//     file_encoder::FileEncoder, 
+//     shortcuts::*, 
+//     utils::ColorChannel
+// };
 use anyhow::{anyhow, Result};
-use log::{debug, info, trace};
-use notan::egui::{Context, Visuals};
+use log::{debug, trace, info};
 use serde::{Deserialize, Serialize};
-
-#[cfg(feature = "heif")]
-use std::sync::OnceLock;
-
-#[cfg(feature = "heif")]
-use libheif_rs::SecurityLimits;
-
+// use notan::egui::{Context, Visuals};
 use std::{
     collections::{BTreeSet, HashSet, VecDeque},
     fmt::{self, Display, Formatter},
@@ -18,42 +15,32 @@ use std::{
 };
 
 fn get_config_dir() -> Result<PathBuf> {
-    Ok(dirs::data_local_dir()
-        .ok_or(anyhow!("Can't get local dir"))?
+    // This uses dirs_next instead of dirs to avoid a dependency conflict for now.
+    Ok(dirs_next::data_local_dir()
+        .ok_or_else(|| anyhow!("Can't get local dir"))?
         .join("oculante"))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum ColorTheme {
-    /// Light Theme
     Light,
-    /// Dark Theme
     Dark,
-    /// Same as system
     System,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct PersistentSettings {
-    /// The UI accent color
     pub accent_color: [u8; 3],
-    /// The BG color
     pub background_color: [u8; 3],
-    /// Should we sync to monitor rate? This makes the app snappier, but also more resource intensive.
     pub vsync: bool,
     pub force_redraw: bool,
-    /// Keyboard map to actions
-    pub shortcuts: Shortcuts,
-    /// Do not reset view when receiving a new image
+    // pub shortcuts: Shortcuts,
     pub keep_view: bool,
-    /// How many images to keep in cache
     pub max_cache: usize,
-    /// How many recent images to keep track of
     pub max_recents: u8,
     pub show_scrub_bar: bool,
     pub wrap_folder: bool,
-    /// Whether to keep the image edit stack
     pub keep_edits: bool,
     pub title_format: String,
     pub info_enabled: bool,
@@ -61,9 +48,7 @@ pub struct PersistentSettings {
     pub show_checker_background: bool,
     pub show_minimap: bool,
     pub show_frame: bool,
-    #[serde(skip)]
-    pub current_channel: ColorChannel,
-    /// How much to scale SVG images when rendering
+    // pub current_channel: ColorChannel,
     pub svg_scale: f32,
     pub zen_mode: bool,
     pub theme: ColorTheme,
@@ -72,13 +57,11 @@ pub struct PersistentSettings {
     pub use_mipmaps: bool,
     pub fit_image_on_window_resize: bool,
     pub zoom_multiplier: f32,
-    /// Automatically scale/zoom the image to fit the frame
     pub auto_scale: bool,
     pub borderless: bool,
     pub min_window_size: (u32, u32),
     pub experimental_features: bool,
-    /// Tunables for decoders, such as max memory usage
-    pub decoders: DecoderSettings,
+    // pub decoders: DecoderSettings,
     pub show_status_bar: bool,
     pub zen_mode_normal: bool,
     pub pan_speed_multiplier: f32,
@@ -91,7 +74,7 @@ impl Default for PersistentSettings {
             background_color: [30, 30, 30],
             vsync: true,
             force_redraw: false,
-            shortcuts: Shortcuts::default_keys(),
+            // shortcuts: Shortcuts::default_keys(),
             keep_view: Default::default(),
             max_cache: 30,
             max_recents: 12,
@@ -104,7 +87,7 @@ impl Default for PersistentSettings {
             show_checker_background: Default::default(),
             show_minimap: Default::default(),
             show_frame: Default::default(),
-            current_channel: ColorChannel::Rgba,
+            // current_channel: ColorChannel::Rgba,
             svg_scale: 1.0,
             zen_mode: false,
             theme: ColorTheme::Dark,
@@ -117,7 +100,7 @@ impl Default for PersistentSettings {
             borderless: false,
             min_window_size: (100, 100),
             experimental_features: false,
-            decoders: Default::default(),
+            // decoders: Default::default(),
             show_status_bar: true,
             zen_mode_normal: false,
             pan_speed_multiplier: 1.0,
@@ -127,32 +110,21 @@ impl Default for PersistentSettings {
 
 impl PersistentSettings {
     pub fn load() -> Result<Self> {
-        let config_path = get_config_dir()?
-            .join("config.json")
-            .canonicalize()
-            // migrate old config
-            .unwrap_or(
-                dirs::config_local_dir()
-                    .ok_or(anyhow!("Can't get config_local_dir"))?
-                    .join(".oculante"),
-            );
-        debug!("Loaded persistent settings: {}", config_path.display());
-
-        Ok(serde_json::from_reader::<_, PersistentSettings>(
-            File::open(config_path)?,
-        )?)
+        let config_path = get_config_dir()?.join("config.json");
+        debug!("Loading persistent settings from: {}", config_path.display());
+        let file = File::open(config_path)?;
+        Ok(serde_json::from_reader(file)?)
     }
 
     pub fn save_blocking(&self) -> Result<()> {
         let config_dir = get_config_dir()?;
         if !config_dir.exists() {
-            info!("Created {}", config_dir.display());
-            _ = create_dir_all(&config_dir);
+            create_dir_all(&config_dir)?;
         }
         let config_path = config_dir.join("config.json");
         let f = File::create(&config_path)?;
         serde_json::to_writer_pretty(f, self)?;
-        debug!("Saved to {}", config_path.display());
+        debug!("Saved persistent settings to: {}", config_path.display());
         Ok(())
     }
 }
@@ -162,11 +134,10 @@ impl PersistentSettings {
 pub struct VolatileSettings {
     pub favourite_images: HashSet<PathBuf>,
     pub recent_images: VecDeque<PathBuf>,
-    pub window_geometry: ((i32, i32), (u32, u32)),
-    pub is_fullscreen: bool,
+    pub window_geometry: ((u32, u32), (u32, u32)),
     pub last_open_directory: PathBuf,
     pub folder_bookmarks: BTreeSet<PathBuf>,
-    pub encoding_options: Vec<FileEncoder>,
+    // pub encoding_options: Vec<FileEncoder>,
 }
 
 impl Default for VolatileSettings {
@@ -175,21 +146,20 @@ impl Default for VolatileSettings {
             favourite_images: Default::default(),
             recent_images: Default::default(),
             window_geometry: Default::default(),
-            is_fullscreen: false,
             last_open_directory: Default::default(),
             folder_bookmarks: Default::default(),
-            encoding_options: [
-                // ("jpg".to_string(), FileEncoder::Jpg { quality: 75 }),
-                // ("png".to_string(), FileEncoder::WebP),
-                FileEncoder::Jpg { quality: 75 },
-                FileEncoder::WebP,
-                FileEncoder::Png {
-                    compressionlevel: crate::file_encoder::CompressionLevel::Default,
-                },
-                FileEncoder::Bmp,
-            ]
-            .into_iter()
-            .collect(),
+            // encoding_options: [
+            //     // ("jpg".to_string(), FileEncoder::Jpg { quality: 75 }),
+            //     // ("png".to_string(), FileEncoder::WebP),
+            //     FileEncoder::Jpg { quality: 75 },
+            //     FileEncoder::WebP,
+            //     FileEncoder::Png {
+            //         compressionlevel: crate::file_encoder::CompressionLevel::Default,
+            //     },
+            //     FileEncoder::Bmp,
+            // ]
+            // .into_iter()
+            // .collect(),
         }
     }
 }
@@ -220,15 +190,15 @@ impl VolatileSettings {
     }
 }
 
-pub fn set_system_theme(ctx: &Context) {
-    if let Ok(mode) = dark_light::detect() {
-        match mode {
-            dark_light::Mode::Dark => ctx.set_visuals(Visuals::dark()),
-            dark_light::Mode::Light => ctx.set_visuals(Visuals::light()),
-            dark_light::Mode::Unspecified => ctx.set_visuals(Visuals::dark()),
-        }
-    }
-}
+// pub fn set_system_theme(ctx: &Context) {
+//     if let Ok(mode) = dark_light::detect() {
+//         match mode {
+//             dark_light::Mode::Dark => ctx.set_visuals(Visuals::dark()),
+//             dark_light::Mode::Light => ctx.set_visuals(Visuals::light()),
+//             dark_light::Mode::Unspecified => ctx.set_visuals(Visuals::dark()),
+//         }
+//     }
+// }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct DecoderSettings {

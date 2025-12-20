@@ -1,8 +1,11 @@
-import { CheckBox, StandardButton } from "std-widgets.slint";
+import { CheckBox } from "std-widgets.slint";
 
-export component SettingsWindow inherits Dialog {
+export component SettingsWindow inherits Window {
     title: "Preferences";
-    // standard-buttons: ok; // You can use standard buttons like this
+    min-width: 720px;
+    min-height: 480px;
+    preferred-width: 720px;
+    preferred-height: 480px;
 
     // --- Properties for settings ---
     in-out property <bool> vsync_enabled: true;

@@ -3,7 +3,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use rfd::FileDialog;
-use oculante::appstate::PersistentSettings;
+use oculante::settings::PersistentSettings;
 
 slint::include_modules!();
 
@@ -51,7 +51,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let settings_window_handle = settings_window.as_weak();
     main_window.on_show_settings_window(move || {
         if let Some(settings_ui) = settings_window_handle.upgrade() {
-            settings_ui.run();
+            settings_ui.show();
         }
     });
 
