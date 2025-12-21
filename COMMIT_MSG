@@ -1,7 +1,4 @@
-refactor: Restore original project structure and state management
+feat: Restores the size and position of the previous window upon restart
 
-- Moved `PersistentSettings` and `VolatileSettings` back to a dedicated `settings.rs` file.
-- Restored the original `OculanteState` struct in `appstate.rs` and commented out non-compiling code related to `notan` and `egui`.
-- Updated `lib.rs` to correctly export the necessary modules (`appstate`, `settings`, `utils`).
-- Modified `main.rs` to import `PersistentSettings` from the new module path.
-- This refactoring aims to reuse the original application's structure while continuing the migration to Slint.
+- Verified functionality of `config_volatile.json`.
+- Enabled Slint's `serde` feature.

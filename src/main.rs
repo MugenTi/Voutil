@@ -1,17 +1,36 @@
-use slint::{Image, SharedPixelBuffer, ComponentHandle, Weak};
+use slint::{Image, SharedPixelBuffer, ComponentHandle, Weak, PhysicalPosition, PhysicalSize};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use rfd::FileDialog;
-use oculante::settings::PersistentSettings;
+use oculante::settings::{PersistentSettings, VolatileSettings};
 
 slint::include_modules!();
 
+#[derive(Default)]
+struct AppState {
+    last_window_size: PhysicalSize,
+    last_window_position: PhysicalPosition,
+}
+
 fn main() -> Result<(), slint::PlatformError> {
     let persistent_settings = Rc::new(RefCell::new(PersistentSettings::load().unwrap_or_default()));
+    let volatile_settings = Rc::new(RefCell::new(VolatileSettings::load().unwrap_or_default()));
 
     let main_window = AppWindow::new()?;
     let settings_window = SettingsWindow::new()?;
+    let app_state = Rc::new(RefCell::new(AppState::default()));
+
+    // --- Initial state setup from settings ---
+    let initial_pos: PhysicalPosition = volatile_settings.borrow().window_position.into();
+    let initial_size: PhysicalSize = volatile_settings.borrow().window_size.into();
+
+    main_window.window().set_position(initial_pos);
+    main_window.window().set_size(initial_size);
+    
+    // Initialize AppState with current window geometry
+    app_state.borrow_mut().last_window_position = initial_pos;
+    app_state.borrow_mut().last_window_size = initial_size;
 
     // --- Initial state setup ---
     main_window.set_status_text("Ready. Open a file to begin.".into());
@@ -82,6 +101,34 @@ fn main() -> Result<(), slint::PlatformError> {
         ui.set_image_y(new_image_y);
         
         ui.set_status_text(format!("Zoom: {:.0}%", new_scale * 100.0).into());
+    });
+
+    // --- Tick handler for dynamic resize/move ---
+    let ui_handle_tick = main_window.as_weak();
+    let app_state_clone_tick = Rc::clone(&app_state);
+    let volatile_settings_clone_tick = Rc::clone(&volatile_settings);
+    main_window.on_tick(move || {
+        let ui = ui_handle_tick.unwrap();
+        let mut app_state = app_state_clone_tick.borrow_mut();
+        let mut volatile = volatile_settings_clone_tick.borrow_mut();
+
+        let current_pos = ui.window().position();
+        let current_size = ui.window().size();
+
+        if app_state.last_window_position != current_pos {
+            volatile.window_position = current_pos.into();
+            let _ = volatile.save_blocking();
+            app_state.last_window_position = current_pos;
+        }
+
+        if app_state.last_window_size != current_size {
+            volatile.window_size = current_size.into();
+            let _ = volatile.save_blocking();
+            app_state.last_window_size = current_size;
+            ui.set_status_text("Window resized!".into()); // For debugging
+            // Trigger auto-fit when window size changes
+            ui.set_auto_fit(true);
+        }
     });
 
     // --- Settings window callbacks ---

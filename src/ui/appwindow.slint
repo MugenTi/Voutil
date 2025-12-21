@@ -21,6 +21,15 @@ export component AppWindow inherits Window {
     private property <length> _last_mouse_pos_x: 0px;
     private property <length> _last_mouse_pos_y: 0px;
 
+    // Timer for dynamic resize/move handling
+    timer := Timer {
+        interval: 16ms; // Approx. 60fps
+        triggered => {
+            root.tick();
+            self.restart(); // Use restart() to repeat the timer
+        }
+    }
+
     VerticalLayout {
         spacing: 0;
         menu_bar := Rectangle {
@@ -103,5 +112,6 @@ export component AppWindow inherits Window {
     callback exit();
     callback reset_view();
     callback show_settings_window();
+    callback tick();
     callback zoom_image(float, length, length);
 }

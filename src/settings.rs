@@ -3,10 +3,11 @@
 //     shortcuts::*, 
 //     utils::ColorChannel
 // };
+// use notan::egui::{Context, Visuals};
+use slint::{PhysicalPosition, PhysicalSize};
 use anyhow::{anyhow, Result};
 use log::{debug, trace, info};
 use serde::{Deserialize, Serialize};
-// use notan::egui::{Context, Visuals};
 use std::{
     collections::{BTreeSet, HashSet, VecDeque},
     fmt::{self, Display, Formatter},
@@ -134,7 +135,9 @@ impl PersistentSettings {
 pub struct VolatileSettings {
     pub favourite_images: HashSet<PathBuf>,
     pub recent_images: VecDeque<PathBuf>,
-    pub window_geometry: ((u32, u32), (u32, u32)),
+    pub window_geometry: ((u32, u32), (u32, u32)),  // No use
+    pub window_position: PhysicalPosition,
+    pub window_size: PhysicalSize,
     pub last_open_directory: PathBuf,
     pub folder_bookmarks: BTreeSet<PathBuf>,
     // pub encoding_options: Vec<FileEncoder>,
@@ -146,6 +149,8 @@ impl Default for VolatileSettings {
             favourite_images: Default::default(),
             recent_images: Default::default(),
             window_geometry: Default::default(),
+            window_position: Default::default(),
+            window_size: Default::default(),
             last_open_directory: Default::default(),
             folder_bookmarks: Default::default(),
             // encoding_options: [

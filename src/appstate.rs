@@ -1,4 +1,3 @@
-
 use crate::{
 //     comparelist::CompareList,
 //     image_editing::EditState,
