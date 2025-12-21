@@ -4939,6 +4939,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "lucide-slint"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e51170c7b0348e08b43554e829ff98cae3a4f5c9db4a153435f19f161912cbc"
+
+[[package]]
 name = "lutgen"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5924,6 +5930,7 @@ dependencies = [
  "libblur",
  "libheif-rs",
  "log",
+ "lucide-slint",
  "lutgen",
  "mouse_position",
  "nalgebra 0.33.2",

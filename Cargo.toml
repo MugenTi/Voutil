@@ -33,12 +33,17 @@ benchmark = []
 
 
 [dependencies]
-slint = {  version = "1.6", features = ["serde"] } # Slint UI library
-image = "0.25" # Image processing library
+slint = {  version = "1.14", features = ["serde"] }
+lucide-slint = "0.1.4"
+image = "0.25"
 rfd = "0.14"
 anyhow = "1.0"
 dirs-next = "2.0.0"
 serde_json = "1.0"
+log = "0.4"
+env_logger = "0.11"
+serde = { version = "1.0", features = ["derive"] }
+
 
 # Temporarily comment out Bevy, Egui, and Notan related dependencies
 # Bevy
@@ -64,7 +69,6 @@ directories-next = "2.0.0"
 open = "5"
 sys-info = "0.9.0"
 backtrace = "0.3.56"
-serde = { version = "1.0.123", features = ["derive"] }
 toml = "0.8.12"
 rand = "0.8.3"
 lexical-sort = "0.3.1"
@@ -75,9 +79,7 @@ arboard = { version = "3.3", features = ["wayland-data-control"] }
 resvg = "0.41"
 usvg = "0.41"
 tiny-skia = "0.11.4"
-log = "0.4"
 nalgebra = "0.33"
-env_logger = "0.11"
 thiserror = "1.0.59"
 
 img-parts = "0.3"
@@ -133,7 +135,8 @@ fruitbasket = "0.10.0"
 winres = "0.1.12"
 
 [build-dependencies]
-slint-build = "1.6"
+lucide-slint = "0.1.4"
+slint-build = "1.14"
 
 [dev-dependencies]
 cmd_lib = "1.3.0"

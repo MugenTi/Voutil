@@ -1,3 +1,6 @@
+import { SettingsWindow } from "./settings_window.slint";
+import { SettingsIcon } from "@lucide";
+
 export component AppWindow inherits Window {
     title: "Oculante Slint";
     min-width: 640px;
@@ -41,13 +44,19 @@ export component AppWindow inherits Window {
                     Text { text: "File"; color: white; }
                     clicked => { root.request_open_file(); }
                 }
+
                 TouchArea {
                     Text { text: "Reset View"; color: white; }
                     clicked => { root.reset_view(); }
                 }
                 
                 TouchArea {
-                    Text { text: "Preferences..."; color: white; }
+                    SettingsIcon {
+                        colorize: #fff;
+                        size: 24px;
+                        //opacity: 0.7;
+                    }
+                    //Text { text: "menu"; color: white; }
                     clicked => { root.show_settings_window(); }
                 }
                 
