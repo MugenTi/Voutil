@@ -1,4 +1,0 @@
-feat: Restores the size and position of the previous window upon restart
-
-- Verified functionality of `config_volatile.json`.
-- Enabled Slint's `serde` feature.
