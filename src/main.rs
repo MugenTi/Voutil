@@ -107,7 +107,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let ui_handle_tick = main_window.as_weak();
     let app_state_clone_tick = Rc::clone(&app_state);
     let volatile_settings_clone_tick = Rc::clone(&volatile_settings);
-    main_window.on_tick(move || {
+    main_window.on_tick(move |auto_fit| {
         let ui = ui_handle_tick.unwrap();
         let mut app_state = app_state_clone_tick.borrow_mut();
         let mut volatile = volatile_settings_clone_tick.borrow_mut();
@@ -127,7 +127,7 @@ fn main() -> Result<(), slint::PlatformError> {
             app_state.last_window_size = current_size;
             ui.set_status_text("Window resized!".into()); // For debugging
             // Trigger auto-fit when window size changes
-            ui.set_auto_fit(true);
+            ui.set_auto_fit(auto_fit);
         }
     });
 

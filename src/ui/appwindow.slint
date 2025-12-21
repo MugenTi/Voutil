@@ -28,8 +28,29 @@ export component AppWindow inherits Window {
     timer := Timer {
         interval: 16ms; // Approx. 60fps
         triggered => {
-            root.tick();
+            root.tick(root.auto_fit);
             self.restart(); // Use restart() to repeat the timer
+        }
+    }
+
+    function apply_auto_fit_properties() {
+        if (root.image_display.width * 1px > 0px && root.image_display.height * 1px > 0px) {
+            let image_w = root.image_display.width;
+            let image_h = root.image_display.height;
+
+            let container_w = image_container.width;
+            let container_h = image_container.height;
+
+            let scale_w = container_w / image_w;
+            let scale_h = container_h / image_h;
+            let new_scale = min(scale_w, scale_h);
+
+            let new_image_w = image_w * new_scale;
+            let new_image_h = image_h * new_scale;
+
+            root.image_scale = new_scale / 1px;
+            root.image_x = (container_w - new_image_w) / 2;
+            root.image_y = (container_h - new_image_h) / 2;
         }
     }
 
@@ -82,7 +103,10 @@ export component AppWindow inherits Window {
             ta := TouchArea {
                 pointer-event(event) => {
                     if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
-                        root.auto_fit = false; // Switch to manual mode on drag
+                        if (root.auto_fit) {
+                            root.auto_fit = false; // Switch to manual mode on drag
+                            apply_auto_fit_properties();
+                        }
                         _is_dragging = true;
                         _last_mouse_pos_x = ta.mouse-x;
                         _last_mouse_pos_y = ta.mouse-y;
@@ -98,7 +122,10 @@ export component AppWindow inherits Window {
                     }
                 }
                 scroll-event(event) => {
-                    root.auto_fit = false; // Switch to manual mode on zoom
+                    if (root.auto_fit) {
+                        root.auto_fit = false; // Switch to manual mode on zoom
+                        apply_auto_fit_properties();
+                    }
                     root.zoom_image(event.delta-y / 1px, ta.mouse-x, ta.mouse-y);
                     return accept;
                 }
@@ -121,6 +148,6 @@ export component AppWindow inherits Window {
     callback exit();
     callback reset_view();
     callback show_settings_window();
-    callback tick();
+    callback tick(bool);
     callback zoom_image(float, length, length);
 }
