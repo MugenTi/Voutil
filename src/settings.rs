@@ -19,7 +19,7 @@ fn get_config_dir() -> Result<PathBuf> {
     // This uses dirs_next instead of dirs to avoid a dependency conflict for now.
     Ok(dirs_next::data_local_dir()
         .ok_or_else(|| anyhow!("Can't get local dir"))?
-        .join("oculante"))
+        .join("oculante_slint"))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
