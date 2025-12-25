@@ -1,7 +1,12 @@
 import { SettingsWindow } from "./settings_window.slint";
-import { SettingsIcon } from "@lucide";
+import { MenuIcon, MaximizeIcon, ArrowUpFromLineIcon, 
+         FolderIcon, MoveIcon, SettingsIcon, LogOutIcon,
+} from "@lucide";
 
 export component AppWindow inherits Window {
+    // init => {
+    //     IconSettings.default-size = 24px;
+    // }
     title: "Oculante Slint";
     min-width: 640px;
     min-height: 360px;
@@ -23,6 +28,8 @@ export component AppWindow inherits Window {
     private property <bool> _is_dragging: false;
     private property <length> _last_mouse_pos_x: 0px;
     private property <length> _last_mouse_pos_y: 0px;
+
+    private property <length> _icon_size: 24px;
 
     // Timer for dynamic resize/move handling
     timer := Timer {
@@ -62,27 +69,65 @@ export component AppWindow inherits Window {
             HorizontalLayout {
                 padding: 5px;
                 TouchArea {
-                    Text { text: "File"; color: white; }
+                    MenuIcon {
+                        colorize: #fff;
+                        size: _icon_size;
+                    }
+                    //Text { text: "Menu"; color: white; }
                     clicked => { root.request_open_file(); }
                 }
 
                 TouchArea {
-                    Text { text: "Reset View"; color: white; }
+                    MaximizeIcon {
+                        colorize: #fff;
+                        size: _icon_size;
+                    }
+                    //Text { text: "Full Screen"; color: white; }
+                    clicked => {  }
+                }
+
+                TouchArea {
+                    ArrowUpFromLineIcon {
+                        colorize: #fff;
+                        size: _icon_size;
+                    }
+                    //Text { text: "Always on top"; color: white; }
+                    clicked => {  }
+                }
+
+                TouchArea {
+                    FolderIcon {
+                        colorize: #fff;
+                        size: _icon_size;
+                    }
+                    //Text { text: "File"; color: white; }
+                    clicked => { root.request_open_file(); }
+                }
+
+                TouchArea {
+                    MoveIcon {
+                        colorize: #fff;
+                        size: _icon_size;
+                    }
+                    //Text { text: "Reset View"; color: white; }
                     clicked => { root.reset_view(); }
                 }
                 
                 TouchArea {
                     SettingsIcon {
                         colorize: #fff;
-                        size: 24px;
-                        //opacity: 0.7;
+                        size: _icon_size;
                     }
                     //Text { text: "menu"; color: white; }
                     clicked => { root.show_settings_window(); }
                 }
                 
                 TouchArea {
-                    Text { text: "Exit"; color: white; }
+                    LogOutIcon {
+                        colorize: #fff;
+                        size: _icon_size;
+                    }
+                    //Text { text: "Exit"; color: white; }
                     clicked => { root.exit(); }
                 }
             }
