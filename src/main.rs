@@ -63,8 +63,17 @@ fn main() -> Result<(), slint::PlatformError> {
     main_window.on_reset_view(move || {
         let ui = main_window_handle_reset.unwrap();
         // Just set the auto_fit property, Slint will handle the rest.
-        ui.set_auto_fit(true); 
+        ui.set_auto_fit(true);
         ui.set_status_text("View reset.".into());
+    });
+
+    let main_window_handle_1_1 = main_window.as_weak();
+    main_window.on_view_one_to_one(move || {
+        let ui = main_window_handle_1_1.unwrap();
+        ui.set_auto_fit(false);
+        //ui.set_image_scale(1.0);
+        // The centering logic is now handled reactively in .slint
+        ui.set_status_text("View 1:1".into());
     });
 
     let settings_window_handle = settings_window.as_weak();
@@ -125,7 +134,6 @@ fn main() -> Result<(), slint::PlatformError> {
             volatile.window_size = current_size.into();
             let _ = volatile.save_blocking();
             app_state.last_window_size = current_size;
-            ui.set_status_text("Window resized!".into()); // For debugging
             // Trigger auto-fit when window size changes
             ui.set_auto_fit(auto_fit);
         }

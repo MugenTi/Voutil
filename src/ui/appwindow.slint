@@ -1,12 +1,13 @@
 import { SettingsWindow } from "./settings_window.slint";
 import { MenuIcon, MaximizeIcon, ArrowUpFromLineIcon, 
-         FolderIcon, MoveIcon, SettingsIcon, LogOutIcon,
+         FolderIcon, MoveIcon, SquareEqualIcon, SettingsIcon, LogOutIcon,
+//         IconSettings
 } from "@lucide";
 
 export component AppWindow inherits Window {
-    // init => {
+    init => {
     //     IconSettings.default-size = 24px;
-    // }
+    }
     title: "Oculante Slint";
     min-width: 640px;
     min-height: 360px;
@@ -29,6 +30,8 @@ export component AppWindow inherits Window {
     private property <length> _last_mouse_pos_x: 0px;
     private property <length> _last_mouse_pos_y: 0px;
 
+    // --- Icon properties ---
+    private property <brush> _icon_color: #fff;
     private property <length> _icon_size: 24px;
 
     // Timer for dynamic resize/move handling
@@ -61,6 +64,24 @@ export component AppWindow inherits Window {
         }
     }
 
+    function apply_view_one_to_one_properties() {
+        let old_scale = root.image_scale;
+        let container_w = image_container.width;
+        let container_h = image_container.height;
+
+        // Old offset of the image center relative to the container
+        let old_center_x = image_x + root.image_display.width * old_scale * 1px / 2;
+        let old_center_y = image_y + root.image_display.height * old_scale * 1px / 2;
+
+        // Calculate the new position to keep the center of the image in the center of the container
+        let new_image_w = root.image_display.width;
+        let new_image_h = root.image_display.height;
+
+        root.image_scale = 1.0;
+        root.image_x = (container_w - new_image_w * 1px) / 2;
+        root.image_y = (container_h - new_image_h * 1px) / 2;
+    }
+
     VerticalLayout {
         spacing: 0;
         menu_bar := Rectangle {
@@ -70,7 +91,7 @@ export component AppWindow inherits Window {
                 padding: 5px;
                 TouchArea {
                     MenuIcon {
-                        colorize: #fff;
+                        colorize: _icon_color;
                         size: _icon_size;
                     }
                     //Text { text: "Menu"; color: white; }
@@ -79,7 +100,7 @@ export component AppWindow inherits Window {
 
                 TouchArea {
                     MaximizeIcon {
-                        colorize: #fff;
+                        colorize: _icon_color;
                         size: _icon_size;
                     }
                     //Text { text: "Full Screen"; color: white; }
@@ -88,7 +109,7 @@ export component AppWindow inherits Window {
 
                 TouchArea {
                     ArrowUpFromLineIcon {
-                        colorize: #fff;
+                        colorize: _icon_color;
                         size: _icon_size;
                     }
                     //Text { text: "Always on top"; color: white; }
@@ -97,7 +118,7 @@ export component AppWindow inherits Window {
 
                 TouchArea {
                     FolderIcon {
-                        colorize: #fff;
+                        colorize: _icon_color;
                         size: _icon_size;
                     }
                     //Text { text: "File"; color: white; }
@@ -106,16 +127,26 @@ export component AppWindow inherits Window {
 
                 TouchArea {
                     MoveIcon {
-                        colorize: #fff;
+                        colorize: _icon_color;
                         size: _icon_size;
                     }
                     //Text { text: "Reset View"; color: white; }
                     clicked => { root.reset_view(); }
                 }
-                
+                TouchArea {
+                    SquareEqualIcon {
+                        colorize: _icon_color;
+                        size: _icon_size;
+                    } 
+                    //Text { text: "1:1"; color: white; }
+                    clicked => { 
+                        apply_view_one_to_one_properties();
+                        root.view_one_to_one();
+                    } 
+                }
                 TouchArea {
                     SettingsIcon {
-                        colorize: #fff;
+                        colorize: _icon_color;
                         size: _icon_size;
                     }
                     //Text { text: "menu"; color: white; }
@@ -124,7 +155,7 @@ export component AppWindow inherits Window {
                 
                 TouchArea {
                     LogOutIcon {
-                        colorize: #fff;
+                        colorize: _icon_color;
                         size: _icon_size;
                     }
                     //Text { text: "Exit"; color: white; }
@@ -133,15 +164,22 @@ export component AppWindow inherits Window {
             }
         }
         image_container := Rectangle {
-            background: #333333;
+            background: #333;
             clip: true;
             
             img_element := Image {
                 source: root.image_display;
-                x: root.auto_fit ? 0px : root.image_x;
-                y: root.auto_fit ? 0px : root.image_y;
-                width: root.auto_fit ? parent.width : (root.image_display.width * root.image_scale * 1px);
-                height: root.auto_fit ? parent.height : (root.image_display.height * root.image_scale * 1px);
+                x: root.auto_fit ? ((parent.width - self.width) / 2) : root.image_x;
+                y: root.auto_fit ? ((parent.height - self.height) / 2) : root.image_y;
+                width: root.auto_fit ? (min(parent.width, root.image_display.width * 1px)) : (root.image_display.width * root.image_scale * 1px);
+                height: root.auto_fit ? (min(parent.height, root.image_display.height * 1px)) : (root.image_display.height * root.image_scale * 1px);
+
+                // keep this code
+                // x: root.auto_fit ? 0px : root.image_x;
+                // y: root.auto_fit ? 0px : root.image_y;
+                // width: root.auto_fit ? parent.width : (root.image_display.width * root.image_scale * 1px);
+                // height: root.auto_fit ? parent.height : (root.image_display.height * root.image_scale * 1px);
+
                 image-fit: root.auto_fit ? contain : fill;
             }
 
@@ -195,4 +233,5 @@ export component AppWindow inherits Window {
     callback show_settings_window();
     callback tick(bool);
     callback zoom_image(float, length, length);
+    callback view_one_to_one();
 }
