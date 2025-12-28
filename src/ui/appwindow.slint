@@ -1,6 +1,7 @@
 import { SettingsWindow } from "./settings_window.slint";
 import { MenuIcon, MaximizeIcon, ArrowUpFromLineIcon, 
          FolderIcon, MoveIcon, SquareEqualIcon, SettingsIcon, LogOutIcon,
+         CopyIcon, ClipboardPasteIcon,
 //         IconSettings
 } from "@lucide";
 
@@ -145,6 +146,20 @@ export component AppWindow inherits Window {
                     } 
                 }
                 TouchArea {
+                    CopyIcon {
+                        colorize: _icon_color;
+                        size: _icon_size;
+                    }
+                    clicked => { root.copy_to_clipboard(); }
+                }
+                TouchArea {
+                    ClipboardPasteIcon {
+                        colorize: _icon_color;
+                        size: _icon_size;
+                    }
+                    clicked => { root.paste_from_clipboard(); }
+                }
+                TouchArea {
                     SettingsIcon {
                         colorize: _icon_color;
                         size: _icon_size;
@@ -234,4 +249,6 @@ export component AppWindow inherits Window {
     callback tick(bool);
     callback zoom_image(float, length, length);
     callback view_one_to_one();
+    callback copy_to_clipboard();
+    callback paste_from_clipboard();
 }

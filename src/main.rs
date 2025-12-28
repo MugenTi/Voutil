@@ -1,9 +1,11 @@
-use slint::{Image, SharedPixelBuffer, ComponentHandle, Weak, PhysicalPosition, PhysicalSize};
+use slint::{Image, SharedPixelBuffer, ComponentHandle, Weak, PhysicalPosition, PhysicalSize, Rgba8Pixel};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use rfd::FileDialog;
 use oculante::settings::{PersistentSettings, VolatileSettings};
+use arboard::{Clipboard, ImageData};
+use std::borrow::Cow;
 
 slint::include_modules!();
 
@@ -63,7 +65,7 @@ fn main() -> Result<(), slint::PlatformError> {
     main_window.on_reset_view(move || {
         let ui = main_window_handle_reset.unwrap();
         // Just set the auto_fit property, Slint will handle the rest.
-        ui.set_auto_fit(true);
+        ui.set_auto_fit(true); 
         ui.set_status_text("View reset.".into());
     });
 
@@ -80,6 +82,44 @@ fn main() -> Result<(), slint::PlatformError> {
     main_window.on_show_settings_window(move || {
         if let Some(settings_ui) = settings_window_handle.upgrade() {
             settings_ui.show();
+        }
+    });
+
+    let main_window_handle_c_c = main_window.as_weak();
+    main_window.on_copy_to_clipboard(move || {
+        let ui = main_window_handle_c_c.unwrap();
+        let slint_image = ui.get_image_display();
+
+        if let Some(pixel_buffer) = slint_image.to_rgba8(){
+            let image_data = ImageData {
+                width: pixel_buffer.width() as usize,
+                height: pixel_buffer.height() as usize,
+                bytes: Cow::Owned(pixel_buffer.as_bytes().to_vec()),
+            };
+            let mut clipboard = Clipboard::new().unwrap();
+            if clipboard.set_image(image_data).is_ok() {
+                ui.set_status_text("Image (RGBA) copied to clipboard.".into());
+            } else {
+                ui.set_status_text("Failed to copy image to clipboard.".into());
+            }
+        }
+    });
+
+    let main_window_handle_p_c = main_window.as_weak();
+    main_window.on_paste_from_clipboard(move || {
+        let ui = main_window_handle_p_c.unwrap();
+        let mut clipboard = Clipboard::new().unwrap();
+        if let Ok(clipboard_image) = clipboard.get_image() {
+            let pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+                &clipboard_image.bytes,
+                clipboard_image.width as u32,
+                clipboard_image.height as u32,
+            );
+            let slint_image = Image::from_rgba8(pixel_buffer);
+            ui.set_image_display(slint_image);
+            ui.set_status_text("Image pasted from clipboard.".into());
+        } else {
+            ui.set_status_text("No image found on clipboard.".into());
         }
     });
 
