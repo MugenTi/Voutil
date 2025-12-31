@@ -56,7 +56,7 @@ export component AppWindow inherits Window {
             let scale: float = root.image_scale;
             root.image_w = image_w * scale;
             root.image_h = image_h * scale;
-       }
+        }
     }
 
     function apply_auto_fit_properties() {
@@ -226,6 +226,7 @@ export component AppWindow inherits Window {
                         if (root.auto_fit) {
                             root.auto_fit = false; // Switch to manual mode on drag
                             apply_auto_fit_properties();
+                            scale_changed(root.image_scale);
                         }
                         _is_dragging = true;
                         _last_mouse_pos_x = ta.mouse-x / 1px;
@@ -245,6 +246,7 @@ export component AppWindow inherits Window {
                     if (root.auto_fit) {
                         root.auto_fit = false; // Switch to manual mode on zoom
                         apply_auto_fit_properties();
+                        scale_changed(root.image_scale);
                     }
                     root.zoom_image(event.delta-y / 1px, ta.mouse-x / 1px, ta.mouse-y / 1px);
                     return accept;
@@ -283,4 +285,5 @@ export component AppWindow inherits Window {
     callback view_one_to_one();
     callback copy_to_clipboard();
     callback paste_from_clipboard();
+    callback scale_changed(float);
 }

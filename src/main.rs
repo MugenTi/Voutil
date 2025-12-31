@@ -57,7 +57,6 @@ fn main() -> Result<(), slint::PlatformError> {
             let path_str = path.to_string_lossy().to_string();
             if let Some(new_slint_image) = load_image_to_slint(path) {
                 ui.set_auto_fit(true);
-                // The 'image_display-changed' callback in .slint will now handle the reset.
                 ui.set_image_display(new_slint_image);
                 update_info_text(&ui);
                 ui.set_status_text(format!("Loaded: {}", path_str).into());
@@ -76,18 +75,18 @@ fn main() -> Result<(), slint::PlatformError> {
     let main_window_handle_reset = main_window.as_weak();
     main_window.on_reset_view(move || {
         let ui = main_window_handle_reset.unwrap();
-        // Just set the auto_fit property, Slint will handle the rest.
-        ui.set_auto_fit(true);
+        ui.set_auto_fit(true); 
         update_info_text(&ui);
         ui.set_status_text("View reset.".into());
     });
 
+    let v_settings = volatile_settings.clone();
     let main_window_handle_1_1 = main_window.as_weak();
     main_window.on_view_one_to_one(move || {
         let ui = main_window_handle_1_1.unwrap();
+        v_settings.borrow_mut().image_scale = 1.0;
         ui.set_auto_fit(false);
-        //ui.set_image_scale(1.0);
-        // The centering logic is now handled reactively in .slint
+        ui.set_image_scale(1.0);
         update_info_text(&ui);
         ui.set_status_text("View 1:1".into());
     });
@@ -139,35 +138,44 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
+    let v_settings = volatile_settings.clone();
     let main_window_handle_zoom = main_window.as_weak();
     main_window.on_zoom_image(move |delta_y: f32, mouse_x: f32, mouse_y: f32| {
         let ui = main_window_handle_zoom.unwrap();
-        let zoom_amount: f32 = 0.1;
-        let old_scale: f32 = ui.get_image_scale() as f32;
+        let mut volatile = v_settings.borrow_mut();
+        let zoom_amount: f64 = 0.1;
+        let old_scale: f64 = volatile.image_scale;
         
-        let new_scale: f32 = if delta_y < 0.0 {
+        let new_scale: f64 = if delta_y < 0.0 {
             old_scale * (1.0 + zoom_amount)
-            //old_scale + zoom_amount
         } else {
-            old_scale * (1.0 - zoom_amount)
-            //old_scale - zoom_amount
+            old_scale / (1.0 + zoom_amount)
         };
-        let new_scale: f32 = new_scale.max(0.1).min(10.0);
+        let new_scale = new_scale.max(0.1).min(10.0);
         
-        let old_image_x: f32 = ui.get_image_x() as f32;
-        let old_image_y: f32 = ui.get_image_y() as f32;
+        let old_image_x: f64 = ui.get_image_x() as f64;
+        let old_image_y: f64 = ui.get_image_y() as f64;
 
-        let mouse_img_x: f32 = (mouse_x - old_image_x) / old_scale;
-        let mouse_img_y: f32 = (mouse_y - old_image_y) / old_scale;
+        let mouse_img_x: f64 = (mouse_x as f64 - old_image_x) / old_scale;
+        let mouse_img_y: f64 = (mouse_y as f64 - old_image_y) / old_scale;
 
-        let new_image_x: f32 = mouse_x - mouse_img_x * new_scale;
-        let new_image_y: f32 = mouse_y - mouse_img_y * new_scale;
+        let new_image_x: f64 = mouse_x as f64 - mouse_img_x * new_scale;
+        let new_image_y: f64 = mouse_y as f64 - mouse_img_y * new_scale;
 
-        ui.set_image_scale(new_scale);
+        volatile.image_scale = new_scale;
+        ui.set_image_scale(new_scale as f32);
         ui.set_image_x(new_image_x as i32);
         ui.set_image_y(new_image_y as i32);
         
         update_info_text(&ui);
+    });
+
+    let v_settings = volatile_settings.clone();
+    let main_window_handle_scale_changed = main_window.as_weak();
+    main_window.on_scale_changed(move |new_scale: f32| {
+        let ui = main_window_handle_scale_changed.unwrap();
+        let mut volatile = v_settings.borrow_mut();
+        volatile.image_scale = new_scale as f64;
     });
 
     // --- Tick handler for dynamic resize/move ---

@@ -140,6 +140,7 @@ pub struct VolatileSettings {
     pub window_size: PhysicalSize,
     pub last_open_directory: PathBuf,
     pub folder_bookmarks: BTreeSet<PathBuf>,
+    pub image_scale: f64,
     // pub encoding_options: Vec<FileEncoder>,
 }
 
@@ -153,6 +154,7 @@ impl Default for VolatileSettings {
             window_size: Default::default(),
             last_open_directory: Default::default(),
             folder_bookmarks: Default::default(),
+            image_scale: 1.0,
             // encoding_options: [
             //     // ("jpg".to_string(), FileEncoder::Jpg { quality: 75 }),
             //     // ("png".to_string(), FileEncoder::WebP),
