@@ -15,6 +15,16 @@ struct AppState {
     last_window_position: PhysicalPosition,
 }
 
+fn update_info_text(ui: &AppWindow) {
+    if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
+        ui.invoke_update_image_info();
+        let width = ui.get_image_w();
+        let height = ui.get_image_h();
+        let scale = ui.get_image_scale();
+        ui.set_info_text(format!("{:>0.1}% | {} x {} | {} x {}", scale * 100.0, width, height, pixel_buffer.width(), pixel_buffer.height()).into());
+    }
+}
+
 fn main() -> Result<(), slint::PlatformError> {
     let persistent_settings = Rc::new(RefCell::new(PersistentSettings::load().unwrap_or_default()));
     let volatile_settings = Rc::new(RefCell::new(VolatileSettings::load().unwrap_or_default()));
@@ -46,8 +56,10 @@ fn main() -> Result<(), slint::PlatformError> {
         if let Some(path) = rfd::FileDialog::new().pick_file() {
             let path_str = path.to_string_lossy().to_string();
             if let Some(new_slint_image) = load_image_to_slint(path) {
+                ui.set_auto_fit(true);
                 // The 'image_display-changed' callback in .slint will now handle the reset.
                 ui.set_image_display(new_slint_image);
+                update_info_text(&ui);
                 ui.set_status_text(format!("Loaded: {}", path_str).into());
             } else {
                 ui.set_status_text("Failed to load image.".into());
@@ -65,7 +77,8 @@ fn main() -> Result<(), slint::PlatformError> {
     main_window.on_reset_view(move || {
         let ui = main_window_handle_reset.unwrap();
         // Just set the auto_fit property, Slint will handle the rest.
-        ui.set_auto_fit(true); 
+        ui.set_auto_fit(true);
+        update_info_text(&ui);
         ui.set_status_text("View reset.".into());
     });
 
@@ -75,6 +88,7 @@ fn main() -> Result<(), slint::PlatformError> {
         ui.set_auto_fit(false);
         //ui.set_image_scale(1.0);
         // The centering logic is now handled reactively in .slint
+        update_info_text(&ui);
         ui.set_status_text("View 1:1".into());
     });
 
@@ -115,8 +129,10 @@ fn main() -> Result<(), slint::PlatformError> {
                 clipboard_image.width as u32,
                 clipboard_image.height as u32,
             );
+            ui.set_auto_fit(true);
             let slint_image = Image::from_rgba8(pixel_buffer);
             ui.set_image_display(slint_image);
+            update_info_text(&ui);
             ui.set_status_text("Image pasted from clipboard.".into());
         } else {
             ui.set_status_text("No image found on clipboard.".into());
@@ -124,32 +140,34 @@ fn main() -> Result<(), slint::PlatformError> {
     });
 
     let main_window_handle_zoom = main_window.as_weak();
-    main_window.on_zoom_image(move |delta_y, mouse_x, mouse_y| {
+    main_window.on_zoom_image(move |delta_y: f32, mouse_x: f32, mouse_y: f32| {
         let ui = main_window_handle_zoom.unwrap();
-        let zoom_amount = 0.1;
-        let old_scale = ui.get_image_scale();
+        let zoom_amount: f32 = 0.1;
+        let old_scale: f32 = ui.get_image_scale() as f32;
         
-        let new_scale = if delta_y < 0.0 {
+        let new_scale: f32 = if delta_y < 0.0 {
             old_scale * (1.0 + zoom_amount)
+            //old_scale + zoom_amount
         } else {
             old_scale * (1.0 - zoom_amount)
+            //old_scale - zoom_amount
         };
-        let new_scale = new_scale.max(0.1).min(10.0);
+        let new_scale: f32 = new_scale.max(0.1).min(10.0);
         
-        let old_image_x = ui.get_image_x();
-        let old_image_y = ui.get_image_y();
+        let old_image_x: f32 = ui.get_image_x() as f32;
+        let old_image_y: f32 = ui.get_image_y() as f32;
 
-        let mouse_img_x = (mouse_x - old_image_x) / old_scale;
-        let mouse_img_y = (mouse_y - old_image_y) / old_scale;
+        let mouse_img_x: f32 = (mouse_x - old_image_x) / old_scale;
+        let mouse_img_y: f32 = (mouse_y - old_image_y) / old_scale;
 
-        let new_image_x = mouse_x - mouse_img_x * new_scale;
-        let new_image_y = mouse_y - mouse_img_y * new_scale;
+        let new_image_x: f32 = mouse_x - mouse_img_x * new_scale;
+        let new_image_y: f32 = mouse_y - mouse_img_y * new_scale;
 
         ui.set_image_scale(new_scale);
-        ui.set_image_x(new_image_x);
-        ui.set_image_y(new_image_y);
+        ui.set_image_x(new_image_x as i32);
+        ui.set_image_y(new_image_y as i32);
         
-        ui.set_status_text(format!("Zoom: {:.0}%", new_scale * 100.0).into());
+        update_info_text(&ui);
     });
 
     // --- Tick handler for dynamic resize/move ---
@@ -177,6 +195,7 @@ fn main() -> Result<(), slint::PlatformError> {
             // Trigger auto-fit when window size changes
             ui.set_auto_fit(auto_fit);
         }
+        update_info_text(&ui);
     });
 
     // --- Settings window callbacks ---
@@ -199,10 +218,10 @@ fn main() -> Result<(), slint::PlatformError> {
 
 fn load_image_to_slint(path: PathBuf) -> Option<Image> {
     image::open(&path).ok().map(|img| {
-        let img_data = img.to_rgb8();
+        let img_data = img.to_rgba8();
         let image_width = img_data.width();
         let image_height = img_data.height();
-        Image::from_rgb8(
+        Image::from_rgba8(
             SharedPixelBuffer::clone_from_slice(
                 img_data.as_raw(),
                 image_width,
