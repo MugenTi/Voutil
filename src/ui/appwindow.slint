@@ -1,7 +1,9 @@
 import { SettingsWindow } from "./settings_window.slint";
+import { ResizeWindow } from "./resize_window.slint";
+
 import { MenuIcon, MaximizeIcon, ArrowUpFromLineIcon, 
          FolderIcon, MoveIcon, SquareEqualIcon, SettingsIcon, LogOutIcon,
-         CopyIcon, ClipboardPasteIcon,
+         CopyIcon, ClipboardPasteIcon, ScalingIcon,
 //         IconSettings
 } from "@lucide";
 
@@ -37,6 +39,30 @@ export component AppWindow inherits Window {
     // --- Icon properties ---
     private property <brush> _icon_color: #fff;
     private property <length> _icon_size: 24px;
+
+    // --- Resize Dialog properties ---
+    in-out property <bool> show_resize_dialog: false;
+    in-out property <int> resize_dialog_original_w;
+    in-out property <int> resize_dialog_original_h;
+    in-out property <int> resize_dialog_new_w;
+    in-out property <int> resize_dialog_new_h;
+    in-out property <string> resize_dialog_unit;
+    in-out property <bool> resize_dialog_lock_aspect;
+    in-out property <string> resize_dialog_interpolation;
+
+    // --- Callback functions ---
+    callback request_open_file();
+    callback exit();
+    callback reset_view();
+    callback show_settings_window();
+    callback tick(bool);
+    callback zoom_image(float, float, float);
+    callback view_one_to_one();
+    callback copy_to_clipboard();
+    callback paste_from_clipboard();
+    callback scale_changed(float);
+    callback show_resize_window();
+    callback resize_confirmed();
 
     // Timer for dynamic resize/move handling
     timer := Timer {
@@ -168,6 +194,16 @@ export component AppWindow inherits Window {
                     } 
                 }
                 TouchArea {
+                    ScalingIcon {
+                        colorize: _icon_color;
+                        size: _icon_size;
+                    }
+                    clicked => {
+                        root.show_resize_window();
+                        root.show_resize_dialog = true;
+                    }
+                }
+                TouchArea {
                     CopyIcon {
                         colorize: _icon_color;
                         size: _icon_size;
@@ -276,14 +312,22 @@ export component AppWindow inherits Window {
             }
         }
     }
-    callback request_open_file();
-    callback exit();
-    callback reset_view();
-    callback show_settings_window();
-    callback tick(bool);
-    callback zoom_image(float, float, float);
-    callback view_one_to_one();
-    callback copy_to_clipboard();
-    callback paste_from_clipboard();
-    callback scale_changed(float);
+
+    if root.show_resize_dialog : ResizeWindow {
+        original_w: root.resize_dialog_original_w;
+        original_h: root.resize_dialog_original_h;
+        new_w <=> root.resize_dialog_new_w;
+        new_h <=> root.resize_dialog_new_h;
+        unit <=> root.resize_dialog_unit;
+        lock_aspect <=> root.resize_dialog_lock_aspect;
+        interpolation <=> root.resize_dialog_interpolation;
+
+        ok_clicked_resize => {
+            root.resize_confirmed();
+            root.show_resize_dialog = false;
+        }
+        cancel_clicked_resize => {
+            root.show_resize_dialog = false;
+        }
+    }
 }

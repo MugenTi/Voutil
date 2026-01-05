@@ -1,0 +1,157 @@
+import { LineEdit, CheckBox, ComboBox, Button } from "std-widgets.slint";
+
+export component ResizeWindow inherits Window {
+    init => {
+        root.unit = "Pixels";
+        root.interpolation = "CatmullRom";
+        root.lock_aspect = true;
+        root.edit_type = InputType.number;
+        root.var_w = root.new_w;
+        root.var_h = root.new_h;
+        root.pct_w = root.new_w / root.original_w * 100;
+        root.pct_h = root.new_h / root.original_h * 100;
+    }
+    title: "Resize image";
+    min-width: 300px;
+    min-height: 400px;
+    preferred-width: 300px;
+    preferred-height: 400px;
+    default-font-size: 13px;
+
+    in-out property <int> original_w;
+    in-out property <int> original_h;
+    in-out property <int> new_w;
+    in-out property <int> new_h;
+
+    property <float> var_w;
+    property <float> var_h;
+    property <float> pct_w;
+    property <float> pct_h;
+    property <InputType> edit_type: InputType.number;
+
+    in-out property <string> unit: "Pixels";
+    in-out property <bool> lock_aspect: true;
+    in-out property <string> interpolation: "CatmullRom";
+    
+    callback ok_clicked_resize();
+    callback cancel_clicked_resize();
+
+    function update_property() {
+        if (root.unit == "Percent") {
+            root.new_w = root.original_w * root.var_w / 100;
+            root.new_h = root.original_h * root.var_h / 100;
+        } else {
+            root.new_w = root.var_w;
+            root.new_h = root.var_h;
+        }
+    }
+
+    VerticalLayout {
+        padding: 10px;
+        spacing: 5px;
+        
+        // Row 0: Original and New size display
+        Text { text: "Original size:"; }
+        Text { text: @tr("{} x {}", root.original_w, root.original_h); }
+        Text { text: "New size:"; }
+        Text { text: @tr("{} x {}", root.new_w, root.new_h); }
+
+        // Row 1: Unit selection
+        Text { text: "Unit:"; }
+        unit_combo := ComboBox {
+            model: ["Pixels", "Percent"];
+            current-value: root.unit;
+            selected(value) => {
+                if (value == "Percent" && root.unit == "Pixels") {
+                    root.new_w = root.var_w;
+                    root.new_h = root.var_h;
+                    root.pct_w = root.var_w / root.original_w * 100;
+                    root.pct_h = root.var_h / root.original_h * 100;
+                    root.var_w = root.pct_w;
+                    root.var_h = root.pct_h;
+                    root.edit_type = InputType.decimal;
+                } else if (value == "Pixels" && root.unit == "Percent") {
+                    root.pct_w = root.var_w;
+                    root.pct_h = root.var_h;
+                    root.new_w = root.original_w * root.var_w / 100;
+                    root.new_h = root.original_h * root.var_h / 100;
+                    root.var_w = root.new_w;
+                    root.var_h = root.new_h;
+                    root.edit_type = InputType.number;
+                }
+                root.unit = value;
+                width_edit.text = root.var_w;
+                height_edit.text = root.var_h;
+            }
+        }
+        
+        // Row 2: Width
+        Text { text: "Width:"; }
+        width_edit := LineEdit {
+            text: root.var_w;
+            input-type: root.edit_type;
+            edited(txt) => {
+                root.var_w = txt.to-float();
+                if (root.lock_aspect) {
+                    if (root.unit == "Percent") {
+                        root.var_h = root.var_w;
+                    } else {
+                        root.var_h = root.var_w * root.original_h / root.original_w;
+                    }
+                    height_edit.text = root.var_h;
+                }
+                update_property();
+            }
+        }
+        
+        // Row 3: Height
+        Text { text: "Height:"; }
+        height_edit := LineEdit {
+            text: root.var_h;
+            input-type: root.edit_type;
+            edited(txt) => {
+                root.var_h = txt.to-float();
+                if (root.lock_aspect) {
+                    if (root.unit == "Percent") {
+                        root.var_w = root.var_h;
+                    } else {
+                        root.var_w = root.var_h * root.original_w / root.original_h;
+                    }
+                    width_edit.text = root.var_w;
+                }
+                update_property();
+            }
+        }
+        
+        // Row 4: Lock aspect ratio
+        Rectangle {} // Spacer
+        lock_check := CheckBox {
+            text: "Lock aspect ratio";
+            checked <=> root.lock_aspect;
+        }
+
+        // Row 5: Interpolation
+        Text { text: "Interpolation:"; }
+        interpolation_combo := ComboBox {
+            model: ["Nearest", "Triangle", "CatmullRom", "Gaussian", "Lanczos3"];
+            current-value: root.interpolation;
+            selected(value) => {
+                root.interpolation = value;
+            }
+        }
+
+        // Row 6: Buttons
+        Rectangle {} // Spacer
+        HorizontalLayout {
+            spacing: 5px;
+            Button {
+                text: "OK";
+                clicked => { root.ok_clicked_resize(); }
+            }
+            Button { 
+                text: "Cancel";
+                clicked => { root.cancel_clicked_resize(); }
+            }
+        }
+    }
+}

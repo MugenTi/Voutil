@@ -6,6 +6,7 @@ use rfd::FileDialog;
 use oculante::settings::{PersistentSettings, VolatileSettings};
 use arboard::{Clipboard, ImageData};
 use std::borrow::Cow;
+use image::{imageops::FilterType, ImageBuffer};
 
 slint::include_modules!();
 
@@ -97,7 +98,63 @@ fn main() -> Result<(), slint::PlatformError> {
             settings_ui.show();
         }
     });
+    
+    let main_window_handle_resize = main_window.as_weak();
+    main_window.on_show_resize_window(move || {
+        let ui = main_window_handle_resize.unwrap();
+        if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
+            ui.set_resize_dialog_original_w(pixel_buffer.width() as i32);
+            ui.set_resize_dialog_original_h(pixel_buffer.height() as i32);
+            ui.set_resize_dialog_new_w(pixel_buffer.width() as i32);
+            ui.set_resize_dialog_new_h(pixel_buffer.height() as i32);
+            ui.set_resize_dialog_lock_aspect(true);
+        }
+    });
 
+    let main_window_handle_resize_confirmed = main_window.as_weak();
+    main_window.on_resize_confirmed(move || {
+        println!("[DEBUG] resize_confirmed callback triggered.");
+        let ui = main_window_handle_resize_confirmed.unwrap();
+        if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
+            
+            let new_w = ui.get_resize_dialog_new_w() as u32;
+            let new_h = ui.get_resize_dialog_new_h() as u32;
+                
+            let interpolation = ui.get_resize_dialog_interpolation();
+            let interp = if interpolation == "Nearest" {
+                FilterType::Nearest
+                } else if interpolation == "Triangle" {
+                FilterType::Triangle
+                } else if interpolation == "CatmullRom" {
+                FilterType::CatmullRom
+                } else if interpolation == "Gaussian" {
+                FilterType::Gaussian
+            } else {
+                FilterType::Lanczos3
+            };
+            println!("[DEBUG] Resizing to: {}x{}", new_w, new_h);
+            println!("[DEBUG] Interpolation: {:?}", interp);
+            println!("[DEBUG] Original size: {}x{}", pixel_buffer.width(), pixel_buffer.height());
+
+            let img_buffer: ImageBuffer<image::Rgba<u8>, _> = ImageBuffer::from_raw(
+                pixel_buffer.width(),
+                pixel_buffer.height(),
+                pixel_buffer.as_bytes().to_vec(),
+            ).unwrap();
+
+            let resized = image::imageops::resize(&img_buffer, new_w, new_h, interp);
+            let new_pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(resized.as_raw(), new_w, new_h);
+            let new_image = Image::from_rgba8(new_pixel_buffer);
+            println!("[DEBUG] Resized image created. Setting display."); 
+            
+            ui.set_image_display(new_image);
+            update_info_text(&ui);
+            ui.set_status_text("Image resized.".into());
+        } else {
+            println!("[DEBUG] Could not get pixel_buffer in resize_confirmed."); 
+        }
+    });
+ 
     let main_window_handle_c_c = main_window.as_weak();
     main_window.on_copy_to_clipboard(move || {
         let ui = main_window_handle_c_c.unwrap();
@@ -171,9 +228,9 @@ fn main() -> Result<(), slint::PlatformError> {
     });
 
     let v_settings = volatile_settings.clone();
-    let main_window_handle_scale_changed = main_window.as_weak();
+    // let main_window_handle_scale_changed = main_window.as_weak();
     main_window.on_scale_changed(move |new_scale: f32| {
-        let ui = main_window_handle_scale_changed.unwrap();
+        // let ui = main_window_handle_scale_changed.unwrap();
         let mut volatile = v_settings.borrow_mut();
         volatile.image_scale = new_scale as f64;
     });
