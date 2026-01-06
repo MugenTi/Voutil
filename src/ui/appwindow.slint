@@ -199,8 +199,12 @@ export component AppWindow inherits Window {
                         size: _icon_size;
                     }
                     clicked => {
-                        root.show_resize_window();
-                        root.show_resize_dialog = true;
+                        if root.show_resize_dialog == false {
+                            root.show_resize_window();
+                            root.show_resize_dialog = true;
+                        } else {
+                            root.show_resize_dialog = false;
+                        }
                     }
                 }
                 TouchArea {
@@ -321,6 +325,9 @@ export component AppWindow inherits Window {
         unit <=> root.resize_dialog_unit;
         lock_aspect <=> root.resize_dialog_lock_aspect;
         interpolation <=> root.resize_dialog_interpolation;
+
+        parent_w: root.width;
+        parent_h: root.height;
 
         ok_clicked_resize => {
             root.resize_confirmed();

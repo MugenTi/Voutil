@@ -60,6 +60,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.set_auto_fit(true);
                 ui.set_image_display(new_slint_image);
                 update_info_text(&ui);
+                ui.set_show_resize_dialog(false);
                 ui.set_status_text(format!("Loaded: {}", path_str).into());
             } else {
                 ui.set_status_text("Failed to load image.".into());
