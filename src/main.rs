@@ -7,6 +7,7 @@ use oculante::settings::{PersistentSettings, VolatileSettings};
 use arboard::{Clipboard, ImageData};
 use std::borrow::Cow;
 use image::{imageops::FilterType, ImageBuffer};
+use std::env;
 
 slint::include_modules!();
 
@@ -49,6 +50,18 @@ fn main() -> Result<(), slint::PlatformError> {
     main_window.set_status_text("Ready. Open a file to begin.".into());
     settings_window.set_vsync_enabled(persistent_settings.borrow().vsync);
     settings_window.set_show_checker_background(persistent_settings.borrow().show_checker_background);
+    
+    // Handle command line arguments
+    if let Some(path_str) = env::args().nth(1) {
+        let path = PathBuf::from(path_str);
+        if let Some(new_slint_image) = load_image_to_slint(path.clone()) {
+            main_window.set_auto_fit(true);
+            main_window.set_image_display(new_slint_image);
+            update_info_text(&main_window);
+            main_window.set_status_text(format!("Loaded: {}", path.to_string_lossy()).into());
+        }
+    }
+
 
     // --- Main window callbacks ---
     let main_window_handle = main_window.as_weak();
