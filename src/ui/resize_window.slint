@@ -34,7 +34,7 @@ export component ResizeWindow inherits Window {
     in-out property <string> unit: "Pixels";
     in-out property <bool> lock_aspect: true;
     in-out property <string> interpolation: "CatmullRom";
-    
+
     callback ok_clicked_resize();
     callback cancel_clicked_resize();
 
@@ -59,7 +59,7 @@ export component ResizeWindow inherits Window {
         VerticalLayout {
             padding: 10px;
             spacing: 5px;
-            
+
             // Row 0: Original and New size display
             Text { text: "Original size:"; }
             Text { text: @tr("{} x {}", root.original_w, root.original_h); }
@@ -94,7 +94,7 @@ export component ResizeWindow inherits Window {
                     height_edit.text = root.var_h;
                 }
             }
-            
+
             // Row 2: Width
             Text { text: "Width:"; }
             width_edit := LineEdit {
@@ -113,7 +113,7 @@ export component ResizeWindow inherits Window {
                     update_property();
                 }
             }
-            
+
             // Row 3: Height
             Text { text: "Height:"; }
             height_edit := LineEdit {
@@ -132,7 +132,7 @@ export component ResizeWindow inherits Window {
                     update_property();
                 }
             }
-            
+
             // Row 4: Lock aspect ratio
             Rectangle {} // Spacer
             lock_check := CheckBox {

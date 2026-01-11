@@ -20,14 +20,14 @@ export component AppWindow inherits Window {
     in-out property <image> image_display;
     in-out property <string> status_text: "Ready";
     in-out property <string> info_text: "";
-    
+
     // --- Properties for manual pan and zoom ---
     in-out property <int> image_x: 0;
     in-out property <int> image_y: 0;
     in-out property <int> image_w: 1;
     in-out property <int> image_h: 1;
     in-out property <float> image_scale: 1.0;
-    
+
     // --- Property to control layout mode ---
     in-out property <bool> auto_fit: true;
 
@@ -80,13 +80,13 @@ export component AppWindow inherits Window {
             let image_w: int = root.image_display.width;
             let image_h: int = root.image_display.height;
             let scale: float = root.image_scale;
-            root.image_w = image_w * scale;
-            root.image_h = image_h * scale;
+            root.image_w = Math.round(image_w * scale);
+            root.image_h = Math.round(image_h * scale);
         }
     }
 
     function apply_auto_fit_properties() {
-        if (root.image_display.width * 1px > 0px && root.image_display.height * 1px > 0px) {
+        if (root.image_display.width > 0 && root.image_display.height > 0) {
             let image_w: int = root.image_display.width;
             let image_h: int = root.image_display.height;
 
@@ -95,35 +95,36 @@ export component AppWindow inherits Window {
 
             let scale_w: float = container_w / image_w;
             let scale_h: float = container_h / image_h;
-            let new_scale: float = min(scale_w, scale_h) > 1.0 ? 1.0 : min(scale_w, scale_h);
+            let calculated_scale: float = min(scale_w, scale_h);
 
-            let new_image_w: float = image_w * new_scale;
-            let new_image_h: float = image_h * new_scale;
-
-            root.image_scale = new_scale;
-            root.image_x = (container_w - new_image_w) / 2;
-            root.image_y = (container_h - new_image_h) / 2;
-            root.image_w = new_image_w;
-            root.image_h = new_image_h;
+            if (calculated_scale >= 1.0) {
+                // Image fits without downscaling, treat as 1:1 view
+                apply_view_one_to_one_properties();
+           } else {
+                // Image is larger than the container, scale it down
+                let new_image_w: float = image_w * calculated_scale;
+                let new_image_h: float = image_h * calculated_scale;
+                
+                root.image_scale = calculated_scale;
+                root.image_w = Math.round(new_image_w);
+                root.image_h = Math.round(new_image_h);
+                root.image_x = Math.round((container_w - new_image_w) / 2);
+                root.image_y = Math.round((container_h - new_image_h) / 2);
+            }
         }
     }
 
     function apply_view_one_to_one_properties() {
-        let old_scale: float = root.image_scale;
         let container_w: int = image_container.width / 1px;
         let container_h: int = image_container.height / 1px;
-
-        // Old offset of the image center relative to the container
-        // let old_center_x = root.image_x + root.image_display.width * old_scale / 2;
-        // let old_center_y = root.image_y + root.image_display.height * old_scale / 2;
 
         // Calculate the new position to keep the center of the image in the center of the container
         let new_image_w: int = root.image_display.width;
         let new_image_h: int = root.image_display.height;
 
         root.image_scale = 1.0;
-        root.image_x = (container_w - new_image_w) / 2;
-        root.image_y = (container_h - new_image_h) / 2;
+        root.image_x = Math.round((container_w - new_image_w) / 2);
+        root.image_y = Math.round((container_h - new_image_h) / 2);
         root.image_w = root.image_display.width;
         root.image_h = root.image_display.height;
     }
@@ -177,9 +178,9 @@ export component AppWindow inherits Window {
                         size: _icon_size;
                     }
                     //Text { text: "Reset View"; color: white; }
-                    clicked => { 
+                    clicked => {
                         //apply_auto_fit_properties();
-                        root.reset_view(); 
+                        root.reset_view();
                     }
                 }
                 TouchArea {
@@ -243,20 +244,13 @@ export component AppWindow inherits Window {
         image_container := Rectangle {
             background: #333;
             clip: true;
-            
+
             img_element := Image {
                 source: root.image_display;
-                x: root.auto_fit ? ((parent.width - self.width) / 2) : root.image_x * 1px;
-                y: root.auto_fit ? ((parent.height - self.height) / 2) : root.image_y * 1px;
-                width: root.auto_fit ? (min(parent.width, root.image_display.width * 1px)) : (root.image_display.width * root.image_scale * 1px);
-                height: root.auto_fit ? (min(parent.height, root.image_display.height * 1px)) : (root.image_display.height * root.image_scale * 1px);
-
-                // keep this code
-                // x: root.auto_fit ? 0px : root.image_x;
-                // y: root.auto_fit ? 0px : root.image_y;
-                // width: root.auto_fit ? parent.width : (root.image_display.width * root.image_scale * 1px);
-                // height: root.auto_fit ? parent.height : (root.image_display.height * root.image_scale * 1px);
-
+                x: root.auto_fit ? Math.round((parent.width - self.width) / 2 / 1px) * 1px : root.image_x * 1px;
+                y: root.auto_fit ? Math.round((parent.height - self.height) / 2 / 1px) * 1px : root.image_y * 1px;
+                width: root.auto_fit ? min(parent.width, root.image_display.width * 1px) : root.image_display.width * root.image_scale * 1px;
+                height: root.auto_fit ? min(parent.height, root.image_display.height * 1px) : root.image_display.height * root.image_scale * 1px;
                 image-fit: root.auto_fit ? contain : fill;
             }
 

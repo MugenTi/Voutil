@@ -1,3 +1,6 @@
+#![windows_subsystem = "windows"]
+//#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use slint::{Image, SharedPixelBuffer, ComponentHandle, Weak, PhysicalPosition, PhysicalSize, Rgba8Pixel};
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -15,6 +18,21 @@ slint::include_modules!();
 struct AppState {
     last_window_size: PhysicalSize,
     last_window_position: PhysicalPosition,
+}
+
+fn load_image_to_slint(path: PathBuf) -> Option<Image> {
+    image::open(&path).ok().map(|img| {
+        let img_data = img.to_rgba8();
+        let image_width = img_data.width();
+        let image_height = img_data.height();
+        Image::from_rgba8(
+            SharedPixelBuffer::clone_from_slice(
+                img_data.as_raw(),
+                image_width,
+                image_height,
+            ),
+        )
+    })
 }
 
 fn update_info_text(ui: &AppWindow) {
@@ -41,8 +59,8 @@ fn main() -> Result<(), slint::PlatformError> {
 
     main_window.window().set_position(initial_pos);
     main_window.window().set_size(initial_size);
-    
-    // Initialize AppState with current window geometry
+
+    // --- Initialize AppState with current window geometry ---
     app_state.borrow_mut().last_window_position = initial_pos;
     app_state.borrow_mut().last_window_size = initial_size;
 
@@ -50,8 +68,8 @@ fn main() -> Result<(), slint::PlatformError> {
     main_window.set_status_text("Ready. Open a file to begin.".into());
     settings_window.set_vsync_enabled(persistent_settings.borrow().vsync);
     settings_window.set_show_checker_background(persistent_settings.borrow().show_checker_background);
-    
-    // Handle command line arguments
+
+    // --- Handle command line arguments ---
     if let Some(path_str) = env::args().nth(1) {
         let path = PathBuf::from(path_str);
         if let Some(new_slint_image) = load_image_to_slint(path.clone()) {
@@ -61,7 +79,6 @@ fn main() -> Result<(), slint::PlatformError> {
             main_window.set_status_text(format!("Loaded: {}", path.to_string_lossy()).into());
         }
     }
-
 
     // --- Main window callbacks ---
     let main_window_handle = main_window.as_weak();
@@ -90,7 +107,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let main_window_handle_reset = main_window.as_weak();
     main_window.on_reset_view(move || {
         let ui = main_window_handle_reset.unwrap();
-        ui.set_auto_fit(true); 
+        ui.set_auto_fit(true);
         update_info_text(&ui);
         ui.set_status_text("View reset.".into());
     });
@@ -112,7 +129,7 @@ fn main() -> Result<(), slint::PlatformError> {
             settings_ui.show();
         }
     });
-    
+
     let main_window_handle_resize = main_window.as_weak();
     main_window.on_show_resize_window(move || {
         let ui = main_window_handle_resize.unwrap();
@@ -130,10 +147,10 @@ fn main() -> Result<(), slint::PlatformError> {
         println!("[DEBUG] resize_confirmed callback triggered.");
         let ui = main_window_handle_resize_confirmed.unwrap();
         if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
-            
+
             let new_w = ui.get_resize_dialog_new_w() as u32;
             let new_h = ui.get_resize_dialog_new_h() as u32;
-                
+
             let interpolation = ui.get_resize_dialog_interpolation();
             let interp = if interpolation == "Nearest" {
                 FilterType::Nearest
@@ -159,8 +176,8 @@ fn main() -> Result<(), slint::PlatformError> {
             let resized = image::imageops::resize(&img_buffer, new_w, new_h, interp);
             let new_pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(resized.as_raw(), new_w, new_h);
             let new_image = Image::from_rgba8(new_pixel_buffer);
-            println!("[DEBUG] Resized image created. Setting display."); 
-            
+            println!("[DEBUG] Resized image created. Setting display.");
+
             ui.set_image_display(new_image);
             update_info_text(&ui);
             ui.set_status_text("Image resized.".into());
@@ -168,7 +185,7 @@ fn main() -> Result<(), slint::PlatformError> {
             println!("[DEBUG] Could not get pixel_buffer in resize_confirmed."); 
         }
     });
- 
+
     let main_window_handle_c_c = main_window.as_weak();
     main_window.on_copy_to_clipboard(move || {
         let ui = main_window_handle_c_c.unwrap();
@@ -216,14 +233,14 @@ fn main() -> Result<(), slint::PlatformError> {
         let mut volatile = v_settings.borrow_mut();
         let zoom_amount: f64 = 0.1;
         let old_scale: f64 = volatile.image_scale;
-        
+
         let new_scale: f64 = if delta_y < 0.0 {
             old_scale * (1.0 + zoom_amount)
         } else {
             old_scale / (1.0 + zoom_amount)
         };
         let new_scale = new_scale.max(0.1).min(10.0);
-        
+
         let old_image_x: f64 = ui.get_image_x() as f64;
         let old_image_y: f64 = ui.get_image_y() as f64;
 
@@ -293,19 +310,4 @@ fn main() -> Result<(), slint::PlatformError> {
     });
 
     main_window.run()
-}
-
-fn load_image_to_slint(path: PathBuf) -> Option<Image> {
-    image::open(&path).ok().map(|img| {
-        let img_data = img.to_rgba8();
-        let image_width = img_data.width();
-        let image_height = img_data.height();
-        Image::from_rgba8(
-            SharedPixelBuffer::clone_from_slice(
-                img_data.as_raw(),
-                image_width,
-                image_height,
-            ),
-        )
-    })
 }
