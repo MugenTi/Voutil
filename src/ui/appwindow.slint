@@ -4,6 +4,7 @@ import { ResizeWindow } from "./resize_window.slint";
 import { MenuIcon, MaximizeIcon, ArrowUpFromLineIcon, 
          FolderIcon, MoveIcon, SquareEqualIcon, SettingsIcon, LogOutIcon,
          CopyIcon, ClipboardPasteIcon, ScalingIcon,
+         ChevronLeftIcon, ChevronRightIcon,
 //         IconSettings
 } from "@lucide";
 
@@ -63,6 +64,8 @@ export component AppWindow inherits Window {
     callback scale_changed(float);
     callback show_resize_window();
     callback resize_confirmed();
+    callback previous_image();
+    callback next_image();
 
     // Timer for dynamic resize/move handling
     timer := Timer {
@@ -182,6 +185,20 @@ export component AppWindow inherits Window {
                         //apply_auto_fit_properties();
                         root.reset_view();
                     }
+                }
+                TouchArea {
+                    ChevronLeftIcon {
+                       colorize: _icon_color;
+                       size: _icon_size;
+                    }
+                    clicked => { root.previous_image(); }
+                }
+                TouchArea {
+                    ChevronRightIcon {
+                        colorize: _icon_color;
+                        size: _icon_size;
+                    }
+                    clicked => { root.next_image(); }
                 }
                 TouchArea {
                     SquareEqualIcon {

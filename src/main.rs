@@ -4,7 +4,7 @@
 use slint::{Image, SharedPixelBuffer, ComponentHandle, Weak, PhysicalPosition, PhysicalSize, Rgba8Pixel};
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use rfd::FileDialog;
 use oculante::settings::{PersistentSettings, VolatileSettings};
 use arboard::{Clipboard, ImageData};
@@ -18,10 +18,12 @@ slint::include_modules!();
 struct AppState {
     last_window_size: PhysicalSize,
     last_window_position: PhysicalPosition,
+    image_list: Vec<PathBuf>,
+    current_image_index: Option<usize>,
 }
 
-fn load_image_to_slint(path: PathBuf) -> Option<Image> {
-    image::open(&path).ok().map(|img| {
+fn load_image_to_slint(path: &Path) -> Option<Image> {
+    image::open(path).ok().map(|img| {
         let img_data = img.to_rgba8();
         let image_width = img_data.width();
         let image_height = img_data.height();
@@ -42,6 +44,37 @@ fn update_info_text(ui: &AppWindow) {
         let height = ui.get_image_h();
         let scale = ui.get_image_scale();
         ui.set_info_text(format!("{:>0.1}% | {} x {} | {} x {}", scale * 100.0, width, height, pixel_buffer.width(), pixel_buffer.height()).into());
+    }
+}
+
+fn set_image(ui: &AppWindow, app_state: &mut AppState, path: PathBuf) {
+    if let Some(new_slint_image) = load_image_to_slint(&path) {
+        
+        let parent_dir = path.parent().unwrap_or(&path);
+        if app_state.image_list.is_empty() || !parent_dir.starts_with(app_state.image_list[0].parent().unwrap_or(Path::new(""))) {
+            let mut image_list: Vec<PathBuf> = Vec::new();
+            if let Ok(entries) = std::fs::read_dir(parent_dir) {
+                image_list = entries
+                    .filter_map(|entry| entry.ok())
+                    .map(|entry| entry.path())
+                    .filter(|p| p.is_file() && (
+                        p.extension().map_or(false, |ext| ext.eq_ignore_ascii_case("jpg") || ext.eq_ignore_ascii_case("jpeg") || ext.eq_ignore_ascii_case("png") || ext.eq_ignore_ascii_case("gif") || ext.eq_ignore_ascii_case("bmp"))
+                    ))
+                    .collect();
+                image_list.sort();
+            }
+            app_state.image_list = image_list;
+        }
+
+        app_state.current_image_index = app_state.image_list.iter().position(|p| p == &path);
+        
+        ui.set_auto_fit(true);
+        ui.set_image_display(new_slint_image);
+        update_info_text(&ui);
+        ui.set_show_resize_dialog(false);
+        ui.set_status_text(format!("Loaded: {}", path.to_string_lossy()).into());
+    } else {
+        ui.set_status_text(format!("Failed to load: {}", path.to_string_lossy()).into());
     }
 }
 
@@ -71,30 +104,16 @@ fn main() -> Result<(), slint::PlatformError> {
 
     // --- Handle command line arguments ---
     if let Some(path_str) = env::args().nth(1) {
-        let path = PathBuf::from(path_str);
-        if let Some(new_slint_image) = load_image_to_slint(path.clone()) {
-            main_window.set_auto_fit(true);
-            main_window.set_image_display(new_slint_image);
-            update_info_text(&main_window);
-            main_window.set_status_text(format!("Loaded: {}", path.to_string_lossy()).into());
-        }
+        set_image(&main_window, &mut app_state.borrow_mut(), PathBuf::from(path_str));
     }
 
     // --- Main window callbacks ---
     let main_window_handle = main_window.as_weak();
+    let app_state_clone = app_state.clone();
     main_window.on_request_open_file(move || {
         let ui = main_window_handle.unwrap();
         if let Some(path) = rfd::FileDialog::new().pick_file() {
-            let path_str = path.to_string_lossy().to_string();
-            if let Some(new_slint_image) = load_image_to_slint(path) {
-                ui.set_auto_fit(true);
-                ui.set_image_display(new_slint_image);
-                update_info_text(&ui);
-                ui.set_show_resize_dialog(false);
-                ui.set_status_text(format!("Loaded: {}", path_str).into());
-            } else {
-                ui.set_status_text("Failed to load image.".into());
-            }
+            set_image(&ui, &mut app_state_clone.borrow_mut(), path);
         } else {
             ui.set_status_text("File open cancelled.".into());
         }
@@ -144,7 +163,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let main_window_handle_resize_confirmed = main_window.as_weak();
     main_window.on_resize_confirmed(move || {
-        println!("[DEBUG] resize_confirmed callback triggered.");
+        // println!("[DEBUG] resize_confirmed callback triggered.");
         let ui = main_window_handle_resize_confirmed.unwrap();
         if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
 
@@ -154,18 +173,18 @@ fn main() -> Result<(), slint::PlatformError> {
             let interpolation = ui.get_resize_dialog_interpolation();
             let interp = if interpolation == "Nearest" {
                 FilterType::Nearest
-                } else if interpolation == "Triangle" {
+            } else if interpolation == "Triangle" {
                 FilterType::Triangle
-                } else if interpolation == "CatmullRom" {
+            } else if interpolation == "CatmullRom" {
                 FilterType::CatmullRom
-                } else if interpolation == "Gaussian" {
+            } else if interpolation == "Gaussian" {
                 FilterType::Gaussian
             } else {
                 FilterType::Lanczos3
             };
-            println!("[DEBUG] Resizing to: {}x{}", new_w, new_h);
-            println!("[DEBUG] Interpolation: {:?}", interp);
-            println!("[DEBUG] Original size: {}x{}", pixel_buffer.width(), pixel_buffer.height());
+            // println!("[DEBUG] Resizing to: {}x{}", new_w, new_h);
+            // println!("[DEBUG] Interpolation: {:?}", interp);
+            // println!("[DEBUG] Original size: {}x{}", pixel_buffer.width(), pixel_buffer.height());
 
             let img_buffer: ImageBuffer<image::Rgba<u8>, _> = ImageBuffer::from_raw(
                 pixel_buffer.width(),
@@ -176,22 +195,20 @@ fn main() -> Result<(), slint::PlatformError> {
             let resized = image::imageops::resize(&img_buffer, new_w, new_h, interp);
             let new_pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(resized.as_raw(), new_w, new_h);
             let new_image = Image::from_rgba8(new_pixel_buffer);
-            println!("[DEBUG] Resized image created. Setting display.");
+            // println!("[DEBUG] Resized image created. Setting display.");
 
             ui.set_image_display(new_image);
             update_info_text(&ui);
             ui.set_status_text("Image resized.".into());
-        } else {
-            println!("[DEBUG] Could not get pixel_buffer in resize_confirmed."); 
+        // } else {
+            // println!("[DEBUG] Could not get pixel_buffer in resize_confirmed."); 
         }
     });
 
     let main_window_handle_c_c = main_window.as_weak();
     main_window.on_copy_to_clipboard(move || {
         let ui = main_window_handle_c_c.unwrap();
-        let slint_image = ui.get_image_display();
-
-        if let Some(pixel_buffer) = slint_image.to_rgba8(){
+        if let Some(pixel_buffer) = ui.get_image_display().to_rgba8(){
             let image_data = ImageData {
                 width: pixel_buffer.width() as usize,
                 height: pixel_buffer.height() as usize,
@@ -207,6 +224,7 @@ fn main() -> Result<(), slint::PlatformError> {
     });
 
     let main_window_handle_p_c = main_window.as_weak();
+    let app_state_p_c = app_state.clone();
     main_window.on_paste_from_clipboard(move || {
         let ui = main_window_handle_p_c.unwrap();
         let mut clipboard = Clipboard::new().unwrap();
@@ -216,8 +234,14 @@ fn main() -> Result<(), slint::PlatformError> {
                 clipboard_image.width as u32,
                 clipboard_image.height as u32,
             );
-            ui.set_auto_fit(true);
             let slint_image = Image::from_rgba8(pixel_buffer);
+
+            // Pasted image doesn't have a path, so clear the list
+            let mut app = app_state_p_c.borrow_mut();
+            app.image_list.clear();
+            app.current_image_index = None;
+
+            ui.set_auto_fit(true);
             ui.set_image_display(slint_image);
             update_info_text(&ui);
             ui.set_status_text("Image pasted from clipboard.".into());
@@ -226,11 +250,35 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
-    let v_settings = volatile_settings.clone();
+    let main_window_handle_next = main_window.as_weak();
+    let app_state_next = app_state.clone();
+    main_window.on_next_image(move || {
+        let ui = main_window_handle_next.unwrap();
+        let mut app = app_state_next.borrow_mut();
+        if let Some(index) = app.current_image_index {
+            let new_index = (index + 1) % app.image_list.len();
+            let next_path = app.image_list[new_index].clone();
+            set_image(&ui, &mut app, next_path);
+        }
+    });
+
+    let main_window_handle_prev = main_window.as_weak();
+    let app_state_prev = app_state.clone();
+    main_window.on_previous_image(move || {
+        let ui = main_window_handle_prev.unwrap();
+        let mut app = app_state_prev.borrow_mut();
+        if let Some(index) = app.current_image_index {
+            let new_index = (index + app.image_list.len() - 1) % app.image_list.len();
+            let prev_path = app.image_list[new_index].clone();
+            set_image(&ui, &mut app, prev_path);
+        }
+    });
+
+    let v_settings_zoom = volatile_settings.clone();
     let main_window_handle_zoom = main_window.as_weak();
     main_window.on_zoom_image(move |delta_y: f32, mouse_x: f32, mouse_y: f32| {
         let ui = main_window_handle_zoom.unwrap();
-        let mut volatile = v_settings.borrow_mut();
+        let mut volatile = v_settings_zoom.borrow_mut();
         let zoom_amount: f64 = 0.1;
         let old_scale: f64 = volatile.image_scale;
 
@@ -258,11 +306,11 @@ fn main() -> Result<(), slint::PlatformError> {
         update_info_text(&ui);
     });
 
-    let v_settings = volatile_settings.clone();
+    let v_settings_scale = volatile_settings.clone();
     // let main_window_handle_scale_changed = main_window.as_weak();
     main_window.on_scale_changed(move |new_scale: f32| {
         // let ui = main_window_handle_scale_changed.unwrap();
-        let mut volatile = v_settings.borrow_mut();
+        let mut volatile = v_settings_scale.borrow_mut();
         volatile.image_scale = new_scale as f64;
     });
 
