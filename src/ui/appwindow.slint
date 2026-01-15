@@ -132,6 +132,38 @@ export component AppWindow inherits Window {
         root.image_h = root.image_display.height;
     }
 
+    forward-focus: key_handler;
+    key_handler := FocusScope {
+        key-pressed(event) => {
+            if ((event.text == "O" || event.text == "o") && event.modifiers.control) {
+                root.request_open_file();
+            }
+            if (event.text == Key.Escape) {
+                root.exit();
+            }
+            if (event.text == Key.LeftArrow) {
+                root.previous_image();
+            }
+            if (event.text == Key.RightArrow) {
+                root.next_image();
+            }
+            if (event.text == "F" || event.text == "f") {
+                root.request_open_file();
+            }
+            if (event.text == "1") {
+                apply_view_one_to_one_properties();          
+                root.view_one_to_one();
+            }
+            if ((event.text == "C" || event.text == "c") && event.modifiers.control) {
+                root.copy_to_clipboard();
+            }
+            if ((event.text == "V" || event.text == "v") && event.modifiers.control) {
+                root.reset_view();
+            }
+            accept // Consume event
+        }
+    }
+
     VerticalLayout {
         spacing: 0;
         menu_bar := Rectangle {
