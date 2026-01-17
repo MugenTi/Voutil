@@ -18,6 +18,7 @@ export component AppWindow inherits Window {
     preferred-width: 1280px;
     preferred-height: 720px;
     always-on-top: root.always_on_top_enabled;
+    full-screen: root.fullscreen_enabled;
 
     in-out property <image> image_display;
     in-out property <string> status_text: "Ready";
@@ -33,6 +34,7 @@ export component AppWindow inherits Window {
     // --- Property to control layout mode ---
     in-out property <bool> auto_fit: true;
     in-out property <bool> always_on_top_enabled: false;
+    in-out property <bool> fullscreen_enabled: false;
 
     // --- Internal state for dragging ---
     private property <bool> _is_dragging: false;
@@ -185,11 +187,11 @@ export component AppWindow inherits Window {
 
                 TouchArea {
                     MaximizeIcon {
-                        colorize: _icon_color;
+                        colorize: root.fullscreen_enabled ? _accent_color : _icon_color;
                         size: _icon_size;
                     }
                     //Text { text: "Full Screen"; color: white; }
-                    clicked => {  }
+                    clicked => { root.fullscreen_enabled = !root.fullscreen_enabled; }
                 }
 
                 TouchArea {
