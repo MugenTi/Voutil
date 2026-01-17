@@ -17,6 +17,7 @@ export component AppWindow inherits Window {
     min-height: 360px;
     preferred-width: 1280px;
     preferred-height: 720px;
+    always-on-top: root.always_on_top_enabled;
 
     in-out property <image> image_display;
     in-out property <string> status_text: "Ready";
@@ -31,6 +32,7 @@ export component AppWindow inherits Window {
 
     // --- Property to control layout mode ---
     in-out property <bool> auto_fit: true;
+    in-out property <bool> always_on_top_enabled: false;
 
     // --- Internal state for dragging ---
     private property <bool> _is_dragging: false;
@@ -40,6 +42,7 @@ export component AppWindow inherits Window {
     // --- Icon properties ---
     private property <brush> _icon_color: #fff;
     private property <length> _icon_size: 24px;
+    private property <brush> _accent_color: green;
 
     // --- Resize Dialog properties ---
     in-out property <bool> show_resize_dialog: false;
@@ -191,11 +194,11 @@ export component AppWindow inherits Window {
 
                 TouchArea {
                     ArrowUpFromLineIcon {
-                        colorize: _icon_color;
+                        colorize: root.always_on_top_enabled ? _accent_color : _icon_color;
                         size: _icon_size;
                     }
                     //Text { text: "Always on top"; color: white; }
-                    clicked => {  }
+                    clicked => { root.always_on_top_enabled = !root.always_on_top_enabled; }
                 }
 
                 TouchArea {
