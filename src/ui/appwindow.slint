@@ -1,16 +1,18 @@
 import { SettingsWindow } from "./settings_window.slint";
 import { ResizeWindow } from "./resize_window.slint";
+import { Palette } from "std-widgets.slint";
 
 import { MenuIcon, MaximizeIcon, ArrowUpFromLineIcon, 
-         FolderIcon, MoveIcon, SquareEqualIcon, SettingsIcon, LogOutIcon,
-         CopyIcon, ClipboardPasteIcon, ScalingIcon,
-         ChevronLeftIcon, ChevronRightIcon,
-//         IconSettings
+         FolderIcon, MoveIcon, SquareEqualIcon,
+         ScalingIcon, ChevronLeftIcon, ChevronRightIcon,
+        //  CopyIcon, ClipboardPasteIcon, SettingsIcon, LogOutIcon,
+        //  IconSettings
 } from "@lucide";
 
 export component AppWindow inherits Window {
     init => {
-    //     IconSettings.default-size = 24px;
+        Palette.color-scheme = ColorScheme.dark; // Force dark mode
+        // IconSettings.default-size = 24px; // Planned for future availability
     }
     title: "Oculante Slint";
     min-width: 640px;
@@ -42,9 +44,13 @@ export component AppWindow inherits Window {
     private property <int> _last_mouse_pos_y: 0;
 
     // --- Icon properties ---
-    private property <brush> _icon_color: #fff;
+    private property <brush> _icon_color: #ccc;
     private property <length> _icon_size: 24px;
     private property <brush> _accent_color: green;
+
+    // --- Menu bar properties ---
+    private property <length> _menu_bar_height: 40px;
+    private property <brush> _menu_bar_background: #191919;
 
     // --- Resize Dialog properties ---
     in-out property <bool> show_resize_dialog: false;
@@ -143,17 +149,20 @@ export component AppWindow inherits Window {
             if ((event.text == "O" || event.text == "o") && event.modifiers.control) {
                 root.request_open_file();
             }
+            if (event.text == "F" || event.text == "f") {
+                root.fullscreen_enabled = !root.fullscreen_enabled;
+            }
+            if (event.text == "T" || event.text == "t") {
+                root.always_on_top_enabled = !root.always_on_top_enabled;
+            }
             if (event.text == Key.Escape) {
                 root.exit();
             }
-            if (event.text == Key.LeftArrow) {
+            if (event.text == Key.LeftArrow || ((event.text == Key.LeftArrow) && event.modifiers.alt)) {
                 root.previous_image();
             }
-            if (event.text == Key.RightArrow) {
+            if (event.text == Key.RightArrow || ((event.text == Key.RightArrow) && event.modifiers.alt)) {
                 root.next_image();
-            }
-            if (event.text == "F" || event.text == "f") {
-                root.request_open_file();
             }
             if (event.text == "1") {
                 apply_view_one_to_one_properties();          
@@ -163,7 +172,7 @@ export component AppWindow inherits Window {
                 root.copy_to_clipboard();
             }
             if ((event.text == "V" || event.text == "v") && event.modifiers.control) {
-                root.reset_view();
+                root.paste_from_clipboard();
             }
             accept // Consume event
         }
@@ -172,19 +181,55 @@ export component AppWindow inherits Window {
     VerticalLayout {
         spacing: 0;
         menu_bar := Rectangle {
-            height: 30px;
-            background: #333;
+            height: root._menu_bar_height;
+            background: root._menu_bar_background;
+
+            main_menu := ContextMenuArea {
+                Menu {
+                    MenuItem {
+                        title: @tr("Copy");
+                        //icon: CopyIcon;
+                        activated => { root.copy_to_clipboard(); }
+                    }
+                    MenuItem {
+                        title: @tr("Paste");
+                        //icon: ClipboardPasteIcon;
+                        activated => { root.paste_from_clipboard(); }
+                    }
+                    MenuItem {
+                        title: @tr("Preferences");
+                        //icon: SettingsIcon;
+                        activated => { root.show_settings_window(); }
+                    }
+                    MenuItem {
+                        title: @tr("Quit");
+                        //icon: LogOutIcon;
+                        activated => { root.exit(); }
+                    }
+                }
+            }
+
             HorizontalLayout {
-                padding: 5px;
+                padding: 10px;
+                alignment: start;
+                spacing: 10px;
+                
                 TouchArea {
                     MenuIcon {
                         colorize: _icon_color;
                         size: _icon_size;
                     }
                     //Text { text: "Menu"; color: white; }
+                    clicked => { main_menu.show({x: 5px, y: 5px + _menu_bar_height}); }
+                }
+                TouchArea {
+                    FolderIcon {
+                        colorize: _icon_color;
+                        size: _icon_size;
+                    }
+                    //Text { text: "File"; color: white; }
                     clicked => { root.request_open_file(); }
                 }
-
                 TouchArea {
                     MaximizeIcon {
                         colorize: root.fullscreen_enabled ? _accent_color : _icon_color;
@@ -202,16 +247,13 @@ export component AppWindow inherits Window {
                     //Text { text: "Always on top"; color: white; }
                     clicked => { root.always_on_top_enabled = !root.always_on_top_enabled; }
                 }
+            }
 
-                TouchArea {
-                    FolderIcon {
-                        colorize: _icon_color;
-                        size: _icon_size;
-                    }
-                    //Text { text: "File"; color: white; }
-                    clicked => { root.request_open_file(); }
-                }
-
+            HorizontalLayout {
+                padding: 10px;
+                alignment: center;
+                spacing: 10px;
+                
                 TouchArea {
                     MoveIcon {
                         colorize: _icon_color;
@@ -222,6 +264,17 @@ export component AppWindow inherits Window {
                         //apply_auto_fit_properties();
                         root.reset_view();
                     }
+                }
+                TouchArea {
+                    SquareEqualIcon {
+                        colorize: _icon_color;
+                        size: _icon_size;
+                    } 
+                    //Text { text: "1:1"; color: white; }
+                    clicked => { 
+                        apply_view_one_to_one_properties();
+                        root.view_one_to_one();
+                    } 
                 }
                 TouchArea {
                     ChevronLeftIcon {
@@ -237,17 +290,13 @@ export component AppWindow inherits Window {
                     }
                     clicked => { root.next_image(); }
                 }
-                TouchArea {
-                    SquareEqualIcon {
-                        colorize: _icon_color;
-                        size: _icon_size;
-                    } 
-                    //Text { text: "1:1"; color: white; }
-                    clicked => { 
-                        apply_view_one_to_one_properties();
-                        root.view_one_to_one();
-                    } 
-                }
+            }
+
+            HorizontalLayout {
+                padding: 10px;
+                alignment: end;
+                spacing: 10px;
+
                 TouchArea {
                     ScalingIcon {
                         colorize: _icon_color;
@@ -262,41 +311,10 @@ export component AppWindow inherits Window {
                         }
                     }
                 }
-                TouchArea {
-                    CopyIcon {
-                        colorize: _icon_color;
-                        size: _icon_size;
-                    }
-                    clicked => { root.copy_to_clipboard(); }
-                }
-                TouchArea {
-                    ClipboardPasteIcon {
-                        colorize: _icon_color;
-                        size: _icon_size;
-                    }
-                    clicked => { root.paste_from_clipboard(); }
-                }
-                TouchArea {
-                    SettingsIcon {
-                        colorize: _icon_color;
-                        size: _icon_size;
-                    }
-                    //Text { text: "menu"; color: white; }
-                    clicked => { root.show_settings_window(); }
-                }
-                
-                TouchArea {
-                    LogOutIcon {
-                        colorize: _icon_color;
-                        size: _icon_size;
-                    }
-                    //Text { text: "Exit"; color: white; }
-                    clicked => { root.exit(); }
-                }
             }
         }
         image_container := Rectangle {
-            background: #333;
+            background: #1E1E1E;
             clip: true;
 
             img_element := Image {
@@ -342,8 +360,8 @@ export component AppWindow inherits Window {
             }
         }
         status_bar := Rectangle {
-            height: 25px;
-            background: #333;
+            height: 28px;
+            background: _menu_bar_background;
             HorizontalLayout {
                 padding: 5px;
                 padding-left: 10px;
@@ -352,14 +370,14 @@ export component AppWindow inherits Window {
                     font-size: 13px;
                     text: root.status_text;
                     vertical-alignment: center;
-                    color: white;
+                    color: _icon_color;
                 }
                 Rectangle { horizontal-stretch: 1; } // Spacer
                 Text {
                     font-size: 13px;
                     text: root.info_text;
                     vertical-alignment: center;
-                    color: white;
+                    color: _icon_color;
                 }
             }
         }

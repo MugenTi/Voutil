@@ -37,7 +37,7 @@ fn load_image_to_slint(path: &Path) -> Option<Image> {
     })
 }
 
-fn update_info_text(ui: &AppWindow) {
+fn update_image_info(ui: &AppWindow) {
     if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
         ui.invoke_update_image_info();
         let width = ui.get_image_w();
@@ -70,7 +70,7 @@ fn set_image(ui: &AppWindow, app_state: &mut AppState, path: PathBuf) {
         
         ui.set_auto_fit(true);
         ui.set_image_display(new_slint_image);
-        update_info_text(&ui);
+        update_image_info(&ui);
         ui.set_show_resize_dialog(false);
         ui.set_status_text(format!("Loaded: {}", path.to_string_lossy()).into());
     } else {
@@ -127,7 +127,7 @@ fn main() -> Result<(), slint::PlatformError> {
     main_window.on_reset_view(move || {
         let ui = main_window_handle_reset.unwrap();
         ui.set_auto_fit(true);
-        update_info_text(&ui);
+        update_image_info(&ui);
         ui.set_status_text("View reset.".into());
     });
 
@@ -138,7 +138,7 @@ fn main() -> Result<(), slint::PlatformError> {
         v_settings.borrow_mut().image_scale = 1.0;
         ui.set_auto_fit(false);
         ui.set_image_scale(1.0);
-        update_info_text(&ui);
+        update_image_info(&ui);
         ui.set_status_text("View 1:1".into());
     });
 
@@ -198,7 +198,7 @@ fn main() -> Result<(), slint::PlatformError> {
             // println!("[DEBUG] Resized image created. Setting display.");
 
             ui.set_image_display(new_image);
-            update_info_text(&ui);
+            update_image_info(&ui);
             ui.set_status_text("Image resized.".into());
         // } else {
             // println!("[DEBUG] Could not get pixel_buffer in resize_confirmed."); 
@@ -243,7 +243,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
             ui.set_auto_fit(true);
             ui.set_image_display(slint_image);
-            update_info_text(&ui);
+            update_image_info(&ui);
             ui.set_status_text("Image pasted from clipboard.".into());
         } else {
             ui.set_status_text("No image found on clipboard.".into());
@@ -303,7 +303,7 @@ fn main() -> Result<(), slint::PlatformError> {
         ui.set_image_x(new_image_x as i32);
         ui.set_image_y(new_image_y as i32);
         
-        update_info_text(&ui);
+        update_image_info(&ui);
     });
 
     let v_settings_scale = volatile_settings.clone();
@@ -339,7 +339,7 @@ fn main() -> Result<(), slint::PlatformError> {
             // Trigger auto-fit when window size changes
             ui.set_auto_fit(auto_fit);
         }
-        update_info_text(&ui);
+        update_image_info(&ui);
     });
 
     // --- Settings window callbacks ---
