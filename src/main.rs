@@ -51,16 +51,31 @@ fn update_image_info(ui: &AppWindow) {
     }
 }
 
-fn set_image(ui: &AppWindow, thumbnail_window: &ThumbnailWindow, app_state: &mut AppState, path: PathBuf) {
+fn set_image(ui: &AppWindow, thumbnail_window: &ThumbnailWindow, app_state: &mut AppState, path: PathBuf, volatile_settings: &Rc<RefCell<VolatileSettings>>) {
     if let Ok(img) = image::open(&path) {
         let new_slint_image = load_image_to_slint(img);
 
         let parent_dir = path.parent().unwrap_or(&path).to_path_buf();
         let thumb_ui_handle = thumbnail_window.as_weak();
 
-        if app_state.image_list.is_empty() || !parent_dir.starts_with(app_state.image_list[0].parent().unwrap_or(Path::new(""))) {
+        // Update current directory and save to volatile settings
+        if let Ok(current_dir) = std::env::current_dir() {
+            if current_dir != parent_dir {
+                let _ = std::env::set_current_dir(&parent_dir);
+                volatile_settings.borrow_mut().last_open_directory = parent_dir.clone();
+                let _ = volatile_settings.borrow_mut().save_blocking();
+            }
+        } else {
+            // Handle error case for current_dir, e.g., set to parent_dir and save
+            let _ = std::env::set_current_dir(&parent_dir);
+            volatile_settings.borrow_mut().last_open_directory = parent_dir.clone();
+            let _ = volatile_settings.borrow_mut().save_blocking();
+        }
+
+        // Always re-scan and update thumbnail list if directory changes or is empty
+        if app_state.image_list.is_empty() || app_state.image_list[0].parent().map_or(true, |p| p != parent_dir) {
             let mut image_list: Vec<PathBuf> = Vec::new();
-            if let Ok(entries) = std::fs::read_dir(parent_dir) {
+            if let Ok(entries) = std::fs::read_dir(&parent_dir) {
                 image_list = entries
                     .filter_map(|entry| entry.ok())
                     .map(|entry| entry.path())
@@ -141,20 +156,31 @@ fn main() -> Result<(), slint::PlatformError> {
     settings_window.set_vsync_enabled(persistent_settings.borrow().vsync);
     settings_window.set_show_checker_background(persistent_settings.borrow().show_checker_background);
 
+    // Set initial current directory based on last opened directory
+    let default_dir = PathBuf::from(".");
+    let initial_dir_for_env = volatile_settings.borrow().last_open_directory.clone();
+    let _ = std::env::set_current_dir(initial_dir_for_env);
+
+
     // --- Handle command line arguments ---
+    let volatile_settings_clone_cl = volatile_settings.clone();
     if let Some(path_str) = env::args().nth(1) {
-        set_image(&main_window, &thumbnail_window, &mut app_state.borrow_mut(), PathBuf::from(path_str));
+        set_image(&main_window, &thumbnail_window, &mut app_state.borrow_mut(), PathBuf::from(path_str), &volatile_settings_clone_cl);
     }
 
     // --- Main window callbacks ---
     let main_window_handle = main_window.as_weak();
     let thumbnail_window_handle = thumbnail_window.as_weak();
     let app_state_clone = app_state.clone();
+    let volatile_settings_clone = volatile_settings.clone();
     main_window.on_request_open_file(move || {
         let ui = main_window_handle.unwrap();
         let thumb_ui = thumbnail_window_handle.unwrap();
-        if let Some(path) = rfd::FileDialog::new().pick_file() {
-            set_image(&ui, &thumb_ui, &mut app_state_clone.borrow_mut(), path);
+        if let Some(path) = rfd::FileDialog::new()
+            .set_directory(std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+            .pick_file() 
+        {
+            set_image(&ui, &thumb_ui, &mut app_state_clone.borrow_mut(), path, &volatile_settings_clone);
         } else {
             ui.set_status_text("File open cancelled.".into());
         }
@@ -294,6 +320,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let main_window_handle_next = main_window.as_weak();
     let thumbnail_window_handle_next = thumbnail_window.as_weak();
     let app_state_next = app_state.clone();
+    let volatile_settings_clone_next = volatile_settings.clone();
     main_window.on_next_image(move || {
         let ui = main_window_handle_next.unwrap();
         let thumb_ui = thumbnail_window_handle_next.unwrap();
@@ -302,7 +329,7 @@ fn main() -> Result<(), slint::PlatformError> {
             if !app.image_list.is_empty() {
                 let new_index = (index + 1) % app.image_list.len();
                 let next_path = app.image_list[new_index].clone();
-                set_image(&ui, &thumb_ui, &mut app, next_path);
+                set_image(&ui, &thumb_ui, &mut app, next_path, &volatile_settings_clone_next);
             }
         }
     });
@@ -310,6 +337,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let main_window_handle_prev = main_window.as_weak();
     let thumbnail_window_handle_prev = thumbnail_window.as_weak();
     let app_state_prev = app_state.clone();
+    let volatile_settings_clone_prev = volatile_settings.clone();
     main_window.on_previous_image(move || {
         let ui = main_window_handle_prev.unwrap();
         let thumb_ui = thumbnail_window_handle_prev.unwrap();
@@ -318,7 +346,7 @@ fn main() -> Result<(), slint::PlatformError> {
             if !app.image_list.is_empty() {
                 let new_index = (index + app.image_list.len() - 1) % app.image_list.len();
                 let prev_path = app.image_list[new_index].clone();
-                set_image(&ui, &thumb_ui, &mut app, prev_path);
+                set_image(&ui, &thumb_ui, &mut app, prev_path, &volatile_settings_clone_prev);
             }
         }
     });
@@ -337,11 +365,12 @@ fn main() -> Result<(), slint::PlatformError> {
     let main_window_handle_thumb_click = main_window.as_weak();
     let thumbnail_window_handle_thumb_click = thumbnail_window.as_weak();
     let app_state_thumb_click = app_state.clone();
+    let volatile_settings_clone_thumb_click = volatile_settings.clone();
     thumbnail_window.on_thumbnail_clicked(move |path_str| {
         let ui = main_window_handle_thumb_click.unwrap();
         let thumb_ui = thumbnail_window_handle_thumb_click.unwrap();
         let path = PathBuf::from(path_str.to_string());
-        set_image(&ui, &thumb_ui, &mut app_state_thumb_click.borrow_mut(), path);
+        set_image(&ui, &thumb_ui, &mut app_state_thumb_click.borrow_mut(), path, &volatile_settings_clone_thumb_click);
     });
 
     let v_settings_zoom = volatile_settings.clone();
