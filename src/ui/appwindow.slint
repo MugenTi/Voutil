@@ -3,7 +3,7 @@ import { ResizeWindow } from "./resize_window.slint";
 import { Palette } from "std-widgets.slint";
 
 import { MenuIcon, MaximizeIcon, ArrowUpFromLineIcon, 
-         FolderIcon, MoveIcon, SquareEqualIcon,
+         FolderIcon, Grid3x3Icon, MoveIcon, SquareEqualIcon,
          ScalingIcon, ChevronLeftIcon, ChevronRightIcon,
         //  CopyIcon, ClipboardPasteIcon, SettingsIcon, LogOutIcon,
         //  IconSettings
@@ -77,6 +77,7 @@ export component AppWindow inherits Window {
     callback resize_confirmed();
     callback previous_image();
     callback next_image();
+    callback show_thumbnail_window();
 
     // Timer for dynamic resize/move handling
     timer := Timer {
@@ -254,6 +255,14 @@ export component AppWindow inherits Window {
                 alignment: center;
                 spacing: 10px;
                 
+                TouchArea {
+                    Grid3x3Icon {
+                        colorize: _icon_color;
+                        size: _icon_size;
+                    }
+                    //Text { text: "Show Thumbnail Window"; color: white; }
+                    clicked => { root.show_thumbnail_window(); }
+                }
                 TouchArea {
                     MoveIcon {
                         colorize: _icon_color;

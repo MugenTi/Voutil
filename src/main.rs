@@ -1,7 +1,7 @@
 #![windows_subsystem = "windows"]
 //#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use slint::{Image, SharedPixelBuffer, ComponentHandle, Weak, PhysicalPosition, PhysicalSize, Rgba8Pixel};
+use slint::{Image, SharedPixelBuffer, ComponentHandle, Weak, PhysicalPosition, PhysicalSize, Rgba8Pixel, Model, ModelRc, VecModel};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
@@ -9,8 +9,9 @@ use rfd::FileDialog;
 use oculante::settings::{PersistentSettings, VolatileSettings};
 use arboard::{Clipboard, ImageData};
 use std::borrow::Cow;
-use image::{imageops::FilterType, ImageBuffer};
+use image::{imageops::FilterType, ImageBuffer, DynamicImage};
 use std::env;
+use std::thread;
 
 slint::include_modules!();
 
@@ -22,20 +23,23 @@ struct AppState {
     current_image_index: Option<usize>,
 }
 
-fn load_image_to_slint(path: &Path) -> Option<Image> {
-    image::open(path).ok().map(|img| {
-        let img_data = img.to_rgba8();
-        let image_width = img_data.width();
-        let image_height = img_data.height();
-        Image::from_rgba8(
-            SharedPixelBuffer::clone_from_slice(
-                img_data.as_raw(),
-                image_width,
-                image_height,
-            ),
-        )
-    })
+fn load_image_to_slint(img: DynamicImage) -> Image {
+    let img_data = img.to_rgba8();
+    let image_width = img_data.width();
+    let image_height = img_data.height();
+    Image::from_rgba8(
+        SharedPixelBuffer::clone_from_slice(
+            img_data.as_raw(),
+            image_width,
+            image_height,
+        ),
+    )
 }
+
+fn buffer_to_slint_image(buffer: SharedPixelBuffer<Rgba8Pixel>) -> Image {
+    Image::from_rgba8(buffer)
+}
+
 
 fn update_image_info(ui: &AppWindow) {
     if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
@@ -47,10 +51,13 @@ fn update_image_info(ui: &AppWindow) {
     }
 }
 
-fn set_image(ui: &AppWindow, app_state: &mut AppState, path: PathBuf) {
-    if let Some(new_slint_image) = load_image_to_slint(&path) {
-        
-        let parent_dir = path.parent().unwrap_or(&path);
+fn set_image(ui: &AppWindow, thumbnail_window: &ThumbnailWindow, app_state: &mut AppState, path: PathBuf) {
+    if let Ok(img) = image::open(&path) {
+        let new_slint_image = load_image_to_slint(img);
+
+        let parent_dir = path.parent().unwrap_or(&path).to_path_buf();
+        let thumb_ui_handle = thumbnail_window.as_weak();
+
         if app_state.image_list.is_empty() || !parent_dir.starts_with(app_state.image_list[0].parent().unwrap_or(Path::new(""))) {
             let mut image_list: Vec<PathBuf> = Vec::new();
             if let Ok(entries) = std::fs::read_dir(parent_dir) {
@@ -63,6 +70,37 @@ fn set_image(ui: &AppWindow, app_state: &mut AppState, path: PathBuf) {
                     .collect();
                 image_list.sort();
             }
+            
+            let image_list_clone = image_list.clone();
+            if let Some(thumb_ui) = thumb_ui_handle.upgrade() {
+                thumb_ui.set_thumbnails(Rc::new(VecModel::default()).into());
+            }
+
+            thread::spawn(move || {
+                let mut thumb_data = Vec::new();
+                for p in &image_list_clone {
+                    if let Ok(img) = image::open(p) {
+                        let thumb = img.thumbnail(180, 120);
+                        let rgba_image = thumb.to_rgba8();
+                        let buffer = SharedPixelBuffer::clone_from_slice(rgba_image.as_raw(), rgba_image.width(), rgba_image.height());
+                        thumb_data.push((buffer, p.to_string_lossy().to_string()));
+                    }
+                }
+
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(thumb_ui) = thumb_ui_handle.upgrade() {
+                        let thumbnails: Rc<VecModel<Thumbnail>> = Rc::new(VecModel::default());
+                        for (buffer, path) in thumb_data {
+                            thumbnails.push(Thumbnail {
+                                source: buffer_to_slint_image(buffer),
+                                path: path.into(),
+                            });
+                        }
+                        thumb_ui.set_thumbnails(thumbnails.into());
+                    }
+                });
+            });
+
             app_state.image_list = image_list;
         }
 
@@ -84,6 +122,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let main_window = AppWindow::new()?;
     let settings_window = SettingsWindow::new()?;
+    let thumbnail_window = ThumbnailWindow::new()?;
     let app_state = Rc::new(RefCell::new(AppState::default()));
 
     // --- Initial state setup from settings ---
@@ -104,16 +143,18 @@ fn main() -> Result<(), slint::PlatformError> {
 
     // --- Handle command line arguments ---
     if let Some(path_str) = env::args().nth(1) {
-        set_image(&main_window, &mut app_state.borrow_mut(), PathBuf::from(path_str));
+        set_image(&main_window, &thumbnail_window, &mut app_state.borrow_mut(), PathBuf::from(path_str));
     }
 
     // --- Main window callbacks ---
     let main_window_handle = main_window.as_weak();
+    let thumbnail_window_handle = thumbnail_window.as_weak();
     let app_state_clone = app_state.clone();
     main_window.on_request_open_file(move || {
         let ui = main_window_handle.unwrap();
+        let thumb_ui = thumbnail_window_handle.unwrap();
         if let Some(path) = rfd::FileDialog::new().pick_file() {
-            set_image(&ui, &mut app_state_clone.borrow_mut(), path);
+            set_image(&ui, &thumb_ui, &mut app_state_clone.borrow_mut(), path);
         } else {
             ui.set_status_text("File open cancelled.".into());
         }
@@ -251,27 +292,56 @@ fn main() -> Result<(), slint::PlatformError> {
     });
 
     let main_window_handle_next = main_window.as_weak();
+    let thumbnail_window_handle_next = thumbnail_window.as_weak();
     let app_state_next = app_state.clone();
     main_window.on_next_image(move || {
         let ui = main_window_handle_next.unwrap();
+        let thumb_ui = thumbnail_window_handle_next.unwrap();
         let mut app = app_state_next.borrow_mut();
         if let Some(index) = app.current_image_index {
-            let new_index = (index + 1) % app.image_list.len();
-            let next_path = app.image_list[new_index].clone();
-            set_image(&ui, &mut app, next_path);
+            if !app.image_list.is_empty() {
+                let new_index = (index + 1) % app.image_list.len();
+                let next_path = app.image_list[new_index].clone();
+                set_image(&ui, &thumb_ui, &mut app, next_path);
+            }
         }
     });
 
     let main_window_handle_prev = main_window.as_weak();
+    let thumbnail_window_handle_prev = thumbnail_window.as_weak();
     let app_state_prev = app_state.clone();
     main_window.on_previous_image(move || {
         let ui = main_window_handle_prev.unwrap();
+        let thumb_ui = thumbnail_window_handle_prev.unwrap();
         let mut app = app_state_prev.borrow_mut();
         if let Some(index) = app.current_image_index {
-            let new_index = (index + app.image_list.len() - 1) % app.image_list.len();
-            let prev_path = app.image_list[new_index].clone();
-            set_image(&ui, &mut app, prev_path);
+            if !app.image_list.is_empty() {
+                let new_index = (index + app.image_list.len() - 1) % app.image_list.len();
+                let prev_path = app.image_list[new_index].clone();
+                set_image(&ui, &thumb_ui, &mut app, prev_path);
+            }
         }
+    });
+
+    let thumbnail_window_handle_toggle = thumbnail_window.as_weak();
+    main_window.on_show_thumbnail_window(move || {
+        if let Some(thumb_ui) = thumbnail_window_handle_toggle.upgrade() {
+            if thumb_ui.window().is_visible() {
+                thumb_ui.hide();
+            } else {
+                thumb_ui.show();
+            }
+        }
+    });
+
+    let main_window_handle_thumb_click = main_window.as_weak();
+    let thumbnail_window_handle_thumb_click = thumbnail_window.as_weak();
+    let app_state_thumb_click = app_state.clone();
+    thumbnail_window.on_thumbnail_clicked(move |path_str| {
+        let ui = main_window_handle_thumb_click.unwrap();
+        let thumb_ui = thumbnail_window_handle_thumb_click.unwrap();
+        let path = PathBuf::from(path_str.to_string());
+        set_image(&ui, &thumb_ui, &mut app_state_thumb_click.borrow_mut(), path);
     });
 
     let v_settings_zoom = volatile_settings.clone();
