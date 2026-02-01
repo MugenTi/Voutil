@@ -362,6 +362,15 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
+    let thumbnail_window_handle = thumbnail_window.as_weak();
+    thumbnail_window.on_hide(move || {
+        if let Some(thumb_ui) = thumbnail_window_handle.upgrade() {
+            if thumb_ui.window().is_visible() {
+                thumb_ui.hide();
+            }
+        }
+    });
+
     let main_window_handle_thumb_click = main_window.as_weak();
     let thumbnail_window_handle_thumb_click = thumbnail_window.as_weak();
     let app_state_thumb_click = app_state.clone();

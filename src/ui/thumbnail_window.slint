@@ -13,6 +13,7 @@ export component ThumbnailWindow inherits Window {
     preferred-height: 600px;
 
     in property <[Thumbnail]> thumbnails;
+    callback hide();
     callback thumbnail_clicked(string);
 
     private property <length> thumb-size: 100px;
@@ -20,8 +21,18 @@ export component ThumbnailWindow inherits Window {
     private property <int> columns: Math.floor(root.width / (thumb-size + spacing));
     private property <int> rows: Math.ceil(root.thumbnails.length / root.columns);
 
+    forward-focus: key_handler;
+    key_handler := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Escape) {
+                root.hide();
+            }
+            accept // Consume event
+        }
+    }
+
     ScrollView {
-        viewport-height: root.rows * (root.thumb-size + root.spacing);
+        viewport-height: root.rows * (root.thumb-size + root.spacing) + root.spacing;
         Rectangle {
             width: 100%;
             height: 100%;
