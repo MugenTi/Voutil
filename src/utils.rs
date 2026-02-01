@@ -4,7 +4,7 @@
 // use arboard::Clipboard;
 
 use img_parts::{Bytes, DynImage, ImageEXIF};
-use log::{debug, error, info};
+use log::{/*debug, error, */info};
 // use nalgebra::{clamp, Vector2};
 // use notan::graphics::Texture;
 // use notan::prelude::{App, Graphics};
@@ -15,11 +15,11 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 
 use std::io::Cursor;
-use std::path::{Path, PathBuf};
+use std::path::{Path/* , PathBuf*/};
 // use std::thread;
 // use std::time::{Duration, SystemTime};
 
-use anyhow::{Context, Result};
+use anyhow::{/* Context, */Result};
 // use image::{self, DynamicImage, GenericImageView};
 use image::{Rgba, RgbaImage};
 // use std::sync::mpsc::{self};
