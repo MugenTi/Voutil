@@ -37,6 +37,9 @@ impl SelectionRect {
         let on_top = (py as i32 - self.y as i32).abs() < tolerance as i32;
         let on_bottom = (py as i32 - (self.y + self.h) as i32).abs() < tolerance as i32;
 
+        let within_horizontal = px >= self.x && px <= self.x + self.w;
+        let within_vertical = py >= self.y && py <= self.y + self.h;
+
         if on_top && on_left {
             Some(ResizeHandle::TopLeft)
         } else if on_top && on_right {
@@ -45,13 +48,13 @@ impl SelectionRect {
             Some(ResizeHandle::BottomLeft)
         } else if on_bottom && on_right {
             Some(ResizeHandle::BottomRight)
-        } else if on_top {
+        } else if on_top && within_horizontal {
             Some(ResizeHandle::Top)
-        } else if on_bottom {
+        } else if on_bottom && within_horizontal {
             Some(ResizeHandle::Bottom)
-        } else if on_left {
+        } else if on_left && within_vertical {
             Some(ResizeHandle::Left)
-        } else if on_right {
+        } else if on_right && within_vertical {
             Some(ResizeHandle::Right)
         } else {
             None
@@ -581,7 +584,33 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let main_window_handle = main_window.as_weak();
     let app_state_clone = app_state.clone();
-    main_window.on_right_pointer_event(move |event_type, x, y| {
+    main_window.on_check_selection_hit(move |x, y| {
+        if let Some(ui) = main_window_handle.upgrade() {
+            let app_state = app_state_clone.borrow();
+            if let Some(selection) = app_state.selection {
+                let (image_x, image_y, scale) = (
+                    ui.get_image_x() as f32,
+                    ui.get_image_y() as f32,
+                    ui.get_image_scale(),
+                );
+                let img_coord_x = ((x - image_x) / scale).round() as u32;
+                let img_coord_y = ((y - image_y) / scale).round() as u32;
+                let tolerance = (10.0 / scale) as u32;
+                if selection
+                    .get_resize_handle(img_coord_x, img_coord_y, tolerance)
+                    .is_some()
+                    || selection.contains(img_coord_x, img_coord_y)
+                {
+                    return true;
+                }
+            }
+        }
+        false
+    });
+
+    let main_window_handle = main_window.as_weak();
+    let app_state_clone = app_state.clone();
+    main_window.on_pointer_event(move |event_type, _event_button, x, y| {
         if let Some(ui) = main_window_handle.upgrade() {
             let mut app_state = app_state_clone.borrow_mut();
             if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {

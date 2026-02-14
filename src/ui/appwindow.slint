@@ -87,7 +87,8 @@ export component AppWindow inherits Window {
     callback previous_image();
     callback next_image();
     callback show_thumbnail_window();
-    callback right_pointer_event(string, float, float);
+    callback pointer_event(string, string, float, float);
+    callback check_selection_hit(float, float) -> bool;
     callback crop_in_place();
 
     function get-cursor-from-type(handle_type: string) -> MouseCursor {
@@ -379,29 +380,35 @@ export component AppWindow inherits Window {
                 pointer-event(event) => {
                     if (event.kind == PointerEventKind.down) {
                         if (event.button == PointerEventButton.left) {
-                            if (root.auto_fit) {
-                                root.auto_fit = false;
-                                apply_auto_fit_properties();
-                                scale_changed(root.image_scale);
+                            let is_on_selection = root.check_selection_hit(ta.mouse-x / 1px, ta.mouse-y / 1px);
+                            if (is_on_selection) {
+                                root.pointer_event("down", "left", ta.mouse-x / 1px, ta.mouse-y / 1px);
+                            } else {
+                                if (root.auto_fit) {
+                                    root.auto_fit = false;
+                                    apply_auto_fit_properties();
+                                    scale_changed(root.image_scale);
+                                }
+                                _is_dragging = true;
+                                _last_mouse_pos_x = ta.mouse-x / 1px;
+                                _last_mouse_pos_y = ta.mouse-y / 1px;
                             }
-                            _is_dragging = true;
-                            _last_mouse_pos_x = ta.mouse-x / 1px;
-                            _last_mouse_pos_y = ta.mouse-y / 1px;
                         } else if (event.button == PointerEventButton.right) {
-                            root.right_pointer_event("down", ta.mouse-x / 1px, ta.mouse-y / 1px);
+                            root.pointer_event("down", "right", ta.mouse-x / 1px, ta.mouse-y / 1px);
                         }
                     } else if (event.kind == PointerEventKind.up) {
                         if (event.button == PointerEventButton.left) {
                             _is_dragging = false;
+                            root.pointer_event("up", "left", ta.mouse-x / 1px, ta.mouse-y / 1px);
                         } else if (event.button == PointerEventButton.right) {
-                            root.right_pointer_event("up", ta.mouse-x / 1px, ta.mouse-y / 1px);
+                            root.pointer_event("up", "right", ta.mouse-x / 1px, ta.mouse-y / 1px);
                         }
                     } else if (event.kind == PointerEventKind.move) {
                         if (_is_dragging) {
                             image_x += ta.mouse-x / 1px - _last_mouse_pos_x;
                             image_y += ta.mouse-y / 1px - _last_mouse_pos_y;
                         }
-                        root.right_pointer_event("move", ta.mouse-x / 1px, ta.mouse-y / 1px);
+                        root.pointer_event("move", "none", ta.mouse-x / 1px, ta.mouse-y / 1px);
                         _last_mouse_pos_x = ta.mouse-x / 1px;
                         _last_mouse_pos_y = ta.mouse-y / 1px;
                     }
