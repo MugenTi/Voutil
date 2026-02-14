@@ -37,6 +37,7 @@ export component AppWindow inherits Window {
     in-out property <bool> auto_fit: true;
     in-out property <bool> always_on_top_enabled: false;
     in-out property <bool> fullscreen_enabled: false;
+    in-out property <bool> thumbnail_window_is_visible: false;
 
     // --- Internal state for dragging ---
     private property <bool> _is_dragging: false;
@@ -62,6 +63,14 @@ export component AppWindow inherits Window {
     in-out property <bool> resize_dialog_lock_aspect;
     in-out property <string> resize_dialog_interpolation;
 
+    in-out property <bool> selection_visible: false;
+    in-out property <float> selection_x;
+    in-out property <float> selection_y;
+    in-out property <float> selection_w;
+    in-out property <float> selection_h;
+    in-out property <string> cursor_handle_type: "default";
+    in-out property <MouseCursor> current_cursor: MouseCursor.default;
+
     // --- Callback functions ---
     callback request_open_file();
     callback exit();
@@ -78,8 +87,19 @@ export component AppWindow inherits Window {
     callback previous_image();
     callback next_image();
     callback show_thumbnail_window();
+    callback right_pointer_event(string, float, float);
+    callback crop_in_place();
 
-    // Timer for dynamic resize/move handling
+    function get-cursor-from-type(handle_type: string) -> MouseCursor {
+        if (handle_type == "move") { return MouseCursor.move; }
+        else if (handle_type == "ns-resize") { return MouseCursor.ns-resize; }
+        else if (handle_type == "ew-resize") { return MouseCursor.ew-resize; }
+        else if (handle_type == "nwse-resize") { return MouseCursor.nwse-resize; }
+        else if (handle_type == "nesw-resize") { return MouseCursor.nesw-resize; }
+        else { return MouseCursor.default; }
+    }
+
+    // --- Timer for dynamic resize/move handling --- 
     timer := Timer {
         interval: 16ms; // Approx. 60fps
         triggered => {
@@ -150,14 +170,21 @@ export component AppWindow inherits Window {
             if ((event.text == "O" || event.text == "o") && event.modifiers.control) {
                 root.request_open_file();
             }
-            if (event.text == "F" || event.text == "f") {
+            if ((event.text == "F" || event.text == "f") && event.modifiers.control) {
                 root.fullscreen_enabled = !root.fullscreen_enabled;
             }
-            if (event.text == "T" || event.text == "t") {
+            if ((event.text == "T" || event.text == "t") && event.modifiers.control) {
                 root.always_on_top_enabled = !root.always_on_top_enabled;
             }
+            if ((event.text == "Y" || event.text == "y") && event.modifiers.control) {
+                root.crop_in_place();
+            }
             if (event.text == Key.Escape) {
-                root.exit();
+                if (root.thumbnail_window_is_visible) {
+                    root.show_thumbnail_window();
+                } else {
+                    root.exit();
+                }
             }
             if (event.text == Key.LeftArrow || ((event.text == Key.LeftArrow) && event.modifiers.alt)) {
                 root.previous_image();
@@ -335,31 +362,53 @@ export component AppWindow inherits Window {
                 image-fit: root.auto_fit ? contain : fill;
             }
 
+            selection_rect := Rectangle {
+                visible: root.selection_visible;
+                x: root.selection_x * 1px;
+                y: root.selection_y * 1px;
+                width: root.selection_w * 1px;
+                height: root.selection_h * 1px;
+                background: transparent;
+                border-width: 1px;
+                border-color: #80808080;
+            }
+
             ta := TouchArea {
+                mouse-cursor: get-cursor-from-type(root.cursor_handle_type);
+
                 pointer-event(event) => {
-                    if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
-                        if (root.auto_fit) {
-                            root.auto_fit = false; // Switch to manual mode on drag
-                            apply_auto_fit_properties();
-                            scale_changed(root.image_scale);
+                    if (event.kind == PointerEventKind.down) {
+                        if (event.button == PointerEventButton.left) {
+                            if (root.auto_fit) {
+                                root.auto_fit = false;
+                                apply_auto_fit_properties();
+                                scale_changed(root.image_scale);
+                            }
+                            _is_dragging = true;
+                            _last_mouse_pos_x = ta.mouse-x / 1px;
+                            _last_mouse_pos_y = ta.mouse-y / 1px;
+                        } else if (event.button == PointerEventButton.right) {
+                            root.right_pointer_event("down", ta.mouse-x / 1px, ta.mouse-y / 1px);
                         }
-                        _is_dragging = true;
-                        _last_mouse_pos_x = ta.mouse-x / 1px;
-                        _last_mouse_pos_y = ta.mouse-y / 1px;
-                    } else if (event.kind == PointerEventKind.up && event.button == PointerEventButton.left) {
-                        _is_dragging = false;
+                    } else if (event.kind == PointerEventKind.up) {
+                        if (event.button == PointerEventButton.left) {
+                            _is_dragging = false;
+                        } else if (event.button == PointerEventButton.right) {
+                            root.right_pointer_event("up", ta.mouse-x / 1px, ta.mouse-y / 1px);
+                        }
                     } else if (event.kind == PointerEventKind.move) {
                         if (_is_dragging) {
                             image_x += ta.mouse-x / 1px - _last_mouse_pos_x;
                             image_y += ta.mouse-y / 1px - _last_mouse_pos_y;
                         }
+                        root.right_pointer_event("move", ta.mouse-x / 1px, ta.mouse-y / 1px);
                         _last_mouse_pos_x = ta.mouse-x / 1px;
                         _last_mouse_pos_y = ta.mouse-y / 1px;
                     }
                 }
                 scroll-event(event) => {
                     if (root.auto_fit) {
-                        root.auto_fit = false; // Switch to manual mode on zoom
+                        root.auto_fit = false;
                         apply_auto_fit_properties();
                         scale_changed(root.image_scale);
                     }

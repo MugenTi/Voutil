@@ -1,19 +1,89 @@
 #![windows_subsystem = "windows"]
 //#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use slint::{Image, SharedPixelBuffer, ComponentHandle, Weak, PhysicalPosition, PhysicalSize, Rgba8Pixel, VecModel};
-use std::rc::Rc;
-use std::cell::RefCell;
-use std::path::PathBuf;
-use std::env;
-use std::thread;
-use std::borrow::Cow;
-use rfd;
 use arboard::{Clipboard, ImageData};
-use image::{imageops::FilterType, ImageBuffer, DynamicImage};
+use image::{imageops, DynamicImage, ImageBuffer};
 use oculante::settings::{PersistentSettings, VolatileSettings};
+use rfd;
+use slint::{
+    ComponentHandle, Image, PhysicalPosition, PhysicalSize, Rgba8Pixel, SharedPixelBuffer, VecModel,
+};
+use std::borrow::Cow;
+use std::cell::RefCell;
+use std::cmp::min;
+use std::env;
+use std::path::PathBuf;
+use std::rc::Rc;
+use std::thread;
 
 slint::include_modules!();
+
+#[derive(Default, Clone, Copy, Debug, PartialEq)]
+struct SelectionRect {
+    x: u32,
+    y: u32,
+    w: u32,
+    h: u32,
+}
+
+impl SelectionRect {
+    fn contains(&self, px: u32, py: u32) -> bool {
+        px >= self.x && px < self.x + self.w && py >= self.y && py < self.y + self.h
+    }
+
+    fn get_resize_handle(&self, px: u32, py: u32, tolerance: u32) -> Option<ResizeHandle> {
+        let on_left = (px as i32 - self.x as i32).abs() < tolerance as i32;
+        let on_right = (px as i32 - (self.x + self.w) as i32).abs() < tolerance as i32;
+        let on_top = (py as i32 - self.y as i32).abs() < tolerance as i32;
+        let on_bottom = (py as i32 - (self.y + self.h) as i32).abs() < tolerance as i32;
+
+        if on_top && on_left {
+            Some(ResizeHandle::TopLeft)
+        } else if on_top && on_right {
+            Some(ResizeHandle::TopRight)
+        } else if on_bottom && on_left {
+            Some(ResizeHandle::BottomLeft)
+        } else if on_bottom && on_right {
+            Some(ResizeHandle::BottomRight)
+        } else if on_top {
+            Some(ResizeHandle::Top)
+        } else if on_bottom {
+            Some(ResizeHandle::Bottom)
+        } else if on_left {
+            Some(ResizeHandle::Left)
+        } else if on_right {
+            Some(ResizeHandle::Right)
+        } else {
+            None
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum ResizeHandle {
+    Top,
+    Bottom,
+    Left,
+    Right,
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum DragMode {
+    None,
+    Selecting,
+    MovingSelection,
+    ResizingSelection(ResizeHandle),
+}
+
+impl Default for DragMode {
+    fn default() -> Self {
+        DragMode::None
+    }
+}
 
 #[derive(Default)]
 struct AppState {
@@ -21,19 +91,20 @@ struct AppState {
     last_window_position: PhysicalPosition,
     image_list: Vec<PathBuf>,
     current_image_index: Option<usize>,
+    selection: Option<SelectionRect>,
+    drag_mode: DragMode,
+    selection_start_point: Option<(u32, u32)>,
+    initial_selection_on_drag: Option<SelectionRect>,
+    initial_mouse_on_drag: Option<(u32, u32)>,
 }
 
 fn load_image_to_slint(img: DynamicImage) -> Image {
     let img_data = img.to_rgba8();
-    let image_width = img_data.width();
-    let image_height = img_data.height();
-    Image::from_rgba8(
-        SharedPixelBuffer::clone_from_slice(
-            img_data.as_raw(),
-            image_width,
-            image_height,
-        ),
-    )
+    Image::from_rgba8(SharedPixelBuffer::clone_from_slice(
+        img_data.as_raw(),
+        img_data.width(),
+        img_data.height(),
+    ))
 }
 
 fn buffer_to_slint_image(buffer: SharedPixelBuffer<Rgba8Pixel>) -> Image {
@@ -46,14 +117,30 @@ fn update_image_info(ui: &AppWindow) {
         let width = ui.get_image_w();
         let height = ui.get_image_h();
         let scale = ui.get_image_scale();
-        ui.set_info_text(format!("{:>0.1}% | {} x {} | {} x {}", scale * 100.0, width, height, pixel_buffer.width(), pixel_buffer.height()).into());
+        ui.set_info_text(
+            format!(
+                "{:>0.1}% | {} x {} | {} x {}",
+                scale * 100.0,
+                width,
+                height,
+                pixel_buffer.width(),
+                pixel_buffer.height()
+            )
+            .into(),
+        );
     }
 }
 
-fn set_image(ui: &AppWindow, thumbnail_window: &ThumbnailWindow, app_state: &mut AppState, path: PathBuf, volatile_settings: &Rc<RefCell<VolatileSettings>>) {
+fn set_image(
+    ui: &AppWindow,
+    thumbnail_window: &ThumbnailWindow,
+    app_state: &mut AppState,
+    path: PathBuf,
+    volatile_settings: &Rc<RefCell<VolatileSettings>>,
+) {
+    app_state.selection = None;
     if let Ok(img) = image::open(&path) {
         let new_slint_image = load_image_to_slint(img);
-
         let parent_dir = path.parent().unwrap_or(&path).to_path_buf();
         let thumb_ui_handle = thumbnail_window.as_weak();
 
@@ -72,54 +159,67 @@ fn set_image(ui: &AppWindow, thumbnail_window: &ThumbnailWindow, app_state: &mut
         }
 
         // Always re-scan and update thumbnail list if directory changes or is empty
-        if app_state.image_list.is_empty() || app_state.image_list[0].parent().map_or(true, |p| p != parent_dir) {
-            let mut image_list: Vec<PathBuf> = Vec::new();
-            if let Ok(entries) = std::fs::read_dir(&parent_dir) {
-                image_list = entries
+        if app_state.image_list.is_empty()
+            || app_state.image_list[0]
+                .parent()
+                .map_or(true, |p| p != parent_dir)
+        {
+            let image_list = if let Ok(entries) = std::fs::read_dir(&parent_dir) {
+                let mut paths: Vec<_> = entries
                     .filter_map(|entry| entry.ok())
                     .map(|entry| entry.path())
-                    .filter(|p| p.is_file() && (
-                        p.extension().map_or(false, |ext| ext.eq_ignore_ascii_case("jpg") || ext.eq_ignore_ascii_case("jpeg") || ext.eq_ignore_ascii_case("png") || ext.eq_ignore_ascii_case("gif") || ext.eq_ignore_ascii_case("bmp"))
-                    ))
+                    .filter(|p| {
+                        p.is_file()
+                            && p.extension().map_or(false, |ext| {
+                                ext.eq_ignore_ascii_case("jpg")
+                                    || ext.eq_ignore_ascii_case("jpeg")
+                                    || ext.eq_ignore_ascii_case("png")
+                                    || ext.eq_ignore_ascii_case("gif")
+                                    || ext.eq_ignore_ascii_case("bmp")
+                            })
+                    })
                     .collect();
-                image_list.sort();
-            }
-            
+                paths.sort();
+                paths
+            } else {
+                vec![]
+            };
+
             let image_list_clone = image_list.clone();
             if let Some(thumb_ui) = thumb_ui_handle.upgrade() {
                 thumb_ui.set_thumbnails(Rc::new(VecModel::default()).into());
-            }
-
-            thread::spawn(move || {
-                let mut thumb_data = Vec::new();
-                for p in &image_list_clone {
-                    if let Ok(img) = image::open(p) {
-                        let thumb = img.thumbnail(180, 120);
-                        let rgba_image = thumb.to_rgba8();
-                        let buffer = SharedPixelBuffer::clone_from_slice(rgba_image.as_raw(), rgba_image.width(), rgba_image.height());
-                        thumb_data.push((buffer, p.to_string_lossy().to_string()));
-                    }
-                }
-
-                let _ = slint::invoke_from_event_loop(move || {
-                    if let Some(thumb_ui) = thumb_ui_handle.upgrade() {
-                        let thumbnails: Rc<VecModel<Thumbnail>> = Rc::new(VecModel::default());
-                        for (buffer, path) in thumb_data {
-                            thumbnails.push(Thumbnail {
-                                source: buffer_to_slint_image(buffer),
-                                path: path.into(),
-                            });
+                thread::spawn(move || {
+                    let mut thumb_data = Vec::new();
+                    for p in &image_list_clone {
+                        if let Ok(img) = image::open(p) {
+                            let thumb = img.thumbnail(180, 120);
+                            let rgba_image = thumb.to_rgba8();
+                            let buffer = SharedPixelBuffer::clone_from_slice(
+                                rgba_image.as_raw(),
+                                rgba_image.width(),
+                                rgba_image.height(),
+                            );
+                            thumb_data.push((buffer, p.to_string_lossy().to_string()));
                         }
-                        thumb_ui.set_thumbnails(thumbnails.into());
                     }
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(thumb_ui) = thumb_ui_handle.upgrade() {
+                            let thumbnails: Rc<VecModel<Thumbnail>> = Rc::new(VecModel::default());
+                            for (buffer, path) in thumb_data {
+                                thumbnails.push(Thumbnail {
+                                    source: buffer_to_slint_image(buffer),
+                                    path: path.into(),
+                                });
+                            }
+                            thumb_ui.set_thumbnails(thumbnails.into());
+                        }
+                    });
                 });
-            });
-
+            }
             app_state.image_list = image_list;
         }
 
         app_state.current_image_index = app_state.image_list.iter().position(|p| p == &path);
-        
         ui.set_auto_fit(true);
         ui.set_image_display(new_slint_image);
         update_image_info(&ui);
@@ -133,7 +233,6 @@ fn set_image(ui: &AppWindow, thumbnail_window: &ThumbnailWindow, app_state: &mut
 fn main() -> Result<(), slint::PlatformError> {
     let persistent_settings = Rc::new(RefCell::new(PersistentSettings::load().unwrap_or_default()));
     let volatile_settings = Rc::new(RefCell::new(VolatileSettings::load().unwrap_or_default()));
-
     let main_window = AppWindow::new()?;
     let settings_window = SettingsWindow::new()?;
     let thumbnail_window = ThumbnailWindow::new()?;
@@ -142,7 +241,6 @@ fn main() -> Result<(), slint::PlatformError> {
     // --- Initial state setup from settings ---
     let initial_pos: PhysicalPosition = volatile_settings.borrow().window_position.into();
     let initial_size: PhysicalSize = volatile_settings.borrow().window_size.into();
-
     main_window.window().set_position(initial_pos);
     main_window.window().set_size(initial_size);
 
@@ -153,16 +251,21 @@ fn main() -> Result<(), slint::PlatformError> {
     // --- Initial state setup ---
     main_window.set_status_text("Ready. Open a file to begin.".into());
     settings_window.set_vsync_enabled(persistent_settings.borrow().vsync);
-    settings_window.set_show_checker_background(persistent_settings.borrow().show_checker_background);
+    settings_window
+        .set_show_checker_background(persistent_settings.borrow().show_checker_background);
 
     // Set initial current directory based on last opened directory
-    let initial_dir_for_env = volatile_settings.borrow().last_open_directory.clone();
-    let _ = std::env::set_current_dir(initial_dir_for_env);
+    let _ = std::env::set_current_dir(volatile_settings.borrow().last_open_directory.clone());
 
     // --- Handle command line arguments ---
-    let volatile_settings_clone = volatile_settings.clone();
     if let Some(path_str) = env::args().nth(1) {
-        set_image(&main_window, &thumbnail_window, &mut app_state.borrow_mut(), PathBuf::from(path_str), &volatile_settings_clone);
+        set_image(
+            &main_window,
+            &thumbnail_window,
+            &mut app_state.borrow_mut(),
+            PathBuf::from(path_str),
+            &volatile_settings.clone(),
+        );
     }
 
     // --- Main window callbacks ---
@@ -171,23 +274,28 @@ fn main() -> Result<(), slint::PlatformError> {
     let app_state_clone = app_state.clone();
     let volatile_settings_clone = volatile_settings.clone();
     main_window.on_request_open_file(move || {
-        if let Some(ui) = main_window_handle.upgrade() {
-            if let Some(thumb_ui) = thumbnail_window_handle.upgrade() {
-                if let Some(path) = rfd::FileDialog::new()
-                    .set_directory(std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
-                    .pick_file() 
-                {
-                    set_image(&ui, &thumb_ui, &mut app_state_clone.borrow_mut(), path, &volatile_settings_clone);
-                } else {
-                    ui.set_status_text("File open cancelled.".into());
-                }
+        if let (Some(ui), Some(thumb_ui)) = (
+            main_window_handle.upgrade(),
+            thumbnail_window_handle.upgrade(),
+        ) {
+            if let Some(path) = rfd::FileDialog::new()
+                .set_directory(std::env::current_dir().unwrap_or_default())
+                .pick_file()
+            {
+                set_image(
+                    &ui,
+                    &thumb_ui,
+                    &mut app_state_clone.borrow_mut(),
+                    path,
+                    &volatile_settings_clone,
+                );
+            } else {
+                ui.set_status_text("File open cancelled.".into());
             }
         }
     });
 
-    main_window.on_exit(move || {
-        slint::quit_event_loop().unwrap();
-    });
+    main_window.on_exit(|| slint::quit_event_loop().unwrap());
 
     let main_window_handle = main_window.as_weak();
     main_window.on_reset_view(move || {
@@ -230,37 +338,38 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
-    let main_window_handle: Weak<AppWindow> = main_window.as_weak();
+    let main_window_handle = main_window.as_weak();
+    let app_state_clone = app_state.clone();
     main_window.on_resize_confirmed(move || {
         if let Some(ui) = main_window_handle.upgrade() {
             if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
+                let mut app_state = app_state_clone.borrow_mut();
                 let new_w = ui.get_resize_dialog_new_w() as u32;
                 let new_h = ui.get_resize_dialog_new_h() as u32;
 
-                let interpolation = ui.get_resize_dialog_interpolation();
-                let interp = if interpolation == "Nearest" {
-                    FilterType::Nearest
-                } else if interpolation == "Triangle" {
-                    FilterType::Triangle
-                } else if interpolation == "CatmullRom" {
-                    FilterType::CatmullRom
-                } else if interpolation == "Gaussian" {
-                    FilterType::Gaussian
-                } else {
-                    FilterType::Lanczos3
+                let interp = match ui.get_resize_dialog_interpolation().as_str() {
+                    "Nearest" => imageops::FilterType::Nearest,
+                    "Triangle" => imageops::FilterType::Triangle,
+                    "CatmullRom" => imageops::FilterType::CatmullRom,
+                    "Gaussian" => imageops::FilterType::Gaussian,
+                    _ => imageops::FilterType::Lanczos3,
                 };
-
                 let img_buffer: ImageBuffer<image::Rgba<u8>, _> = ImageBuffer::from_raw(
                     pixel_buffer.width(),
                     pixel_buffer.height(),
                     pixel_buffer.as_bytes().to_vec(),
-                ).unwrap();
+                )
+                .unwrap();
 
-                let resized = image::imageops::resize(&img_buffer, new_w, new_h, interp);
-                let new_pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(resized.as_raw(), new_w, new_h);
-                let new_image = Image::from_rgba8(new_pixel_buffer);
-
-                ui.set_image_display(new_image);
+                let resized = imageops::resize(&img_buffer, new_w, new_h, interp);
+                ui.set_image_display(Image::from_rgba8(
+                    SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+                        resized.as_raw(),
+                        new_w,
+                        new_h,
+                    ),
+                ));
+                app_state.selection = None;
                 update_image_info(&ui);
                 ui.set_status_text("Image resized.".into());
             }
@@ -268,19 +377,95 @@ fn main() -> Result<(), slint::PlatformError> {
     });
 
     let main_window_handle = main_window.as_weak();
+    let app_state_clone = app_state.clone();
     main_window.on_copy_to_clipboard(move || {
         if let Some(ui) = main_window_handle.upgrade() {
-            if let Some(pixel_buffer) = ui.get_image_display().to_rgba8(){
-                let image_data = ImageData {
-                    width: pixel_buffer.width() as usize,
-                    height: pixel_buffer.height() as usize,
-                    bytes: Cow::Owned(pixel_buffer.as_bytes().to_vec()),
-                };
-                let mut clipboard = Clipboard::new().unwrap();
-                if clipboard.set_image(image_data).is_ok() {
-                    ui.set_status_text("Image (RGBA) copied to clipboard.".into());
-                } else {
-                    ui.set_status_text("Failed to copy image to clipboard.".into());
+            let mut app_state = app_state_clone.borrow_mut();
+            if let (Some(selection), Some(pixel_buffer)) =
+                (app_state.selection, ui.get_image_display().to_rgba8())
+            {
+                if selection.w > 0 && selection.h > 0 {
+                    let img_buffer: ImageBuffer<image::Rgba<u8>, _> = ImageBuffer::from_raw(
+                        pixel_buffer.width(),
+                        pixel_buffer.height(),
+                        pixel_buffer.as_bytes().to_vec(),
+                    )
+                    .unwrap();
+                    let cropped_img = imageops::crop_imm(
+                        &img_buffer,
+                        selection.x,
+                        selection.y,
+                        selection.w,
+                        selection.h,
+                    )
+                    .to_image();
+                    if let Ok(mut clipboard) = Clipboard::new() {
+                        if clipboard
+                            .set_image(ImageData {
+                                width: cropped_img.width() as usize,
+                                height: cropped_img.height() as usize,
+                                bytes: Cow::Owned(cropped_img.into_raw()),
+                            })
+                            .is_ok()
+                        {
+                            ui.set_status_text("Cropped selection copied.".into());
+                        } else {
+                            ui.set_status_text("Failed to copy cropped selection.".into());
+                        }
+                    }
+                    app_state.selection = None;
+                }
+            } else if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
+                if let Ok(mut clipboard) = Clipboard::new() {
+                    if clipboard
+                        .set_image(ImageData {
+                            width: pixel_buffer.width() as usize,
+                            height: pixel_buffer.height() as usize,
+                            bytes: Cow::Owned(pixel_buffer.as_bytes().to_vec()),
+                        })
+                        .is_ok()
+                    {
+                        ui.set_status_text("Image copied to clipboard.".into());
+                    } else {
+                        ui.set_status_text("Failed to copy image.".into());
+                    }
+                }
+            }
+        }
+    });
+
+    let main_window_handle = main_window.as_weak();
+    let app_state_clone = app_state.clone();
+    main_window.on_crop_in_place(move || {
+        if let Some(ui) = main_window_handle.upgrade() {
+            let mut app_state = app_state_clone.borrow_mut();
+            if let (Some(selection), Some(pixel_buffer)) =
+                (app_state.selection, ui.get_image_display().to_rgba8())
+            {
+                if selection.w > 0 && selection.h > 0 {
+                    let img_buffer: ImageBuffer<image::Rgba<u8>, _> = ImageBuffer::from_raw(
+                        pixel_buffer.width(),
+                        pixel_buffer.height(),
+                        pixel_buffer.as_bytes().to_vec(),
+                    )
+                    .unwrap();
+                    let cropped_img = imageops::crop_imm(
+                        &img_buffer,
+                        selection.x,
+                        selection.y,
+                        selection.w,
+                        selection.h,
+                    )
+                    .to_image();
+                    let new_slint_image =
+                        load_image_to_slint(DynamicImage::ImageRgba8(cropped_img));
+                    app_state.image_list.clear();
+                    app_state.current_image_index = None;
+                    app_state.selection = None;
+                    ui.set_image_display(new_slint_image);
+                    ui.set_auto_fit(true);
+                    update_image_info(&ui);
+                    ui.set_status_text("Image cropped.".into());
                 }
             }
         }
@@ -290,26 +475,25 @@ fn main() -> Result<(), slint::PlatformError> {
     let app_state_clone = app_state.clone();
     main_window.on_paste_from_clipboard(move || {
         if let Some(ui) = main_window_handle.upgrade() {
-            let mut clipboard = Clipboard::new().unwrap();
-            if let Ok(clipboard_image) = clipboard.get_image() {
-                let pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
-                    &clipboard_image.bytes,
-                    clipboard_image.width as u32,
-                    clipboard_image.height as u32,
-                );
-                let slint_image = Image::from_rgba8(pixel_buffer);
-
-                // Pasted image doesn't have a path, so clear the list
-                let mut app = app_state_clone.borrow_mut();
-                app.image_list.clear();
-                app.current_image_index = None;
-
-                ui.set_auto_fit(true);
-                ui.set_image_display(slint_image);
-                update_image_info(&ui);
-                ui.set_status_text("Image pasted from clipboard.".into());
-            } else {
-                ui.set_status_text("No image found on clipboard.".into());
+            if let Ok(mut clipboard) = Clipboard::new() {
+                if let Ok(clipboard_image) = clipboard.get_image() {
+                    let mut app = app_state_clone.borrow_mut();
+                    app.image_list.clear();
+                    app.current_image_index = None;
+                    app.selection = None;
+                    ui.set_auto_fit(true);
+                    ui.set_image_display(Image::from_rgba8(
+                        SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+                            &clipboard_image.bytes,
+                            clipboard_image.width as u32,
+                            clipboard_image.height as u32,
+                        ),
+                    ));
+                    update_image_info(&ui);
+                    ui.set_status_text("Image pasted from clipboard.".into());
+                } else {
+                    ui.set_status_text("No image found on clipboard.".into());
+                }
             }
         }
     });
@@ -319,15 +503,16 @@ fn main() -> Result<(), slint::PlatformError> {
     let app_state_clone = app_state.clone();
     let volatile_settings_clone = volatile_settings.clone();
     main_window.on_next_image(move || {
-        if let Some(ui) = main_window_handle.upgrade() {
-            if let Some(thumb_ui) = thumbnail_window_handle.upgrade() {
-                let mut app = app_state_clone.borrow_mut();
-                if let Some(index) = app.current_image_index {
-                    if !app.image_list.is_empty() {
-                        let new_index = (index + 1) % app.image_list.len();
-                        let path = app.image_list[new_index].clone();
-                        set_image(&ui, &thumb_ui, &mut app, path, &volatile_settings_clone);
-                    }
+        if let (Some(ui), Some(thumb_ui)) = (
+            main_window_handle.upgrade(),
+            thumbnail_window_handle.upgrade(),
+        ) {
+            let mut app = app_state_clone.borrow_mut();
+            if let Some(index) = app.current_image_index {
+                if !app.image_list.is_empty() {
+                    let new_index = (index + 1) % app.image_list.len();
+                    let path = app.image_list[new_index].clone();
+                    set_image(&ui, &thumb_ui, &mut app, path, &volatile_settings_clone);
                 }
             }
         }
@@ -338,15 +523,16 @@ fn main() -> Result<(), slint::PlatformError> {
     let app_state_clone = app_state.clone();
     let volatile_settings_clone = volatile_settings.clone();
     main_window.on_previous_image(move || {
-        if let Some(ui) = main_window_handle.upgrade() {
-            if let Some(thumb_ui) = thumbnail_window_handle.upgrade() {
-                let mut app = app_state_clone.borrow_mut();
-                if let Some(index) = app.current_image_index {
-                    if !app.image_list.is_empty() {
-                        let new_index = (index + app.image_list.len() - 1) % app.image_list.len();
-                        let path = app.image_list[new_index].clone();
-                        set_image(&ui, &thumb_ui, &mut app, path, &volatile_settings_clone);
-                    }
+        if let (Some(ui), Some(thumb_ui)) = (
+            main_window_handle.upgrade(),
+            thumbnail_window_handle.upgrade(),
+        ) {
+            let mut app = app_state_clone.borrow_mut();
+            if let Some(index) = app.current_image_index {
+                if !app.image_list.is_empty() {
+                    let new_index = (index + app.image_list.len() - 1) % app.image_list.len();
+                    let path = app.image_list[new_index].clone();
+                    set_image(&ui, &thumb_ui, &mut app, path, &volatile_settings_clone);
                 }
             }
         }
@@ -365,47 +551,222 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let main_window_handle = main_window.as_weak();
     let volatile_settings_clone = volatile_settings.clone();
-    main_window.on_zoom_image(move |delta_y: f32, mouse_x: f32, mouse_y: f32| {
+    main_window.on_zoom_image(move |delta_y, mouse_x, mouse_y| {
         if let Some(ui) = main_window_handle.upgrade() {
             let mut volatile = volatile_settings_clone.borrow_mut();
-            let zoom_amount: f64 = 0.1;
-            let old_scale: f64 = volatile.image_scale;
-
-            let new_scale: f64 = if delta_y < 0.0 {
-                old_scale * (1.0 + zoom_amount)
+            let old_scale = volatile.image_scale;
+            let new_scale = if delta_y < 0.0 {
+                old_scale * 1.1
             } else {
-                old_scale / (1.0 + zoom_amount)
-            };
-            let new_scale = new_scale.max(0.1).min(10.0);
-
-            let old_image_x: f64 = ui.get_image_x() as f64;
-            let old_image_y: f64 = ui.get_image_y() as f64;
-
-            let mouse_img_x: f64 = (mouse_x as f64 - old_image_x) / old_scale;
-            let mouse_img_y: f64 = (mouse_y as f64 - old_image_y) / old_scale;
-
-            let new_image_x: f64 = mouse_x as f64 - mouse_img_x * new_scale;
-            let new_image_y: f64 = mouse_y as f64 - mouse_img_y * new_scale;
-
+                old_scale / 1.1
+            }
+            .max(0.1)
+            .min(10.0);
+            let old_image_x = ui.get_image_x() as f64;
+            let old_image_y = ui.get_image_y() as f64;
+            let mouse_img_x = (mouse_x as f64 - old_image_x) / old_scale;
+            let mouse_img_y = (mouse_y as f64 - old_image_y) / old_scale;
             volatile.image_scale = new_scale;
             ui.set_image_scale(new_scale as f32);
-            ui.set_image_x(new_image_x as i32);
-            ui.set_image_y(new_image_y as i32);
-            
+            ui.set_image_x((mouse_x as f64 - mouse_img_x * new_scale) as i32);
+            ui.set_image_y((mouse_y as f64 - mouse_img_y * new_scale) as i32);
             update_image_info(&ui);
         }
     });
 
     let v_settings_scale = volatile_settings.clone();
-    main_window.on_scale_changed(move |new_scale: f32| {
-        let mut volatile = v_settings_scale.borrow_mut();
-        volatile.image_scale = new_scale as f64;
+    main_window.on_scale_changed(move |new_scale| {
+        v_settings_scale.borrow_mut().image_scale = new_scale as f64;
+    });
+
+    let main_window_handle = main_window.as_weak();
+    let app_state_clone = app_state.clone();
+    main_window.on_right_pointer_event(move |event_type, x, y| {
+        if let Some(ui) = main_window_handle.upgrade() {
+            let mut app_state = app_state_clone.borrow_mut();
+            if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
+                let (image_x, image_y, scale, img_w, img_h) = (
+                    ui.get_image_x() as f32,
+                    ui.get_image_y() as f32,
+                    ui.get_image_scale(),
+                    pixel_buffer.width(),
+                    pixel_buffer.height(),
+                );
+                let (unclamped_img_coord_x, unclamped_img_coord_y) = (
+                    ((x - image_x) / scale) as i32,
+                    ((y - image_y) / scale) as i32,
+                );
+
+                match event_type.as_str() {
+                    "down" => {
+                        let (img_coord_x, img_coord_y) = (
+                            unclamped_img_coord_x.max(0).min(img_w as i32 - 1) as u32,
+                            unclamped_img_coord_y.max(0).min(img_h as i32 - 1) as u32,
+                        );
+                        let tolerance = (10.0 / scale) as u32;
+                        if let Some(selection) = app_state.selection {
+                            if let Some(handle) =
+                                selection.get_resize_handle(img_coord_x, img_coord_y, tolerance)
+                            {
+                                app_state.drag_mode = DragMode::ResizingSelection(handle);
+                                app_state.initial_selection_on_drag = Some(selection);
+                                app_state.initial_mouse_on_drag = Some((img_coord_x, img_coord_y));
+                                return;
+                            } else if selection.contains(img_coord_x, img_coord_y) {
+                                app_state.drag_mode = DragMode::MovingSelection;
+                                app_state.initial_selection_on_drag = Some(selection);
+                                app_state.initial_mouse_on_drag = Some((img_coord_x, img_coord_y));
+                                return;
+                            }
+                        }
+                        app_state.drag_mode = DragMode::Selecting;
+                        app_state.selection = None;
+                        app_state.selection_start_point = Some((img_coord_x, img_coord_y));
+                    }
+                    "move" => {
+                        let (img_coord_x, img_coord_y) = (
+                            unclamped_img_coord_x.max(0).min(img_w as i32 - 1) as u32,
+                            unclamped_img_coord_y.max(0).min(img_h as i32 - 1) as u32,
+                        );
+                        match app_state.drag_mode {
+                            DragMode::Selecting => {
+                                if let Some(start_point) = app_state.selection_start_point {
+                                    app_state.selection = Some(SelectionRect {
+                                        x: min(start_point.0, img_coord_x),
+                                        y: min(start_point.1, img_coord_y),
+                                        w: (start_point.0 as i32 - img_coord_x as i32).abs() as u32,
+                                        h: (start_point.1 as i32 - img_coord_y as i32).abs() as u32,
+                                    });
+                                }
+                            }
+                            DragMode::MovingSelection => {
+                                if let (Some(initial_selection), Some(initial_mouse)) = (
+                                    app_state.initial_selection_on_drag,
+                                    app_state.initial_mouse_on_drag,
+                                ) {
+                                    let delta_x = unclamped_img_coord_x - initial_mouse.0 as i32;
+                                    let delta_y = unclamped_img_coord_y - initial_mouse.1 as i32;
+                                    app_state.selection = Some(SelectionRect {
+                                        x: ((initial_selection.x as i32 + delta_x).max(0) as u32)
+                                            .min(img_w.saturating_sub(initial_selection.w)),
+                                        y: ((initial_selection.y as i32 + delta_y).max(0) as u32)
+                                            .min(img_h.saturating_sub(initial_selection.h)),
+                                        ..initial_selection
+                                    });
+                                }
+                            }
+                            DragMode::ResizingSelection(handle) => {
+                                if let (Some(initial_selection), Some(initial_mouse)) = (
+                                    app_state.initial_selection_on_drag,
+                                    app_state.initial_mouse_on_drag,
+                                ) {
+                                    let delta_x = unclamped_img_coord_x - initial_mouse.0 as i32;
+                                    let delta_y = unclamped_img_coord_y - initial_mouse.1 as i32;
+                                    let mut x1 = initial_selection.x as i32;
+                                    let mut y1 = initial_selection.y as i32;
+                                    let mut x2 = (initial_selection.x + initial_selection.w) as i32;
+                                    let mut y2 = (initial_selection.y + initial_selection.h) as i32;
+
+                                    match handle {
+                                        ResizeHandle::Left => {
+                                            x1 += delta_x;
+                                        }
+                                        ResizeHandle::Right => {
+                                            x2 += delta_x;
+                                        }
+                                        ResizeHandle::Top => {
+                                            y1 += delta_y;
+                                        }
+                                        ResizeHandle::Bottom => {
+                                            y2 += delta_y;
+                                        }
+                                        ResizeHandle::TopLeft => {
+                                            x1 += delta_x;
+                                            y1 += delta_y;
+                                        }
+                                        ResizeHandle::TopRight => {
+                                            x2 += delta_x;
+                                            y1 += delta_y;
+                                        }
+                                        ResizeHandle::BottomLeft => {
+                                            x1 += delta_x;
+                                            y2 += delta_y;
+                                        }
+                                        ResizeHandle::BottomRight => {
+                                            x2 += delta_x;
+                                            y2 += delta_y;
+                                        }
+                                    }
+
+                                    if x1 > x2 {
+                                        std::mem::swap(&mut x1, &mut x2);
+                                    }
+                                    if y1 > y2 {
+                                        std::mem::swap(&mut y1, &mut y2);
+                                    }
+
+                                    x1 = x1.max(0).min((img_w - 1) as i32);
+                                    x2 = x2.max(1).min(img_w as i32);
+                                    y1 = y1.max(0).min((img_h - 1) as i32);
+                                    y2 = y2.max(1).min(img_h as i32);
+
+                                    app_state.selection = Some(SelectionRect {
+                                        x: x1 as u32,
+                                        y: y1 as u32,
+                                        w: (x2 - x1).max(1) as u32,
+                                        h: (y2 - y1).max(1) as u32,
+                                    });
+                                }
+                            }
+                            DragMode::None => {
+                                if let Some(selection) = app_state.selection {
+                                    let tolerance = (10.0 / scale) as u32;
+                                    if let Some(handle) = selection.get_resize_handle(
+                                        img_coord_x,
+                                        img_coord_y,
+                                        tolerance,
+                                    ) {
+                                        ui.set_cursor_handle_type(match handle {
+                                            ResizeHandle::Top | ResizeHandle::Bottom => {
+                                                "ns-resize".into()
+                                            }
+                                            ResizeHandle::Left | ResizeHandle::Right => {
+                                                "ew-resize".into()
+                                            }
+                                            ResizeHandle::TopLeft | ResizeHandle::BottomRight => {
+                                                "nwse-resize".into()
+                                            }
+                                            ResizeHandle::TopRight | ResizeHandle::BottomLeft => {
+                                                "nesw-resize".into()
+                                            }
+                                        });
+                                    } else if selection.contains(img_coord_x, img_coord_y) {
+                                        ui.set_cursor_handle_type("move".into());
+                                    } else {
+                                        ui.set_cursor_handle_type("default".into());
+                                    }
+                                } else {
+                                    ui.set_cursor_handle_type("default".into());
+                                }
+                            }
+                        }
+                    }
+                    "up" => {
+                        app_state.drag_mode = DragMode::None;
+                        app_state.selection_start_point = None;
+                        app_state.initial_selection_on_drag = None;
+                        app_state.initial_mouse_on_drag = None;
+                    }
+                    _ => {}
+                }
+            }
+        }
     });
 
     // --- Tick handler for dynamic resize/move ---
     let main_window_handle = main_window.as_weak();
     let app_state_clone = app_state.clone();
-    let volatile_settings_clone = Rc::clone(&volatile_settings);
+    let volatile_settings_clone = volatile_settings.clone();
     main_window.on_tick(move |auto_fit| {
         if let Some(ui) = main_window_handle.upgrade() {
             let mut app_state = app_state_clone.borrow_mut();
@@ -428,6 +789,19 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.set_auto_fit(auto_fit);
             }
             update_image_info(&ui);
+
+            if let Some(selection) = app_state.selection {
+                let image_x = ui.get_image_x() as f32;
+                let image_y = ui.get_image_y() as f32;
+                let scale = ui.get_image_scale();
+                ui.set_selection_visible(true);
+                ui.set_selection_x((selection.x as f32 * scale) + image_x);
+                ui.set_selection_y((selection.y as f32 * scale) + image_y);
+                ui.set_selection_w(selection.w as f32 * scale);
+                ui.set_selection_h(selection.h as f32 * scale);
+            } else {
+                ui.set_selection_visible(false);
+            }
         }
     });
 
@@ -446,11 +820,17 @@ fn main() -> Result<(), slint::PlatformError> {
     let app_state_clone = app_state.clone();
     let volatile_settings_clone = volatile_settings.clone();
     thumbnail_window.on_thumbnail_clicked(move |path_str| {
-        if let Some(ui) = main_window_handle.upgrade() {
-            if let Some(thumb_ui) = thumbnail_window_handle.upgrade() {
-                let path = PathBuf::from(path_str.to_string());
-                set_image(&ui, &thumb_ui, &mut app_state_clone.borrow_mut(), path, &volatile_settings_clone);
-            }
+        if let (Some(ui), Some(thumb_ui)) = (
+            main_window_handle.upgrade(),
+            thumbnail_window_handle.upgrade(),
+        ) {
+            set_image(
+                &ui,
+                &thumb_ui,
+                &mut app_state_clone.borrow_mut(),
+                PathBuf::from(path_str.to_string()),
+                &volatile_settings_clone,
+            );
         }
     });
 
