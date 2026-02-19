@@ -322,8 +322,15 @@ fn main() -> Result<(), slint::PlatformError> {
     });
 
     let settings_window_handle = settings_window.as_weak();
+    let app_state_clone = app_state.clone();
     main_window.on_show_settings_window(move || {
         if let Some(settings_ui) = settings_window_handle.upgrade() {
+            let app_state = app_state_clone.borrow_mut();
+            let x: i32 = app_state.last_window_position.x + 12;
+            let y: i32 = app_state.last_window_position.y + 75;
+            settings_ui
+                .window()
+                .set_position(slint::PhysicalPosition::new(x, y));
             let _ = settings_ui.show();
         }
     });

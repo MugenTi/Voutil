@@ -9,6 +9,28 @@ import { MenuIcon, MaximizeIcon, ArrowUpFromLineIcon,
         //  IconSettings
 } from "@lucide";
 
+component MenuButton inherits Rectangle {
+    in-out property text <=> _txt.text;
+    callback clicked <=> _touch.clicked;
+
+    border-color: #282828;
+    border-radius: 4px;
+    border-width: 1px;
+    height: 28px;
+    preferred-width: 100%;
+    // background: _touch.pressed ? #282828 : _touch.has-hover ? #0078D4 :  #282828;
+    background: _touch.pressed ? #282828 : _touch.has-hover ? #3a3a3a :  #282828;
+
+    _txt := Text {
+        color: _touch.pressed ? #ccc : #eee;
+        x: 30px;
+        //font-size: 14px;
+        font-size: 1rem;
+        vertical-alignment: center;
+    }
+    _touch := TouchArea { }
+}
+
 export component AppWindow inherits Window {
     init => {
         Palette.color-scheme = ColorScheme.dark; // Force dark mode
@@ -90,6 +112,7 @@ export component AppWindow inherits Window {
     callback pointer_event(string, string, float, float);
     callback check_selection_hit(float, float) -> bool;
     callback crop_in_place();
+    callback show_custom_menu();
 
     function get-cursor-from-type(handle_type: string) -> MouseCursor {
         if (handle_type == "move") { return MouseCursor.move; }
@@ -213,27 +236,45 @@ export component AppWindow inherits Window {
             height: root._menu_bar_height;
             background: root._menu_bar_background;
 
-            main_menu := ContextMenuArea {
-                Menu {
-                    MenuItem {
-                        title: @tr("Copy");
-                        //icon: CopyIcon;
-                        activated => { root.copy_to_clipboard(); }
-                    }
-                    MenuItem {
-                        title: @tr("Paste");
-                        //icon: ClipboardPasteIcon;
-                        activated => { root.paste_from_clipboard(); }
-                    }
-                    MenuItem {
-                        title: @tr("Preferences");
-                        //icon: SettingsIcon;
-                        activated => { root.show_settings_window(); }
-                    }
-                    MenuItem {
-                        title: @tr("Quit");
-                        //icon: LogOutIcon;
-                        activated => { root.exit(); }
+            main_menu := PopupWindow {
+                x: 5px;
+                y: _menu_bar_height;
+                width: 200px;
+                Rectangle {
+                    background: #282828;
+                    border-width: 1px;
+                    border-radius: 5px;
+                    border-color: #454545;
+                    drop-shadow-color: #00000050;
+                    drop-shadow-blur: 10px;
+                    drop-shadow-offset-x: 2px;
+                    drop-shadow-offset-y: 2px;
+                    VerticalLayout {
+                        padding: 2px;
+                        Rectangle {
+                            background: #282828; // Darker background for the menu itself
+                            border-radius: 4px;
+                            preferred-width: 100%;
+                            height: 112px;
+                            VerticalLayout {
+                                MenuButton {
+                                    text: @tr("Copy");
+                                    clicked => { root.copy_to_clipboard(); main_menu.close(); }
+                                }
+                                MenuButton {
+                                    text: @tr("Paste");
+                                    clicked => { root.paste_from_clipboard(); main_menu.close(); }
+                                }
+                                MenuButton {
+                                    text: @tr("Preferences");
+                                    clicked => { root.show_settings_window(); main_menu.close(); }
+                                }
+                                MenuButton {
+                                    text: @tr("Quit");
+                                    clicked => { root.exit(); main_menu.close(); }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -249,7 +290,7 @@ export component AppWindow inherits Window {
                         size: _icon_size;
                     }
                     //Text { text: "Menu"; color: white; }
-                    clicked => { main_menu.show({x: 5px, y: 5px + _menu_bar_height}); }
+                    clicked => { main_menu.show(); }
                 }
                 TouchArea {
                     FolderIcon {
