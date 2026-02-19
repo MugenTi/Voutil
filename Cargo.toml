@@ -34,7 +34,7 @@ heif = []
 
 
 [dependencies]
-slint = {  version = "1.14", features = ["serde"] }
+slint = {  version = "1.15", features = ["serde"] }
 lucide-slint = "0.1.4"
 image = "0.25"
 rfd = "0.14"
@@ -137,7 +137,7 @@ winres = "0.1.12"
 
 [build-dependencies]
 lucide-slint = "0.1.4"
-slint-build = "1.14"
+slint-build = "1.15"
 
 [dev-dependencies]
 cmd_lib = "1.3.0"
