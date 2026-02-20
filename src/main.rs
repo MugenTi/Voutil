@@ -1,12 +1,14 @@
-#![windows_subsystem = "windows"]
+//#![windows_subsystem = "windows"]
 //#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use arboard::{Clipboard, ImageData};
 use image::{imageops, DynamicImage, ImageBuffer};
 use oculante::settings::{PersistentSettings, VolatileSettings};
+use rayon::prelude::*;
 use rfd;
 use slint::{
-    ComponentHandle, Image, PhysicalPosition, PhysicalSize, Rgba8Pixel, SharedPixelBuffer, VecModel,
+    ComponentHandle, Image, Model, PhysicalPosition, PhysicalSize, Rgba8Pixel, SharedPixelBuffer,
+    VecModel,
 };
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -14,9 +16,12 @@ use std::cmp::min;
 use std::env;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::mpsc;
 use std::thread;
 
 slint::include_modules!();
+
+mod cache;
 
 #[derive(Default, Clone, Copy, Debug, PartialEq)]
 struct SelectionRect {
@@ -99,6 +104,7 @@ struct AppState {
     selection_start_point: Option<(u32, u32)>,
     initial_selection_on_drag: Option<SelectionRect>,
     initial_mouse_on_drag: Option<(u32, u32)>,
+    thumbnail_receiver: Option<mpsc::Receiver<(SharedPixelBuffer<Rgba8Pixel>, String)>>,
 }
 
 fn load_image_to_slint(img: DynamicImage) -> Image {
@@ -191,30 +197,77 @@ fn set_image(
             let image_list_clone = image_list.clone();
             if let Some(thumb_ui) = thumb_ui_handle.upgrade() {
                 thumb_ui.set_thumbnails(Rc::new(VecModel::default()).into());
+                let (tx, rx) = mpsc::channel();
+                app_state.thumbnail_receiver = Some(rx); // Store receiver in AppState
+
                 thread::spawn(move || {
-                    let mut thumb_data = Vec::new();
-                    for p in &image_list_clone {
-                        if let Ok(img) = image::open(p) {
-                            let thumb = img.thumbnail(180, 120);
-                            let rgba_image = thumb.to_rgba8();
-                            let buffer = SharedPixelBuffer::clone_from_slice(
-                                rgba_image.as_raw(),
-                                rgba_image.width(),
-                                rgba_image.height(),
-                            );
-                            thumb_data.push((buffer, p.to_string_lossy().to_string()));
+                    let cache_dir = match cache::get_cache_dir() {
+                        Ok(dir) => Some(dir),
+                        Err(e) => {
+                            eprintln!("[Oculante] Failed to get/create cache directory: {}. Thumbnails will not be cached.", e);
+                            None
                         }
-                    }
-                    let _ = slint::invoke_from_event_loop(move || {
-                        if let Some(thumb_ui) = thumb_ui_handle.upgrade() {
-                            let thumbnails: Rc<VecModel<Thumbnail>> = Rc::new(VecModel::default());
-                            for (buffer, path) in thumb_data {
-                                thumbnails.push(Thumbnail {
-                                    source: buffer_to_slint_image(buffer),
-                                    path: path.into(),
-                                });
+                    };
+
+                    image_list_clone.par_iter().for_each(|p| {
+                        let mut loaded_from_cache = false;
+                        let mut final_buffer: Option<SharedPixelBuffer<Rgba8Pixel>> = None;
+
+                        // Try to load from cache
+                        if let Some(ref dir) = cache_dir {
+                            if let Some(thumb_path) = cache::get_thumbnail_path(p, dir) {
+                                if thumb_path.exists() {
+                                    if let Ok(img) = image::open(thumb_path) {
+                                        let rgba_image = img.to_rgba8();
+                                        final_buffer = Some(SharedPixelBuffer::clone_from_slice(
+                                            rgba_image.as_raw(),
+                                            rgba_image.width(),
+                                            rgba_image.height(),
+                                        ));
+                                        loaded_from_cache = true;
+                                    }
+                                }
                             }
-                            thumb_ui.set_thumbnails(thumbnails.into());
+                        }
+
+                        // If not loaded, generate new and try to save to cache
+                        if !loaded_from_cache {
+                            if let Ok(img) = image::open(p) {
+                                let thumb = img.thumbnail(180, 120);
+                                let rgba_image = thumb.to_rgba8();
+
+                                if let Some(ref dir) = cache_dir {
+                                    if let Some(thumb_path) = cache::get_thumbnail_path(p, dir) {
+                                        // Convert to RGB before saving as JPEG, which doesn't support alpha
+                                        let rgb_image =
+                                            DynamicImage::ImageRgba8(rgba_image.clone())
+                                                .into_rgb8();
+                                        if let Err(e) = rgb_image
+                                            .save_with_format(&thumb_path, image::ImageFormat::Jpeg)
+                                        {
+                                            eprintln!(
+                                                "[Oculante] Failed to save thumbnail for {:?}: {}",
+                                                p, e
+                                            );
+                                        }
+                                    }
+                                }
+
+                                final_buffer = Some(SharedPixelBuffer::clone_from_slice(
+                                    rgba_image.as_raw(),
+                                    rgba_image.width(),
+                                    rgba_image.height(),
+                                ));
+                            }
+                        }
+
+                        if let Some(buffer) = final_buffer {
+                            if let Err(e) = tx.send((buffer, p.to_string_lossy().to_string())) {
+                                eprintln!(
+                                    "[Oculante] Failed to send thumbnail to UI thread: {}",
+                                    e
+                                );
+                            }
                         }
                     });
                 });
@@ -801,10 +854,14 @@ fn main() -> Result<(), slint::PlatformError> {
 
     // --- Tick handler for dynamic resize/move ---
     let main_window_handle = main_window.as_weak();
+    let thumbnail_window_handle = thumbnail_window.as_weak();
     let app_state_clone = app_state.clone();
     let volatile_settings_clone = volatile_settings.clone();
     main_window.on_tick(move |auto_fit| {
-        if let Some(ui) = main_window_handle.upgrade() {
+        if let (Some(ui), Some(thumb_ui)) = (
+            main_window_handle.upgrade(),
+            thumbnail_window_handle.upgrade(),
+        ) {
             let mut app_state = app_state_clone.borrow_mut();
             let mut volatile = volatile_settings_clone.borrow_mut();
 
@@ -825,6 +882,21 @@ fn main() -> Result<(), slint::PlatformError> {
                 ui.set_auto_fit(auto_fit);
             }
             update_image_info(&ui);
+
+            // Process newly arrived thumbnails
+            if let Some(ref rx) = app_state.thumbnail_receiver {
+                while let Ok((buffer, path_string)) = rx.try_recv() {
+                    let thumbnails_model = thumb_ui.get_thumbnails();
+                    let thumbnails = thumbnails_model
+                        .as_any()
+                        .downcast_ref::<VecModel<Thumbnail>>()
+                        .unwrap();
+                    thumbnails.push(Thumbnail {
+                        source: buffer_to_slint_image(buffer),
+                        path: path_string.into(),
+                    });
+                }
+            }
 
             if let Some(selection) = app_state.selection {
                 let image_x = ui.get_image_x() as f32;

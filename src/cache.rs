@@ -1,58 +1,45 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    time::Instant,
-};
+use chrono::{DateTime, Utc};
+use directories_next as directories;
+use hex;
+use sha2::{Digest, Sha256};
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
 
-use image::DynamicImage;
-use log::debug;
-
-#[derive(Debug, Default)]
-pub struct Cache {
-    pub data: HashMap<PathBuf, CachedImage>,
-    pub cache_size: usize,
+pub fn get_cache_dir() -> io::Result<PathBuf> {
+    let mut cache_path;
+    if let Some(base_dirs) = directories::BaseDirs::new() {
+        cache_path = base_dirs.cache_dir().to_path_buf();
+        cache_path.push("oculante_slint"); // Application specific directory
+    } else {
+        cache_path = PathBuf::from(".cache");
+    }
+    cache_path.push("thumbnails"); // Subdirectory for thumbnails
+    fs::create_dir_all(&cache_path)?; // Propagate error if it happened
+    Ok(cache_path)
 }
 
-#[derive(Debug)]
-pub struct CachedImage {
-    data: DynamicImage,
-    created: Instant,
-}
+pub fn get_thumbnail_path(original_path: &Path, cache_dir: &Path) -> Option<PathBuf> {
+    if let Ok(metadata) = fs::metadata(original_path) {
+        if let Ok(modified_time) = metadata.modified() {
+            let dt: DateTime<Utc> = modified_time.into();
+            let timestamp_str = dt.to_rfc3339();
 
-impl Cache {
-    pub fn get(&self, path: &Path) -> Option<DynamicImage> {
-        self.data.get(path).map(|c| c.data.clone())
-    }
-
-    pub fn clear(&mut self) {
-        self.data.clear()
-    }
-
-    pub fn insert(&mut self, path: &Path, img: DynamicImage) {
-        self.data.insert(
-            path.into(),
-            CachedImage {
-                data: img,
-                created: std::time::Instant::now(),
-            },
-        );
-        if self.data.len() > self.cache_size {
-            let mut latest = std::time::Instant::now();
-            let mut key = PathBuf::new();
-
-            for (p, c) in &self.data {
-                if c.created < latest {
-                    latest = c.created;
-                    key = p.clone();
-                }
+            let mut hasher = Sha256::new();
+            if let Some(path_str) = original_path.to_str() {
+                hasher.update(path_str.as_bytes());
+            } else {
+                // Non-UTF8 paths are rare, but handle them somehow
+                hasher.update(original_path.as_os_str().to_string_lossy().as_bytes());
             }
-            debug!(
-                "Cache limit hit, deleting oldest: {}, {}s old",
-                key.display(),
-                latest.elapsed().as_secs_f32()
-            );
+            hasher.update(timestamp_str.as_bytes());
+            let result = hasher.finalize();
+            let hash_str = hex::encode(result);
 
-            _ = self.data.remove(&key);
+            let mut thumb_path = cache_dir.to_path_buf();
+            thumb_path.push(format!("{}.jpg", hash_str));
+            return Some(thumb_path);
         }
     }
+    None
 }

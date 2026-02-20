@@ -1276,6 +1276,7 @@ dependencies = [
  "iana-time-zone",
  "js-sys",
  "num-traits 0.2.19",
+ "serde",
  "wasm-bindgen",
  "windows-link 0.2.1",
 ]
@@ -2102,6 +2103,15 @@ dependencies = [
  "block-buffer",
  "crypto-common",
  "subtle",
+]
+
+[[package]]
+name = "directories"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a49173b84e034382284f27f1af4dcbbd231ffa358c0fe316541a7337f376a35"
+dependencies = [
+ "dirs-sys 0.4.1",
 ]
 
 [[package]]
@@ -5970,6 +5980,7 @@ dependencies = [
  "dds-rs",
  "dicom-object",
  "dicom-pixeldata",
+ "directories",
  "directories-next",
  "dirs-next",
  "env_logger 0.11.8",
@@ -5982,6 +5993,7 @@ dependencies = [
  "fruitbasket",
  "gif 0.13.3",
  "gif-dispose",
+ "hex",
  "icns",
  "image",
  "imageproc",
@@ -6006,11 +6018,13 @@ dependencies = [
  "quantette",
  "quickraw",
  "rand",
+ "rayon",
  "resvg 0.41.0",
  "rfd",
  "ruzstd",
  "serde",
  "serde_json",
+ "sha2",
  "slint",
  "slint-build",
  "sys-info",
@@ -7440,6 +7454,17 @@ name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3bf829a2d51ab4a5ddf1352d8470c140cadc8301b2ae1789db023f01cedd6ba"
+dependencies = [
+ "cfg-if 1.0.4",
+ "cpufeatures",
+ "digest",
+]
+
+[[package]]
+name = "sha2"
+version = "0.10.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
 dependencies = [
  "cfg-if 1.0.4",
  "cpufeatures",
