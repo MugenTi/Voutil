@@ -1,4 +1,4 @@
-//#![windows_subsystem = "windows"]
+#![windows_subsystem = "windows"]
 //#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use arboard::{Clipboard, ImageData};
@@ -148,6 +148,17 @@ fn set_image(
     volatile_settings: &Rc<RefCell<VolatileSettings>>,
 ) {
     app_state.selection = None;
+
+    // Prevent opening thumbnail cache files directly
+    if let Ok(cache_dir) = cache::get_cache_dir() {
+        if let Some(parent) = path.parent() {
+            if parent == &cache_dir {
+                ui.set_status_text("Cannot open thumbnail cache files.".into());
+                return;
+            }
+        }
+    }
+
     if let Ok(img) = image::open(&path) {
         let new_slint_image = load_image_to_slint(img);
         let parent_dir = path.parent().unwrap_or(&path).to_path_buf();
