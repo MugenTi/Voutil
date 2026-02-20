@@ -900,18 +900,26 @@ fn main() -> Result<(), slint::PlatformError> {
             let current_pos = ui.window().position();
             let current_size = ui.window().size();
 
-            if app_state.last_window_position != current_pos {
-                volatile.window_position = current_pos.into();
-                let _ = volatile.save_blocking();
-                app_state.last_window_position = current_pos;
-            }
+            // Only save position and size if not in fullscreen mode
+            if !ui.get_fullscreen_enabled() {
+                if app_state.last_window_position != current_pos {
+                    volatile.window_position = current_pos.into();
+                    let _ = volatile.save_blocking();
+                    app_state.last_window_position = current_pos;
+                }
 
-            if app_state.last_window_size != current_size {
-                volatile.window_size = current_size.into();
-                let _ = volatile.save_blocking();
+                if app_state.last_window_size != current_size {
+                    volatile.window_size = current_size.into();
+                    let _ = volatile.save_blocking();
+                    app_state.last_window_size = current_size;
+                    // Trigger auto-fit when window size changes
+                    ui.set_auto_fit(auto_fit);
+                }
+            } else {
+                // If in fullscreen, just update app_state.last_window_position/size
+                // but don't save to volatile settings, preserving the last non-fullscreen state.
+                app_state.last_window_position = current_pos;
                 app_state.last_window_size = current_size;
-                // Trigger auto-fit when window size changes
-                ui.set_auto_fit(auto_fit);
             }
             update_image_info(&ui);
 
