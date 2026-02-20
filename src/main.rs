@@ -362,7 +362,28 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
-    main_window.on_exit(|| slint::quit_event_loop().unwrap());
+    let settings_window_handle_cloned_for_shared_logic = settings_window.as_weak();
+    let thumbnail_window_handle_cloned_for_shared_logic = thumbnail_window.as_weak();
+    let close_all_windows_logic = move || {
+        if let Some(settings_ui) = settings_window_handle_cloned_for_shared_logic.upgrade() {
+            let _ = settings_ui.hide();
+        }
+        if let Some(thumb_ui) = thumbnail_window_handle_cloned_for_shared_logic.upgrade() {
+            let _ = thumb_ui.hide();
+        }
+        slint::quit_event_loop().unwrap();
+    };
+
+    let close_all_windows_logic_clone_for_on_exit = close_all_windows_logic.clone();
+    main_window.on_exit(move || {
+        close_all_windows_logic_clone_for_on_exit();
+    });
+
+    let close_all_windows_logic_clone_for_close_request = close_all_windows_logic.clone();
+    main_window.window().on_close_requested(move || {
+        close_all_windows_logic_clone_for_close_request();
+        slint::CloseRequestResponse::HideWindow // Hide the window and then quit the app
+    });
 
     let main_window_handle = main_window.as_weak();
     main_window.on_reset_view(move || {
