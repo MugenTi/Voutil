@@ -13,6 +13,7 @@ use slint::{
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::cmp::min;
+use std::collections::HashMap; // Added for sorting
 use std::env;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -104,7 +105,12 @@ struct AppState {
     selection_start_point: Option<(u32, u32)>,
     initial_selection_on_drag: Option<SelectionRect>,
     initial_mouse_on_drag: Option<(u32, u32)>,
-    thumbnail_receiver: Option<mpsc::Receiver<(SharedPixelBuffer<Rgba8Pixel>, String)>>,
+    thumbnail_receiver: Option<mpsc::Receiver<ThumbnailMessage>>,
+}
+
+enum ThumbnailMessage {
+    Data(SharedPixelBuffer<Rgba8Pixel>, String),
+    Completion,
 }
 
 fn load_image_to_slint(img: DynamicImage) -> Image {
@@ -223,9 +229,10 @@ fn set_image(
                     image_list_clone.par_iter().for_each(|p| {
                         let mut loaded_from_cache = false;
                         let mut final_buffer: Option<SharedPixelBuffer<Rgba8Pixel>> = None;
+                        let cache_dir_clone = cache_dir.clone();
 
                         // Try to load from cache
-                        if let Some(ref dir) = cache_dir {
+                        if let Some(ref dir) = cache_dir_clone {
                             if let Some(thumb_path) = cache::get_thumbnail_path(p, dir) {
                                 if thumb_path.exists() {
                                     if let Ok(img) = image::open(thumb_path) {
@@ -247,7 +254,7 @@ fn set_image(
                                 let thumb = img.thumbnail(180, 120);
                                 let rgba_image = thumb.to_rgba8();
 
-                                if let Some(ref dir) = cache_dir {
+                                if let Some(ref dir) = cache_dir_clone {
                                     if let Some(thumb_path) = cache::get_thumbnail_path(p, dir) {
                                         // Convert to RGB before saving as JPEG, which doesn't support alpha
                                         let rgb_image =
@@ -273,14 +280,19 @@ fn set_image(
                         }
 
                         if let Some(buffer) = final_buffer {
-                            if let Err(e) = tx.send((buffer, p.to_string_lossy().to_string())) {
+                            if let Err(e) = tx.send(ThumbnailMessage::Data(
+                                buffer,
+                                p.to_string_lossy().to_string(),
+                            )) {
                                 eprintln!(
-                                    "[Oculante] Failed to send thumbnail to UI thread: {}",
+                                    "[Oculante] Failed to send thumbnail (data) to UI thread: {}",
                                     e
                                 );
                             }
                         }
                     });
+                    // Send completion signal after all thumbnails are processed
+                    let _ = tx.send(ThumbnailMessage::Completion);
                 });
             }
             app_state.image_list = image_list;
@@ -925,16 +937,47 @@ fn main() -> Result<(), slint::PlatformError> {
 
             // Process newly arrived thumbnails
             if let Some(ref rx) = app_state.thumbnail_receiver {
-                while let Ok((buffer, path_string)) = rx.try_recv() {
-                    let thumbnails_model = thumb_ui.get_thumbnails();
-                    let thumbnails = thumbnails_model
-                        .as_any()
-                        .downcast_ref::<VecModel<Thumbnail>>()
-                        .unwrap();
-                    thumbnails.push(Thumbnail {
-                        source: buffer_to_slint_image(buffer),
-                        path: path_string.into(),
-                    });
+                while let Ok(msg) = rx.try_recv() {
+                    match msg {
+                        ThumbnailMessage::Data(buffer, path_string) => {
+                            let thumbnails_model = thumb_ui.get_thumbnails();
+                            let thumbnails = thumbnails_model
+                                .as_any()
+                                .downcast_ref::<VecModel<Thumbnail>>()
+                                .unwrap();
+                            thumbnails.push(Thumbnail {
+                                source: buffer_to_slint_image(buffer),
+                                path: path_string.into(),
+                            });
+                        }
+                        ThumbnailMessage::Completion => {
+                            let image_list_borrow = app_state.image_list.clone();
+                            let thumbnails_model = thumb_ui.get_thumbnails();
+                            let current_thumbnails = thumbnails_model
+                                .as_any()
+                                .downcast_ref::<VecModel<Thumbnail>>()
+                                .unwrap();
+
+                            // Create a map from path string to Thumbnail for efficient lookup
+                            let mut thumbnail_map: HashMap<String, Thumbnail> = HashMap::new();
+                            for i in 0..current_thumbnails.row_count() {
+                                if let Some(thumb) = current_thumbnails.row_data(i) {
+                                    // UNWRAP HERE
+                                    thumbnail_map.insert(thumb.path.to_string(), thumb);
+                                }
+                            }
+
+                            // Create a new VecModel with sorted thumbnails
+                            let mut sorted_vec_model = VecModel::default();
+                            for path_buf in image_list_borrow.iter() {
+                                let path_string = path_buf.to_string_lossy().to_string();
+                                if let Some(thumb) = thumbnail_map.remove(&path_string) {
+                                    sorted_vec_model.push(thumb);
+                                }
+                            }
+                            thumb_ui.set_thumbnails(Rc::new(sorted_vec_model).into());
+                        }
+                    }
                 }
             }
 
