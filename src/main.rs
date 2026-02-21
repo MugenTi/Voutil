@@ -384,6 +384,44 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
+    let main_window_handle = main_window.as_weak();
+    let app_state_clone = app_state.clone();
+    main_window.on_save_as(move || {
+        if let Some(ui) = main_window_handle.upgrade() {
+            if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
+                if let Some(path) = rfd::FileDialog::new()
+                    .add_filter("PNG Image", &["png"])
+                    .set_file_name("Untitled.png")
+                    .save_file()
+                {
+                    let img_buffer: ImageBuffer<image::Rgba<u8>, _> = ImageBuffer::from_raw(
+                        pixel_buffer.width(),
+                        pixel_buffer.height(),
+                        pixel_buffer.as_bytes().to_vec(),
+                    )
+                    .unwrap();
+
+                    if let Err(e) = img_buffer.save(&path) {
+                        ui.set_status_text(format!("Error saving file: {}", e).into());
+                    } else {
+                        ui.set_status_text(format!("Saved to {}", path.display()).into());
+                        // If the file was saved in the current directory, force a refresh
+                        let mut app = app_state_clone.borrow_mut();
+                        if let Some(current_image_path) = app.image_list.get(0) {
+                            if path.parent() == current_image_path.parent() {
+                                app.image_list.clear();
+                            }
+                        }
+                    }
+                } else {
+                    ui.set_status_text("Save cancelled.".into());
+                }
+            } else {
+                ui.set_status_text("No image to save.".into());
+            }
+        }
+    });
+
     let settings_window_handle_cloned_for_shared_logic = settings_window.as_weak();
     let thumbnail_window_handle_cloned_for_shared_logic = thumbnail_window.as_weak();
     let close_all_windows_logic = move || {
