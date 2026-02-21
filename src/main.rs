@@ -98,6 +98,8 @@ impl Default for DragMode {
 struct AppState {
     last_window_size: PhysicalSize,
     last_window_position: PhysicalPosition,
+    last_thumbnail_window_position: PhysicalPosition,
+    last_thumbnail_window_size: PhysicalSize,
     image_list: Vec<PathBuf>,
     current_image_index: Option<usize>,
     selection: Option<SelectionRect>,
@@ -323,9 +325,17 @@ fn main() -> Result<(), slint::PlatformError> {
     main_window.window().set_position(initial_pos);
     main_window.window().set_size(initial_size);
 
+    let thumb_initial_pos: PhysicalPosition =
+        volatile_settings.borrow().thumbnail_window_position.into();
+    let thumb_initial_size: PhysicalSize = volatile_settings.borrow().thumbnail_window_size.into();
+    thumbnail_window.window().set_position(thumb_initial_pos);
+    thumbnail_window.window().set_size(thumb_initial_size);
+
     // --- Initialize AppState with current window geometry ---
     app_state.borrow_mut().last_window_position = initial_pos;
     app_state.borrow_mut().last_window_size = initial_size;
+    app_state.borrow_mut().last_thumbnail_window_position = thumb_initial_pos;
+    app_state.borrow_mut().last_thumbnail_window_size = thumb_initial_size;
 
     // --- Initial state setup ---
     main_window.set_status_text("Ready. Open a file to begin.".into());
@@ -929,6 +939,23 @@ fn main() -> Result<(), slint::PlatformError> {
                 app_state.last_window_position = current_pos;
                 app_state.last_window_size = current_size;
             }
+
+            if thumb_ui.window().is_visible() {
+                let thumb_current_pos = thumb_ui.window().position();
+                if app_state.last_thumbnail_window_position != thumb_current_pos {
+                    volatile.thumbnail_window_position = thumb_current_pos.into();
+                    let _ = volatile.save_blocking();
+                    app_state.last_thumbnail_window_position = thumb_current_pos;
+                }
+
+                let thumb_current_size = thumb_ui.window().size();
+                if app_state.last_thumbnail_window_size != thumb_current_size {
+                    volatile.thumbnail_window_size = thumb_current_size.into();
+                    let _ = volatile.save_blocking();
+                    app_state.last_thumbnail_window_size = thumb_current_size;
+                }
+            }
+
             update_image_info(&ui);
 
             // Process newly arrived thumbnails

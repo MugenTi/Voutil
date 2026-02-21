@@ -1,13 +1,13 @@
 // use crate::{
-//     file_encoder::FileEncoder, 
-//     shortcuts::*, 
+//     file_encoder::FileEncoder,
+//     shortcuts::*,
 //     utils::ColorChannel
 // };
 // use notan::egui::{Context, Visuals};
-use slint::{PhysicalPosition, PhysicalSize};
 use anyhow::{anyhow, Result};
-use log::{debug, trace, info};
+use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
+use slint::{PhysicalPosition, PhysicalSize};
 use std::{
     collections::{BTreeSet, HashSet, VecDeque},
     fmt::{self, Display, Formatter},
@@ -112,7 +112,10 @@ impl Default for PersistentSettings {
 impl PersistentSettings {
     pub fn load() -> Result<Self> {
         let config_path = get_config_dir()?.join("config.json");
-        debug!("Loading persistent settings from: {}", config_path.display());
+        debug!(
+            "Loading persistent settings from: {}",
+            config_path.display()
+        );
         let file = File::open(config_path)?;
         Ok(serde_json::from_reader(file)?)
     }
@@ -135,9 +138,11 @@ impl PersistentSettings {
 pub struct VolatileSettings {
     pub favourite_images: HashSet<PathBuf>,
     pub recent_images: VecDeque<PathBuf>,
-    pub window_geometry: ((u32, u32), (u32, u32)),  // No use
+    pub window_geometry: ((u32, u32), (u32, u32)), // No use
     pub window_position: PhysicalPosition,
     pub window_size: PhysicalSize,
+    pub thumbnail_window_position: PhysicalPosition,
+    pub thumbnail_window_size: PhysicalSize,
     pub last_open_directory: PathBuf,
     pub folder_bookmarks: BTreeSet<PathBuf>,
     pub image_scale: f64,
@@ -152,6 +157,11 @@ impl Default for VolatileSettings {
             window_geometry: Default::default(),
             window_position: Default::default(),
             window_size: Default::default(),
+            thumbnail_window_position: Default::default(),
+            thumbnail_window_size: PhysicalSize {
+                width: 1200,
+                height: 200,
+            },
             last_open_directory: Default::default(),
             folder_bookmarks: Default::default(),
             image_scale: 1.0,
