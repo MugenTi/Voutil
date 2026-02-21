@@ -566,8 +566,6 @@ fn main() -> Result<(), slint::PlatformError> {
                     .to_image();
                     let new_slint_image =
                         load_image_to_slint(DynamicImage::ImageRgba8(cropped_img));
-                    app_state.image_list.clear();
-                    app_state.current_image_index = None;
                     app_state.selection = None;
                     ui.set_image_display(new_slint_image);
                     ui.set_auto_fit(true);
@@ -585,8 +583,6 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Ok(mut clipboard) = Clipboard::new() {
                 if let Ok(clipboard_image) = clipboard.get_image() {
                     let mut app = app_state_clone.borrow_mut();
-                    app.image_list.clear();
-                    app.current_image_index = None;
                     app.selection = None;
                     ui.set_auto_fit(true);
                     ui.set_image_display(Image::from_rgba8(
@@ -962,13 +958,12 @@ fn main() -> Result<(), slint::PlatformError> {
                             let mut thumbnail_map: HashMap<String, Thumbnail> = HashMap::new();
                             for i in 0..current_thumbnails.row_count() {
                                 if let Some(thumb) = current_thumbnails.row_data(i) {
-                                    // UNWRAP HERE
                                     thumbnail_map.insert(thumb.path.to_string(), thumb);
                                 }
                             }
 
                             // Create a new VecModel with sorted thumbnails
-                            let mut sorted_vec_model = VecModel::default();
+                            let sorted_vec_model = VecModel::default();
                             for path_buf in image_list_borrow.iter() {
                                 let path_string = path_buf.to_string_lossy().to_string();
                                 if let Some(thumb) = thumbnail_map.remove(&path_string) {
