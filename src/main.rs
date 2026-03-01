@@ -320,13 +320,19 @@ fn main() -> Result<(), slint::PlatformError> {
     let app_state = Rc::new(RefCell::new(AppState::default()));
 
     // --- Initial state setup from settings ---
-    let initial_pos: PhysicalPosition = volatile_settings.borrow().window_position.into();
+    let mut initial_pos: PhysicalPosition = volatile_settings.borrow().window_position.into();
+    if initial_pos.x < 0 || initial_pos.y < 0 {
+        initial_pos = PhysicalPosition::default();
+    }
     let initial_size: PhysicalSize = volatile_settings.borrow().window_size.into();
     main_window.window().set_position(initial_pos);
     main_window.window().set_size(initial_size);
 
-    let thumb_initial_pos: PhysicalPosition =
+    let mut thumb_initial_pos: PhysicalPosition =
         volatile_settings.borrow().thumbnail_window_position.into();
+    if thumb_initial_pos.x < 0 || thumb_initial_pos.y < 0 {
+        thumb_initial_pos = PhysicalPosition::default();
+    }
     let thumb_initial_size: PhysicalSize = volatile_settings.borrow().thumbnail_window_size.into();
     thumbnail_window.window().set_position(thumb_initial_pos);
     thumbnail_window.window().set_size(thumb_initial_size);
