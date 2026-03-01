@@ -193,17 +193,18 @@ fn set_image(
                 .map_or(true, |p| p != parent_dir)
         {
             let image_list = if let Ok(entries) = std::fs::read_dir(&parent_dir) {
+                let supported_extensions: std::collections::HashSet<&str> = [
+                    "pnm", "pgm", "ppm", "pam", "png", "jpg", "jpeg", "gif", "webp", "tif",
+                    "tiff", "tga", "dds", "bmp", "ico", "hdr", "exr", "ff", "farbfeld", "avif", "qoi"
+                ].iter().cloned().collect();
+
                 let mut paths: Vec<_> = entries
                     .filter_map(|entry| entry.ok())
                     .map(|entry| entry.path())
                     .filter(|p| {
                         p.is_file()
                             && p.extension().map_or(false, |ext| {
-                                ext.eq_ignore_ascii_case("jpg")
-                                    || ext.eq_ignore_ascii_case("jpeg")
-                                    || ext.eq_ignore_ascii_case("png")
-                                    || ext.eq_ignore_ascii_case("gif")
-                                    || ext.eq_ignore_ascii_case("bmp")
+                                supported_extensions.contains(ext.to_str().unwrap_or("").to_lowercase().as_str())
                             })
                     })
                     .collect();
