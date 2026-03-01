@@ -63,6 +63,8 @@ export component AppWindow inherits Window {
 
     // --- Internal state for dragging ---
     private property <bool> _is_dragging: false;
+    private property <bool> _is_right_down: false;
+    private property <bool> _is_right_dragging: false;
     private property <int> _last_mouse_pos_x: 0;
     private property <int> _last_mouse_pos_y: 0;
 
@@ -289,7 +291,7 @@ export component AppWindow inherits Window {
 
             selection_context_menu := PopupWindow {
                 x: ta.mouse-x;
-                y: ta.mouse-y + 40px;
+                y: ta.mouse-y + root._menu_bar_height;
                 width: 200px;
                 Rectangle {
                     background: #282828;
@@ -492,20 +494,26 @@ export component AppWindow inherits Window {
                                 _last_mouse_pos_y = ta.mouse-y / 1px;
                             }
                         } else if (event.button == PointerEventButton.right) {
-                            if (is_on_selection) {
-                                selection_context_menu.show();
-                            } else {
-                                root.pointer_event("down", "right", ta.mouse-x / 1px, ta.mouse-y / 1px);
-                            }
+                            _is_right_down = true;
+                            root.pointer_event("down", "right", ta.mouse-x / 1px, ta.mouse-y / 1px);
                         }
                     } else if (event.kind == PointerEventKind.up) {
                         if (event.button == PointerEventButton.left) {
                             _is_dragging = false;
                             root.pointer_event("up", "left", ta.mouse-x / 1px, ta.mouse-y / 1px);
                         } else if (event.button == PointerEventButton.right) {
+                            let is_on_selection = root.check_selection_hit(ta.mouse-x / 1px, ta.mouse-y / 1px);
+                            if (is_on_selection && !_is_right_dragging) {
+                                selection_context_menu.show();
+                            }
+                            _is_right_down = false;
+                            _is_right_dragging = false;
                             root.pointer_event("up", "right", ta.mouse-x / 1px, ta.mouse-y / 1px);
                         }
                     } else if (event.kind == PointerEventKind.move) {
+                        if (_is_right_down) {
+                            _is_right_dragging = true;
+                        }
                         if (_is_dragging) {
                             image_x += ta.mouse-x / 1px - _last_mouse_pos_x;
                             image_y += ta.mouse-y / 1px - _last_mouse_pos_y;
@@ -565,9 +573,11 @@ export component AppWindow inherits Window {
         ok_clicked_resize => {
             root.resize_confirmed();
             root.show_resize_dialog = false;
+            key_handler.focus();
         }
         cancel_clicked_resize => {
             root.show_resize_dialog = false;
+            key_handler.focus();
         }
     }
 }
