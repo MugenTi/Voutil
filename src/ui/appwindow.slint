@@ -59,12 +59,12 @@ export component AppWindow inherits Window {
     in-out property <bool> auto_fit: true;
     in-out property <bool> always_on_top_enabled: false;
     in-out property <bool> fullscreen_enabled: false;
+    in-out property <bool> zen_mode_enabled: false;
     in-out property <bool> thumbnail_window_is_visible: false;
 
     // --- Internal state for dragging ---
     private property <bool> _is_dragging: false;
-    private property <bool> _is_right_down: false;
-    private property <bool> _is_right_dragging: false;
+    private property <bool> _zen_mode_before_enter: false;
     private property <int> _last_mouse_pos_x: 0;
     private property <int> _last_mouse_pos_y: 0;
 
@@ -200,17 +200,19 @@ export component AppWindow inherits Window {
             if ((event.text == "O" || event.text == "o") && event.modifiers.control) {
                 root.request_open_file();
             }
-            if ((event.text == "F" || event.text == "f") && event.modifiers.control) {
+            if (event.text == "F" || event.text == "f") {
                 root.fullscreen_enabled = !root.fullscreen_enabled;
             }
-            if ((event.text == "T" || event.text == "t") && event.modifiers.control) {
+            if (event.text == "T" || event.text == "t") {
                 root.always_on_top_enabled = !root.always_on_top_enabled;
             }
             if ((event.text == "Y" || event.text == "y") && event.modifiers.control) {
                 root.crop_in_place();
             }
             if (event.text == Key.Escape) {
-                if (root.thumbnail_window_is_visible) {
+                if (root.fullscreen_enabled) {
+                    root.fullscreen_enabled = false;
+                } else if (root.thumbnail_window_is_visible) {
                     root.show_thumbnail_window();
                 } else {
                     root.exit();
@@ -226,11 +228,28 @@ export component AppWindow inherits Window {
                 apply_view_one_to_one_properties();          
                 root.view_one_to_one();
             }
+            if (event.text == "V" || event.text == "v") {
+                root.reset_view();
+            }
             if ((event.text == "C" || event.text == "c") && event.modifiers.control) {
                 root.copy_to_clipboard();
             }
             if ((event.text == "V" || event.text == "v") && event.modifiers.control) {
                 root.paste_from_clipboard();
+            }
+            if (event.text == "Z" || event.text == "z") {
+                root.zen_mode_enabled = !root.zen_mode_enabled;
+            }
+            if (event.text == Key.Return) {
+                root.reset_view();
+                if (root.fullscreen_enabled) {
+                    root.zen_mode_enabled = _zen_mode_before_enter;
+                    root.fullscreen_enabled = false;
+                } else {
+                    _zen_mode_before_enter = root.zen_mode_enabled;
+                    root.zen_mode_enabled = true;
+                    root.fullscreen_enabled = true;
+                }
             }
             accept // Consume event
         }
@@ -239,7 +258,7 @@ export component AppWindow inherits Window {
     VerticalLayout {
         spacing: 0;
         menu_bar := Rectangle {
-            height: root._menu_bar_height;
+            height: root.zen_mode_enabled ? 0px : root._menu_bar_height;
             background: root._menu_bar_background;
 
             main_menu := PopupWindow {
@@ -494,26 +513,20 @@ export component AppWindow inherits Window {
                                 _last_mouse_pos_y = ta.mouse-y / 1px;
                             }
                         } else if (event.button == PointerEventButton.right) {
-                            _is_right_down = true;
-                            root.pointer_event("down", "right", ta.mouse-x / 1px, ta.mouse-y / 1px);
+                            if (is_on_selection) {
+                                selection_context_menu.show();
+                            } else {
+                                root.pointer_event("down", "right", ta.mouse-x / 1px, ta.mouse-y / 1px);
+                            }
                         }
                     } else if (event.kind == PointerEventKind.up) {
                         if (event.button == PointerEventButton.left) {
                             _is_dragging = false;
                             root.pointer_event("up", "left", ta.mouse-x / 1px, ta.mouse-y / 1px);
                         } else if (event.button == PointerEventButton.right) {
-                            let is_on_selection = root.check_selection_hit(ta.mouse-x / 1px, ta.mouse-y / 1px);
-                            if (is_on_selection && !_is_right_dragging) {
-                                selection_context_menu.show();
-                            }
-                            _is_right_down = false;
-                            _is_right_dragging = false;
                             root.pointer_event("up", "right", ta.mouse-x / 1px, ta.mouse-y / 1px);
                         }
                     } else if (event.kind == PointerEventKind.move) {
-                        if (_is_right_down) {
-                            _is_right_dragging = true;
-                        }
                         if (_is_dragging) {
                             image_x += ta.mouse-x / 1px - _last_mouse_pos_x;
                             image_y += ta.mouse-y / 1px - _last_mouse_pos_y;
@@ -535,7 +548,7 @@ export component AppWindow inherits Window {
             }
         }
         status_bar := Rectangle {
-            height: 28px;
+            height: root.zen_mode_enabled ? 0px : 28px;
             background: _menu_bar_background;
             HorizontalLayout {
                 padding: 5px;
