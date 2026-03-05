@@ -305,7 +305,6 @@ fn set_image(
         ui.set_auto_fit(true);
         ui.set_image_display(new_slint_image);
         update_image_info(&ui);
-        ui.set_show_resize_dialog(false);
         ui.set_status_text(format!("Loaded: {}", path.to_string_lossy()).into());
     } else {
         ui.set_status_text(format!("Failed to load: {}", path.to_string_lossy()).into());

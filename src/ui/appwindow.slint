@@ -78,12 +78,11 @@ export component AppWindow inherits Window {
     private property <brush> _menu_bar_background: #191919;
 
     // --- Resize Dialog properties ---
-    in-out property <bool> show_resize_dialog: false;
     in-out property <int> resize_dialog_original_w;
     in-out property <int> resize_dialog_original_h;
     in-out property <int> resize_dialog_new_w;
     in-out property <int> resize_dialog_new_h;
-    in-out property <string> resize_dialog_unit;
+    in-out property <string> resize_dialog_unit: "Pixels";
     in-out property <bool> resize_dialog_lock_aspect;
     in-out property <string> resize_dialog_interpolation;
 
@@ -449,12 +448,9 @@ export component AppWindow inherits Window {
                         size: _icon_size;
                     }
                     clicked => {
-                        if root.show_resize_dialog == false {
-                            root.show_resize_window();
-                            root.show_resize_dialog = true;
-                        } else {
-                            root.show_resize_dialog = false;
-                        }
+                        root.show_resize_window();
+                        resize_window.setup();
+                        resize_window.show();
                     }
                 }
             }
@@ -571,25 +567,21 @@ export component AppWindow inherits Window {
         }
     }
 
-    if root.show_resize_dialog : ResizeWindow {
-        original_w: root.resize_dialog_original_w;
-        original_h: root.resize_dialog_original_h;
+    // Instantiate the component
+    resize_window := ResizeWindow {
+        original_w <=> root.resize_dialog_original_w;
+        original_h <=> root.resize_dialog_original_h;
         new_w <=> root.resize_dialog_new_w;
         new_h <=> root.resize_dialog_new_h;
         unit <=> root.resize_dialog_unit;
         lock_aspect <=> root.resize_dialog_lock_aspect;
         interpolation <=> root.resize_dialog_interpolation;
 
-        parent_w: root.width;
-        parent_h: root.height;
-
         ok_clicked_resize => {
             root.resize_confirmed();
-            root.show_resize_dialog = false;
             key_handler.focus();
         }
         cancel_clicked_resize => {
-            root.show_resize_dialog = false;
             key_handler.focus();
         }
     }

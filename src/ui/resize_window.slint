@@ -1,24 +1,34 @@
 import { LineEdit, CheckBox, ComboBox, Button } from "std-widgets.slint";
 
-export component ResizeWindow inherits Window {
-    init => {
+export component ResizeWindow {
+    min-width: 300px;
+    min-height: 400px;
+    preferred-width: 300px;
+    preferred-height: 400px;
+
+    // init logic moved to setup()
+    public function setup() {
         root.unit = "Pixels";
         root.interpolation = "CatmullRom";
         root.lock_aspect = true;
         root.edit_type = InputType.number;
         root.var_w = root.new_w;
         root.var_h = root.new_h;
-        root.pct_w = root.new_w / root.original_w * 100;
-        root.pct_h = root.new_h / root.original_h * 100;
-        self.x = (root.parent_w - self.width) / 2;
-        self.y = (root.parent_h - self.height) / 2;
+        if (root.original_w > 0) {
+            root.pct_w = root.new_w / root.original_w * 100;
+        }
+        if (root.original_h > 0) {
+            root.pct_h = root.new_h / root.original_h * 100;
+        }
     }
-    title: "Resize image";
-    min-width: 300px;
-    min-height: 400px;
-    preferred-width: 300px;
-    preferred-height: 400px;
-    default-font-size: 13px;
+
+    public function show() {
+        popup.show();
+    }
+
+    public function close() {
+        popup.close();
+    }
 
     in-out property <int> original_w;
     in-out property <int> original_h;
@@ -48,119 +58,131 @@ export component ResizeWindow inherits Window {
         }
     }
 
-    in-out property <length> parent_w;
-    in-out property <length> parent_h;
+    popup := PopupWindow {
+        close-policy: no-auto-close;
+        width: 300px;
+        Rectangle {
+            background: #282828;
+            border-width: 1px;
+            border-radius: 5px;
+            border-color: #454545;
+            drop-shadow-color: #00000050;
+            drop-shadow-blur: 10px;
+            drop-shadow-offset-x: 2px;
+            drop-shadow-offset-y: 2px;
 
-    TouchArea {
-        moved => {
-            root.x += self.mouse-x - self.pressed-x;
-            root.y += self.mouse-y - self.pressed-y;
-        }
-        VerticalLayout {
-            padding: 10px;
-            spacing: 5px;
+            VerticalLayout {
+                padding: 10px;
+                spacing: 5px;
 
-            // Row 0: Original and New size display
-            Text { text: "Original size:"; }
-            Text { text: @tr("{} x {}", root.original_w, root.original_h); }
-            Text { text: "New size:"; }
-            Text { text: @tr("{} x {}", root.new_w, root.new_h); }
+                // Row 0: Original and New size display
+                Text { text: "Original size:"; }
+                Text { text: @tr("{} x {}", root.original_w, root.original_h); }
+                Text { text: "New size:"; }
+                Text { text: @tr("{} x {}", root.new_w, root.new_h); }
 
-            // Row 1: Unit selection
-            Text { text: "Unit:"; }
-            unit_combo := ComboBox {
-                model: ["Pixels", "Percent"];
-                current-value: root.unit;
-                selected(value) => {
-                    if (value == "Percent" && root.unit == "Pixels") {
-                        root.new_w = root.var_w;
-                        root.new_h = root.var_h;
-                        root.pct_w = root.var_w / root.original_w * 100;
-                        root.pct_h = root.var_h / root.original_h * 100;
-                        root.var_w = root.pct_w;
-                        root.var_h = root.pct_h;
-                        root.edit_type = InputType.decimal;
-                    } else if (value == "Pixels" && root.unit == "Percent") {
-                        root.pct_w = root.var_w;
-                        root.pct_h = root.var_h;
-                        root.new_w = root.original_w * root.var_w / 100;
-                        root.new_h = root.original_h * root.var_h / 100;
-                        root.var_w = root.new_w;
-                        root.var_h = root.new_h;
-                        root.edit_type = InputType.number;
-                    }
-                    root.unit = value;
-                    width_edit.text = root.var_w;
-                    height_edit.text = root.var_h;
-                }
-            }
-
-            // Row 2: Width
-            Text { text: "Width:"; }
-            width_edit := LineEdit {
-                text: root.var_w;
-                input-type: root.edit_type;
-                edited(txt) => {
-                    root.var_w = txt.to-float();
-                    if (root.lock_aspect) {
-                        if (root.unit == "Percent") {
-                            root.var_h = root.var_w;
-                        } else {
-                            root.var_h = root.var_w * root.original_h / root.original_w;
+                // Row 1: Unit selection
+                Text { text: "Unit:"; }
+                unit_combo := ComboBox {
+                    model: ["Pixels", "Percent"];
+                    current-value: root.unit;
+                    selected(value) => {
+                        if (value == "Percent" && root.unit == "Pixels") {
+                            root.new_w = root.var_w;
+                            root.new_h = root.var_h;
+                            root.pct_w = root.var_w / root.original_w * 100;
+                            root.pct_h = root.var_h / root.original_h * 100;
+                            root.var_w = root.pct_w;
+                            root.var_h = root.pct_h;
+                            root.edit_type = InputType.decimal;
+                        } else if (value == "Pixels" && root.unit == "Percent") {
+                            root.pct_w = root.var_w;
+                            root.pct_h = root.var_h;
+                            root.new_w = root.original_w * root.var_w / 100;
+                            root.new_h = root.original_h * root.var_h / 100;
+                            root.var_w = root.new_w;
+                            root.var_h = root.new_h;
+                            root.edit_type = InputType.number;
                         }
+                        root.unit = value;
+                        width_edit.text = root.var_w;
                         height_edit.text = root.var_h;
                     }
-                    update_property();
                 }
-            }
 
-            // Row 3: Height
-            Text { text: "Height:"; }
-            height_edit := LineEdit {
-                text: root.var_h;
-                input-type: root.edit_type;
-                edited(txt) => {
-                    root.var_h = txt.to-float();
-                    if (root.lock_aspect) {
-                        if (root.unit == "Percent") {
-                            root.var_w = root.var_h;
-                        } else {
-                            root.var_w = root.var_h * root.original_w / root.original_h;
+                // Row 2: Width
+                Text { text: "Width:"; }
+                width_edit := LineEdit {
+                    text: root.var_w;
+                    input-type: root.edit_type;
+                    edited(txt) => {
+                        root.var_w = txt.to-float();
+                        if (root.lock_aspect) {
+                            if (root.unit == "Percent") {
+                                root.var_h = root.var_w;
+                            } else {
+                                root.var_h = root.var_w * root.original_h / root.original_w;
+                            }
+                            height_edit.text = root.var_h;
                         }
-                        width_edit.text = root.var_w;
+                        update_property();
                     }
-                    update_property();
                 }
-            }
 
-            // Row 4: Lock aspect ratio
-            Rectangle {} // Spacer
-            lock_check := CheckBox {
-                text: "Lock aspect ratio";
-                checked <=> root.lock_aspect;
-            }
-
-            // Row 5: Interpolation
-            Text { text: "Interpolation:"; }
-            interpolation_combo := ComboBox {
-                model: ["Nearest", "Triangle", "CatmullRom", "Gaussian", "Lanczos3"];
-                current-value: root.interpolation;
-                selected(value) => {
-                    root.interpolation = value;
+                // Row 3: Height
+                Text { text: "Height:"; }
+                height_edit := LineEdit {
+                    text: root.var_h;
+                    input-type: root.edit_type;
+                    edited(txt) => {
+                        root.var_h = txt.to-float();
+                        if (root.lock_aspect) {
+                            if (root.unit == "Percent") {
+                                root.var_w = root.var_h;
+                            } else {
+                                root.var_w = root.var_h * root.original_w / root.original_h;
+                            }
+                            width_edit.text = root.var_w;
+                        }
+                        update_property();
+                    }
                 }
-            }
 
-            // Row 6: Buttons
-            Rectangle {} // Spacer
-            HorizontalLayout {
-                spacing: 5px;
-                Button {
-                    text: "OK";
-                    clicked => { root.ok_clicked_resize(); }
+                // Row 4: Lock aspect ratio
+                Rectangle {} // Spacer
+                lock_check := CheckBox {
+                    text: "Lock aspect ratio";
+                    checked <=> root.lock_aspect;
                 }
-                Button { 
-                    text: "Cancel";
-                    clicked => { root.cancel_clicked_resize(); }
+
+                // Row 5: Interpolation
+                Text { text: "Interpolation:"; }
+                interpolation_combo := ComboBox {
+                    model: ["Nearest", "Triangle", "CatmullRom", "Gaussian", "Lanczos3"];
+                    current-value: root.interpolation;
+                    selected(value) => {
+                        root.interpolation = value;
+                    }
+                }
+
+                // Row 6: Buttons
+                Rectangle {} // Spacer
+                HorizontalLayout {
+                    spacing: 5px;
+                    Button {
+                        text: "OK";
+                        clicked => {
+                            root.ok_clicked_resize();
+                            popup.close();
+                        }
+                    }
+                    Button { 
+                        text: "Cancel";
+                        clicked => {
+                            root.cancel_clicked_resize();
+                            popup.close();
+                        }
+                    }
                 }
             }
         }
