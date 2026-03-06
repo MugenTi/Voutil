@@ -725,8 +725,8 @@ fn main() -> Result<(), slint::PlatformError> {
             let mouse_img_y = (mouse_y as f64 - old_image_y) / old_scale;
             volatile.image_scale = new_scale;
             ui.set_image_scale(new_scale as f32);
-            ui.set_image_x((mouse_x as f64 - mouse_img_x * new_scale) as i32);
-            ui.set_image_y((mouse_y as f64 - mouse_img_y * new_scale) as i32);
+            ui.set_image_x((mouse_x as f64 - mouse_img_x * new_scale).round() as i32);
+            ui.set_image_y((mouse_y as f64 - mouse_img_y * new_scale).round() as i32);
             update_image_info(&ui);
         }
     });
