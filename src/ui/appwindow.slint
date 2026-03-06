@@ -309,7 +309,7 @@ export component AppWindow inherits Window {
 
             selection_context_menu := PopupWindow {
                 x: ta.mouse-x;
-                y: ta.mouse-y + root._menu_bar_height;
+                y: ta.mouse-y + menu_bar.height;
                 width: 200px;
                 Rectangle {
                     background: #282828;
