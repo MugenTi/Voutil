@@ -169,6 +169,8 @@ fn set_image(
 
     if let Ok(img) = image::open(&path) {
         let new_slint_image = load_image_to_slint(img);
+        volatile_settings.borrow_mut().last_image_path = path.clone();
+        let _ = volatile_settings.borrow_mut().save_blocking();
         let parent_dir = path.parent().unwrap_or(&path).to_path_buf();
         let thumb_ui_handle = thumbnail_window.as_weak();
 
@@ -348,6 +350,7 @@ fn main() -> Result<(), slint::PlatformError> {
     settings_window.set_vsync_enabled(persistent_settings.borrow().vsync);
     settings_window
         .set_show_checker_background(persistent_settings.borrow().show_checker_background);
+    settings_window.set_reopen_last_image(persistent_settings.borrow().reopen_last_image);
 
     // Set initial current directory based on last opened directory
     let _ = std::env::set_current_dir(volatile_settings.borrow().last_open_directory.clone());
@@ -597,6 +600,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let main_window_handle = main_window.as_weak();
     let app_state_clone = app_state.clone();
+    let volatile_settings_clone = volatile_settings.clone();
     main_window.on_crop_in_place(move || {
         if let Some(ui) = main_window_handle.upgrade() {
             let mut app_state = app_state_clone.borrow_mut();
@@ -620,6 +624,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     .to_image();
                     let new_slint_image =
                         load_image_to_slint(DynamicImage::ImageRgba8(cropped_img));
+                    volatile_settings_clone.borrow_mut().last_image_path.clear();
                     app_state.selection = None;
                     ui.set_image_display(new_slint_image);
                     ui.set_auto_fit(true);
@@ -632,11 +637,13 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let main_window_handle = main_window.as_weak();
     let app_state_clone = app_state.clone();
+    let volatile_settings_clone = volatile_settings.clone();
     main_window.on_paste_from_clipboard(move || {
         if let Some(ui) = main_window_handle.upgrade() {
             if let Ok(mut clipboard) = Clipboard::new() {
                 if let Ok(clipboard_image) = clipboard.get_image() {
                     let mut app = app_state_clone.borrow_mut();
+                    volatile_settings_clone.borrow_mut().last_image_path.clear();
                     app.selection = None;
                     ui.set_auto_fit(true);
                     ui.set_image_display(Image::from_rgba8(
@@ -1105,6 +1112,34 @@ fn main() -> Result<(), slint::PlatformError> {
         settings.show_checker_background = enabled;
         let _ = settings.save_blocking();
     });
+
+    let settings_clone = persistent_settings.clone();
+    settings_window.on_reopen_last_image_changed(move |enabled| {
+        let mut settings = settings_clone.borrow_mut();
+        settings.reopen_last_image = enabled;
+        let _ = settings.save_blocking();
+    });
+
+    // --- Load last image on startup if enabled ---
+    if persistent_settings.borrow().reopen_last_image {
+        let last_image_path = volatile_settings.borrow().last_image_path.clone();
+        if last_image_path.is_file() {
+             // We need to clone the handles again for this block
+            let main_window_handle = main_window.as_weak();
+            let thumbnail_window_handle = thumbnail_window.as_weak();
+            let app_state_clone = app_state.clone();
+            let volatile_settings_clone = volatile_settings.clone();
+            if let (Some(ui), Some(thumb_ui)) = (main_window_handle.upgrade(), thumbnail_window_handle.upgrade()) {
+                set_image(
+                    &ui,
+                    &thumb_ui,
+                    &mut app_state_clone.borrow_mut(),
+                    last_image_path,
+                    &volatile_settings_clone,
+                );
+            }
+        }
+    }
 
     main_window.run()
 }

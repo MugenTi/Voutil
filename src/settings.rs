@@ -66,6 +66,7 @@ pub struct PersistentSettings {
     pub show_status_bar: bool,
     pub zen_mode_normal: bool,
     pub pan_speed_multiplier: f32,
+    pub reopen_last_image: bool,
 }
 
 impl Default for PersistentSettings {
@@ -105,6 +106,7 @@ impl Default for PersistentSettings {
             show_status_bar: true,
             zen_mode_normal: false,
             pan_speed_multiplier: 1.0,
+            reopen_last_image: true,
         }
     }
 }
@@ -146,6 +148,7 @@ pub struct VolatileSettings {
     pub last_open_directory: PathBuf,
     pub folder_bookmarks: BTreeSet<PathBuf>,
     pub image_scale: f64,
+    pub last_image_path: PathBuf,
     // pub encoding_options: Vec<FileEncoder>,
 }
 
@@ -165,6 +168,7 @@ impl Default for VolatileSettings {
             last_open_directory: Default::default(),
             folder_bookmarks: Default::default(),
             image_scale: 1.0,
+            last_image_path: Default::default(),
             // encoding_options: [
             //     // ("jpg".to_string(), FileEncoder::Jpg { quality: 75 }),
             //     // ("png".to_string(), FileEncoder::WebP),

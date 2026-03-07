@@ -10,10 +10,12 @@ export component SettingsWindow inherits Window {
     // --- Properties for settings ---
     in-out property <bool> vsync_enabled: true;
     in-out property <bool> show_checker_background: false;
+    in-out property <bool> reopen_last_image: true;
 
     // --- Callbacks to notify Rust of changes ---
     callback vsync_changed(bool);
     callback show_checker_background_changed(bool);
+    callback reopen_last_image_changed(bool);
 
 
     VerticalLayout {
@@ -22,18 +24,20 @@ export component SettingsWindow inherits Window {
 
         CheckBox {
             text: "Enable V-Sync";
-            checked: root.vsync_enabled;
-            toggled => {
-                root.vsync_changed(self.checked);
-            }
+            checked <=> root.vsync_enabled;
+            toggled => { root.vsync_changed(self.checked); }
         }
         
         CheckBox {
             text: "Show checker background";
-            checked: root.show_checker_background;
-            toggled => {
-                root.show_checker_background_changed(self.checked);
-            }
+            checked <=> root.show_checker_background;
+            toggled => { root.show_checker_background_changed(self.checked); }
+        }
+
+        CheckBox {
+            text: "Re-open last image on startup";
+            checked <=> root.reopen_last_image;
+            toggled => { root.reopen_last_image_changed(self.checked); }
         }
     }
 }
