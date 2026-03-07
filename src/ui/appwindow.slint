@@ -1,13 +1,7 @@
 import { SettingsWindow } from "./settings_window.slint";
 import { ResizeWindow } from "./resize_window.slint";
 import { Palette } from "std-widgets.slint";
-
-import { MenuIcon, MaximizeIcon, ArrowUpFromLineIcon, 
-         FolderIcon, Grid3x3Icon, MoveIcon, SquareEqualIcon,
-         ScalingIcon, ChevronLeftIcon, ChevronRightIcon,
-        //  CopyIcon, ClipboardPasteIcon, SettingsIcon, LogOutIcon,
-        //  IconSettings
-} from "@lucide";
+import { IconDisplay, IconSet } from "@lucide";
 
 component MenuButton inherits Rectangle {
     in-out property text <=> _txt.text;
@@ -18,17 +12,35 @@ component MenuButton inherits Rectangle {
     border-width: 1px;
     height: 28px;
     preferred-width: 100%;
-    // background: _touch.pressed ? #282828 : _touch.has-hover ? #0078D4 :  #282828;
     background: _touch.pressed ? #282828 : _touch.has-hover ? #3a3a3a :  #282828;
 
     _txt := Text {
         color: _touch.pressed ? #ccc : #eee;
         x: 30px;
-        //font-size: 14px;
         font-size: 1rem;
         vertical-alignment: center;
     }
     _touch := TouchArea { }
+}
+
+component ToolButton inherits Rectangle {
+    in property icon <=> _icon.icon;
+    in property <bool> active: false;
+    callback clicked <=> _touch.clicked;
+
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: _touch.has-hover ? #555 : #191919;
+    width: 30px;
+    height: 30px;
+    background: _touch.has-hover ? #3a3a3a : #191919;
+    _touch := TouchArea {
+        _icon := IconDisplay {
+            stroke: active ? green : #9198A1;
+            size: 24px;
+            stroke-width: 2;
+        }
+    }
 }
 
 export component AppWindow inherits Window {
@@ -70,8 +82,6 @@ export component AppWindow inherits Window {
 
     // --- Icon properties ---
     private property <brush> _icon_color: #9198A1; // #ccc;
-    private property <length> _icon_size: 24px;
-    private property <brush> _accent_color: green;
 
     // --- Menu bar properties ---
     private property <length> _menu_bar_height: 40px;
@@ -347,106 +357,77 @@ export component AppWindow inherits Window {
             }
 
             HorizontalLayout {
-                padding: 10px;
+                padding: 5px;
                 alignment: start;
-                spacing: 10px;
-                
-                TouchArea {
-                    MenuIcon {
-                        colorize: _icon_color;
-                        size: _icon_size;
-                    }
+                spacing: 4px;
+
+                ToolButton {
+                    icon: IconSet.Menu;
                     //Text { text: "Menu"; color: white; }
                     clicked => { main_menu.show(); }
                 }
-                TouchArea {
-                    FolderIcon {
-                        colorize: _icon_color;
-                        size: _icon_size;
-                    }
+                ToolButton {
+                    icon: IconSet.Folder;
                     //Text { text: "File"; color: white; }
                     clicked => { root.request_open_file(); }
                 }
-                TouchArea {
-                    MaximizeIcon {
-                        colorize: root.fullscreen_enabled ? _accent_color : _icon_color;
-                        size: _icon_size;
-                    }
+                ToolButton {
+                    icon: IconSet.Maximize;
+                    active: root.fullscreen_enabled;
                     //Text { text: "Full Screen"; color: white; }
                     clicked => { root.fullscreen_enabled = !root.fullscreen_enabled; }
                 }
-
-                TouchArea {
-                    ArrowUpFromLineIcon {
-                        colorize: root.always_on_top_enabled ? _accent_color : _icon_color;
-                        size: _icon_size;
-                    }
+                ToolButton {
+                    icon: IconSet.ArrowUpFromLine;
+                    active: root.always_on_top_enabled;
                     //Text { text: "Always on top"; color: white; }
                     clicked => { root.always_on_top_enabled = !root.always_on_top_enabled; }
                 }
             }
 
             HorizontalLayout {
-                padding: 10px;
+                padding: 5px;
                 alignment: center;
-                spacing: 10px;
+                spacing: 4px;
                 
-                TouchArea {
-                    Grid3x3Icon {
-                        colorize: _icon_color;
-                        size: _icon_size;
-                    }
+                ToolButton {
+                    icon: IconSet.Grid3x3;
                     //Text { text: "Show Thumbnail Window"; color: white; }
                     clicked => { root.show_thumbnail_window(); }
                 }
-                TouchArea {
-                    MoveIcon {
-                        colorize: _icon_color;
-                        size: _icon_size;
-                    }
+                ToolButton {
+                    icon: IconSet.Move;
                     //Text { text: "Reset View"; color: white; }
-                    clicked => {
-                        //apply_auto_fit_properties();
-                        root.reset_view();
-                    }
+                    clicked => { root.reset_view(); }
                 }
-                TouchArea {
-                    SquareEqualIcon {
-                        colorize: _icon_color;
-                        size: _icon_size;
-                    } 
+                ToolButton {
+                    icon: IconSet.SquareEqual;
                     //Text { text: "1:1"; color: white; }
-                    clicked => { 
+                    clicked => {
                         apply_view_one_to_one_properties();
                         root.view_one_to_one();
-                    } 
-                }
-                TouchArea {
-                    ChevronLeftIcon {
-                       colorize: _icon_color;
-                       size: _icon_size;
                     }
+                }
+                ToolButton {
+                    icon: IconSet.ChevronLeft;
+                    //Text { text: "Previous"; color: white; }
                     clicked => { root.previous_image(); }
                 }
-                TouchArea {
-                    ChevronRightIcon {
-                        colorize: _icon_color;
-                        size: _icon_size;
-                    }
+                ToolButton {
+                    icon: IconSet.ChevronRight;
+                    //Text { text: "Next"; color: white; }
                     clicked => { root.next_image(); }
                 }
             }
 
             HorizontalLayout {
-                padding: 10px;
+                padding: 5px;
                 alignment: end;
-                spacing: 10px;
+                spacing: 4px;
 
-                TouchArea {
-                    ScalingIcon {
-                        colorize: _icon_color;
-                        size: _icon_size;
-                    }
+                ToolButton {
+                    icon: IconSet.Scaling;
+                    //Text { text: "Show resize window"; color: white; }
                     clicked => {
                         root.show_resize_window();
                         resize_window.setup();
