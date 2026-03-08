@@ -68,11 +68,19 @@ component ToolButton inherits Rectangle {
         opacity: 0;
         visible: false;
     }
+    // states [
+    //     hovered when _touch.has-hover : {
+    //         _tip.opacity: 1;
+    //         _tip.visible: true;
+    //         in { animate _tip.opacity { duration: 150ms; delay: 300ms; } }
+    //     }
+    // ]
 }
 
 export component AppWindow inherits Window {
     init => {
         Palette.color-scheme = ColorScheme.dark; // Force dark mode
+        // IconSettings.default-size = 24px; // Planned for future availability
     }
     title: "Oculante Slint";
     min-width: 640px;
@@ -104,6 +112,7 @@ export component AppWindow inherits Window {
     private property <bool> _is_dragging: false;
     private property <bool> _is_right_down: false;
     private property <bool> _is_right_dragging: false;
+    private property <bool> _selection_was_active: false;
     private property <bool> _zen_mode_before_enter: false;
     private property <int> _last_mouse_pos_x: 0;
     private property <int> _last_mouse_pos_y: 0;
@@ -423,6 +432,7 @@ export component AppWindow inherits Window {
                 ToolButton {
                     icon: IconSet.Menu;
                     text: "Main menu";
+                    //tipz: 10;
                     clicked => { main_menu.show(); }
                 }
                 ToolButton {
@@ -550,6 +560,7 @@ export component AppWindow inherits Window {
                             }
                         } else if (event.button == PointerEventButton.right) {
                             _is_right_down = true;
+                            _selection_was_active = root.selection_visible;
                             root.pointer_event("down", "right", ta.mouse-x / 1px, ta.mouse-y / 1px);
                         }
                     } else if (event.kind == PointerEventKind.up) {
@@ -560,7 +571,7 @@ export component AppWindow inherits Window {
                             let is_on_selection = root.check_selection_hit(ta.mouse-x / 1px, ta.mouse-y / 1px);
                             if (is_on_selection && !_is_right_dragging) {
                                 selection_context_menu.show();
-                            } else if (!_is_right_dragging) {
+                            } else if (!_is_right_dragging && !_selection_was_active) {
                                 image_context_menu.show();
                             }
                             _is_right_down = false;
