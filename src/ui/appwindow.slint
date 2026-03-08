@@ -23,8 +23,26 @@ component MenuButton inherits Rectangle {
     _touch := TouchArea { }
 }
 
+component Tooltip inherits Rectangle {
+    in-out property text <=> _txt.text;
+
+    background: #333;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: #555;
+    height: 20px;
+    width: _txt.preferred-width + 10px;
+
+    _txt := Text {
+        color: white;
+        font-size: 12px;
+    }
+}
+
 component ToolButton inherits Rectangle {
     in property icon <=> _icon.icon;
+    in-out property text <=> _tip.text;
+    //in-out property tipz <=> _tip.z;
     in property <bool> active: false;
     callback clicked <=> _touch.clicked;
 
@@ -34,6 +52,7 @@ component ToolButton inherits Rectangle {
     width: 30px;
     height: 30px;
     background: _touch.has-hover ? #3a3a3a : #191919;
+
     _touch := TouchArea {
         _icon := IconDisplay {
             stroke: active ? green : #9198A1;
@@ -41,6 +60,21 @@ component ToolButton inherits Rectangle {
             stroke-width: 2;
         }
     }
+    _tip := Tooltip {
+        x: 0px;
+        //y: parent.height - 20px;
+        y: parent.height + 5px;
+        //z: 1;
+        opacity: 0;
+        visible: false;
+    }
+    // states [
+    //     hovered when _touch.has-hover : {
+    //         _tip.opacity: 1;
+    //         _tip.visible: true;
+    //         in { animate _tip.opacity { duration: 150ms; delay: 300ms; } }
+    //     }
+    // ]
 }
 
 export component AppWindow inherits Window {
@@ -363,24 +397,25 @@ export component AppWindow inherits Window {
 
                 ToolButton {
                     icon: IconSet.Menu;
-                    //Text { text: "Menu"; color: white; }
+                    text: "Main menu";
+                    //tipz: 10;
                     clicked => { main_menu.show(); }
                 }
                 ToolButton {
                     icon: IconSet.Folder;
-                    //Text { text: "File"; color: white; }
+                    text: "Open file";
                     clicked => { root.request_open_file(); }
                 }
                 ToolButton {
                     icon: IconSet.Maximize;
                     active: root.fullscreen_enabled;
-                    //Text { text: "Full Screen"; color: white; }
+                    text: "Full Screen";
                     clicked => { root.fullscreen_enabled = !root.fullscreen_enabled; }
                 }
                 ToolButton {
                     icon: IconSet.ArrowUpFromLine;
                     active: root.always_on_top_enabled;
-                    //Text { text: "Always on top"; color: white; }
+                    text: "Always on top";
                     clicked => { root.always_on_top_enabled = !root.always_on_top_enabled; }
                 }
             }
@@ -389,20 +424,20 @@ export component AppWindow inherits Window {
                 padding: 5px;
                 alignment: center;
                 spacing: 4px;
-                
+
                 ToolButton {
                     icon: IconSet.Grid3x3;
-                    //Text { text: "Show Thumbnail Window"; color: white; }
+                    text: "Show thumbnail";
                     clicked => { root.show_thumbnail_window(); }
                 }
                 ToolButton {
                     icon: IconSet.Move;
-                    //Text { text: "Reset View"; color: white; }
+                    text: "Reset view";
                     clicked => { root.reset_view(); }
                 }
                 ToolButton {
                     icon: IconSet.SquareEqual;
-                    //Text { text: "1:1"; color: white; }
+                    text: "View 1:1";
                     clicked => {
                         apply_view_one_to_one_properties();
                         root.view_one_to_one();
@@ -410,12 +445,12 @@ export component AppWindow inherits Window {
                 }
                 ToolButton {
                     icon: IconSet.ChevronLeft;
-                    //Text { text: "Previous"; color: white; }
+                    text: "Previous image";
                     clicked => { root.previous_image(); }
                 }
                 ToolButton {
                     icon: IconSet.ChevronRight;
-                    //Text { text: "Next"; color: white; }
+                    text: "Next image";
                     clicked => { root.next_image(); }
                 }
             }
@@ -427,7 +462,7 @@ export component AppWindow inherits Window {
 
                 ToolButton {
                     icon: IconSet.Scaling;
-                    //Text { text: "Show resize window"; color: white; }
+                    text: "Resize";
                     clicked => {
                         root.show_resize_window();
                         resize_window.setup();

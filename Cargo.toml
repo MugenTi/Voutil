@@ -35,7 +35,7 @@ heif = []
 
 [dependencies]
 slint = {  version = "1.15", features = ["serde"] }
-lucide-slint = "0.1.4"
+lucide-slint = "0.577.0"
 image = "0.25"
 rfd = "0.14"
 anyhow = "1.0"
@@ -141,7 +141,7 @@ fruitbasket = "0.10.0"
 winres = "0.1.12"
 
 [build-dependencies]
-lucide-slint = "0.1.4"
+lucide-slint = "0.577.0"
 slint-build = "1.15"
 
 [dev-dependencies]
