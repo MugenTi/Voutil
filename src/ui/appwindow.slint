@@ -165,6 +165,7 @@ export component AppWindow inherits Window {
     callback crop_in_place();
     callback show_custom_menu();
     callback save_as();
+    callback browse_to_file_location();
 
     function get-cursor-from-type(handle_type: string) -> MouseCursor {
         if (handle_type == "move") { return MouseCursor.move; }
@@ -415,8 +416,8 @@ export component AppWindow inherits Window {
                             height: 28px; // 28 * 1
                             VerticalLayout {
                                 MenuButton {
-                                    text: @tr("Dummy Action");
-                                    clicked => { image_context_menu.close(); }
+                                    text: @tr("Browse to file location");
+                                    clicked => { root.browse_to_file_location(); image_context_menu.close(); }
                                 }
                             }
                         }

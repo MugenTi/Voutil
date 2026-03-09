@@ -16,6 +16,7 @@ use std::ffi::OsStr;
 
 use std::io::Cursor;
 use std::path::{Path/* , PathBuf*/};
+use std::process::Command;
 // use std::thread;
 // use std::time::{Duration, SystemTime};
 
@@ -92,6 +93,33 @@ pub const SUPPORTED_EXTENSIONS: &[&str] = &[
     // #[cfg(feature = "heif")]
     // "hif",
 ];
+
+pub fn reveal_in_file_manager(path: &Path) {
+    #[cfg(target_os = "windows")]
+    {
+        let _ = Command::new("explorer")
+            .arg("/select,")
+            .arg(path)
+            .spawn();
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let _ = Command::new("open")
+            .arg("-R")
+            .arg(path)
+            .spawn();
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Some(parent) = path.parent() {
+            let _ = Command::new("xdg-open")
+                .arg(parent)
+                .spawn();
+        }
+    }
+}
 
 fn is_pixel_fully_transparent(p: &Rgba<u8>) -> bool {
     p.0 == [0, 0, 0, 0]

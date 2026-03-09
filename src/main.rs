@@ -4,6 +4,7 @@
 use arboard::{Clipboard, ImageData};
 use image::{imageops, DynamicImage, ImageBuffer};
 use oculante::settings::{PersistentSettings, VolatileSettings};
+use oculante::utils::reveal_in_file_manager;
 use rayon::prelude::*;
 use rfd;
 use slint::{
@@ -537,6 +538,14 @@ fn main() -> Result<(), slint::PlatformError> {
                 update_image_info(&ui);
                 ui.set_status_text("Image resized.".into());
             }
+        }
+    });
+
+    let volatile_settings_clone = volatile_settings.clone();
+    main_window.on_browse_to_file_location(move || {
+        let path = volatile_settings_clone.borrow().last_image_path.clone();
+        if path.exists() {
+            reveal_in_file_manager(&path);
         }
     });
 
