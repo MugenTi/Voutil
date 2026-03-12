@@ -8,4 +8,11 @@ fn main() {
     let config = slint_build::CompilerConfiguration::new().with_library_paths(library);
 
     slint_build::compile_with_config("src/ui/main.slint", config).expect("Slint build failed");
+
+    #[cfg(windows)]
+    {
+        let mut res = winres::WindowsResource::new();
+        res.set_icon("icon.ico");
+        res.compile().expect("Failed to compile Windows resources");
+    }
 }
