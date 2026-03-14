@@ -262,12 +262,9 @@ fn set_image(
 
                                 if let Some(ref dir) = cache_dir_clone {
                                     if let Some(thumb_path) = cache::get_thumbnail_path(p, dir) {
-                                        // Convert to RGB before saving as JPEG, which doesn't support alpha
-                                        let rgb_image =
-                                            DynamicImage::ImageRgba8(rgba_image.clone())
-                                                .into_rgb8();
-                                        if let Err(e) = rgb_image
-                                            .save_with_format(&thumb_path, image::ImageFormat::Jpeg)
+                                        // Save as WebP for efficiency and transparency support
+                                        if let Err(e) = rgba_image
+                                            .save_with_format(&thumb_path, image::ImageFormat::WebP)
                                         {
                                             eprintln!(
                                                 "[Oculante] Failed to save thumbnail for {:?}: {}",

@@ -37,7 +37,7 @@ pub fn get_thumbnail_path(original_path: &Path, cache_dir: &Path) -> Option<Path
             let hash_str = hex::encode(result);
 
             let mut thumb_path = cache_dir.to_path_buf();
-            thumb_path.push(format!("{}.jpg", hash_str));
+            thumb_path.push(format!("{}.webp", hash_str));
             return Some(thumb_path);
         }
     }
