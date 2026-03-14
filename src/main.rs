@@ -155,7 +155,7 @@ fn set_image(
     app_state: &mut AppState,
     path: PathBuf,
     volatile_settings: &Rc<RefCell<VolatileSettings>>,
-) {
+) -> bool {
     app_state.selection = None;
 
     // Prevent opening thumbnail cache files directly
@@ -163,7 +163,7 @@ fn set_image(
         if let Some(parent) = path.parent() {
             if parent == &cache_dir {
                 ui.set_status_text("Cannot open thumbnail cache files.".into());
-                return;
+                return false;
             }
         }
     }
@@ -309,8 +309,11 @@ fn set_image(
         ui.set_image_display(new_slint_image);
         update_image_info(&ui);
         ui.set_status_text(format!("Loaded: {}", path.to_string_lossy()).into());
+        true
     } else {
+        app_state.current_image_index = app_state.image_list.iter().position(|p| p == &path);
         ui.set_status_text(format!("Failed to load: {}", path.to_string_lossy()).into());
+        false
     }
 }
 
@@ -711,9 +714,14 @@ fn main() -> Result<(), slint::PlatformError> {
             let mut app = app_state_clone.borrow_mut();
             if let Some(index) = app.current_image_index {
                 if !app.image_list.is_empty() {
-                    let new_index = (index + 1) % app.image_list.len();
-                    let path = app.image_list[new_index].clone();
-                    set_image(&ui, &thumb_ui, &mut app, path, &volatile_settings_clone);
+                    let mut next_index = (index + 1) % app.image_list.len();
+                    while next_index != index {
+                        let path = app.image_list[next_index].clone();
+                        if set_image(&ui, &thumb_ui, &mut app, path, &volatile_settings_clone) {
+                            break;
+                        }
+                        next_index = (next_index + 1) % app.image_list.len();
+                    }
                 }
             }
         }
@@ -731,9 +739,14 @@ fn main() -> Result<(), slint::PlatformError> {
             let mut app = app_state_clone.borrow_mut();
             if let Some(index) = app.current_image_index {
                 if !app.image_list.is_empty() {
-                    let new_index = (index + app.image_list.len() - 1) % app.image_list.len();
-                    let path = app.image_list[new_index].clone();
-                    set_image(&ui, &thumb_ui, &mut app, path, &volatile_settings_clone);
+                    let mut prev_index = (index + app.image_list.len() - 1) % app.image_list.len();
+                    while prev_index != index {
+                        let path = app.image_list[prev_index].clone();
+                        if set_image(&ui, &thumb_ui, &mut app, path, &volatile_settings_clone) {
+                            break;
+                        }
+                        prev_index = (prev_index + app.image_list.len() - 1) % app.image_list.len();
+                    }
                 }
             }
         }
