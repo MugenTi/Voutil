@@ -505,6 +505,34 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let main_window_handle = main_window.as_weak();
     let app_state_clone = app_state.clone();
+    main_window.on_rotate_right(move || {
+        if let Some(ui) = main_window_handle.upgrade() {
+            if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
+                let mut app_state = app_state_clone.borrow_mut();
+                let img_buffer: ImageBuffer<image::Rgba<u8>, _> = ImageBuffer::from_raw(
+                    pixel_buffer.width(),
+                    pixel_buffer.height(),
+                    pixel_buffer.as_bytes().to_vec(),
+                )
+                .unwrap();
+
+                let rotated = imageops::rotate90(&img_buffer);
+                ui.set_image_display(Image::from_rgba8(
+                    SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+                        rotated.as_raw(),
+                        rotated.width(),
+                        rotated.height(),
+                    ),
+                ));
+                app_state.selection = None;
+                update_image_info(&ui);
+                ui.set_status_text("Image rotated 90° CW.".into());
+            }
+        }
+    });
+
+    let main_window_handle = main_window.as_weak();
+    let app_state_clone = app_state.clone();
     main_window.on_resize_confirmed(move || {
         if let Some(ui) = main_window_handle.upgrade() {
             if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {

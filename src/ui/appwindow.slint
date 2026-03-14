@@ -158,6 +158,7 @@ export component AppWindow inherits Window {
     callback scale_changed(float);
     callback show_resize_window();
     callback resize_confirmed();
+    callback rotate_right();
     callback previous_image();
     callback next_image();
     callback show_thumbnail_window();
@@ -496,6 +497,13 @@ export component AppWindow inherits Window {
                 alignment: end;
                 spacing: 4px;
 
+                ToolButton {
+                    icon: IconSet.RotateCw;
+                    text: "Rotate right";
+                    clicked => {
+                        root.rotate_right();
+                    }
+                }
                 ToolButton {
                     icon: IconSet.Scaling;
                     text: "Resize";
