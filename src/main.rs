@@ -257,7 +257,7 @@ fn set_image(
                         // If not loaded, generate new and try to save to cache
                         if !loaded_from_cache {
                             if let Ok(img) = image::open(p) {
-                                let thumb = img.thumbnail(180, 120);
+                                let thumb = img.thumbnail(120, 120);
                                 let rgba_image = thumb.to_rgba8();
 
                                 if let Some(ref dir) = cache_dir_clone {
@@ -306,10 +306,12 @@ fn set_image(
         ui.set_image_display(new_slint_image);
         update_image_info(&ui);
         ui.set_status_text(format!("Loaded: {}", path.to_string_lossy()).into());
+        thumbnail_window.set_selected_path(path.to_string_lossy().as_ref().into());
         true
     } else {
         app_state.current_image_index = app_state.image_list.iter().position(|p| p == &path);
         ui.set_status_text(format!("Failed to load: {}", path.to_string_lossy()).into());
+        thumbnail_window.set_selected_path(path.to_string_lossy().as_ref().into());
         false
     }
 }
