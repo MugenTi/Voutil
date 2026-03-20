@@ -392,6 +392,7 @@ fn main() -> Result<(), slint::PlatformError> {
     settings_window.set_use_os_sorting(persistent_settings.borrow().use_os_sorting);
     settings_window.set_sort_criteria(persistent_settings.borrow().sort_criteria.clone().into());
     settings_window.set_sort_order(persistent_settings.borrow().sort_order.clone().into());
+    settings_window.set_crop_aspect_ratio(persistent_settings.borrow().crop_aspect_ratio.clone().into());
 
     // Set initial current directory based on last opened directory
     let _ = std::env::set_current_dir(volatile_settings.borrow().last_open_directory.clone());
@@ -916,6 +917,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let main_window_handle = main_window.as_weak();
     let app_state_clone = app_state.clone();
+    let persistent_settings_clone = persistent_settings.clone();
     main_window.on_pointer_event(move |event_type, _event_button, x, y| {
         if let Some(ui) = main_window_handle.upgrade() {
             let mut app_state = app_state_clone.borrow_mut();
@@ -966,11 +968,38 @@ fn main() -> Result<(), slint::PlatformError> {
                         match app_state.drag_mode {
                             DragMode::Selecting => {
                                 if let Some(start_point) = app_state.selection_start_point {
+                                    let mut w = (start_point.0 as i32 - img_coord_x as i32).abs() as u32;
+                                    let mut h = (start_point.1 as i32 - img_coord_y as i32).abs() as u32;
+
+                                    let settings = persistent_settings_clone.borrow();
+                                    if settings.crop_aspect_ratio != "Free" {
+                                        let parts: Vec<&str> = settings.crop_aspect_ratio.split(':').collect();
+                                        if parts.len() == 2 {
+                                            if let (Ok(rw), Ok(rh)) = (parts[0].parse::<f32>(), parts[1].parse::<f32>()) {
+                                                let ratio = rw / rh;
+                                                // Adjust based on the larger delta to feel more natural
+                                                if w as f32 / h as f32 > ratio {
+                                                    h = (w as f32 / ratio).round() as u32;
+                                                } else {
+                                                    w = (h as f32 * ratio).round() as u32;
+                                                }
+
+                                                // Final clamp check: if adjusted size exceeds image bounds, shrink both
+                                                if start_point.0 + w > img_w && (start_point.0 as i32) - (w as i32) < 0 {
+                                                     // Too large for both sides? (unlikely but safe)
+                                                     w = min(start_point.0, img_w - start_point.0);
+                                                     h = (w as f32 / ratio).round() as u32;
+                                                }
+                                                // (Simplification: just basic ratio enforcement for now)
+                                            }
+                                        }
+                                    }
+
                                     app_state.selection = Some(SelectionRect {
-                                        x: min(start_point.0, img_coord_x),
-                                        y: min(start_point.1, img_coord_y),
-                                        w: (start_point.0 as i32 - img_coord_x as i32).abs() as u32,
-                                        h: (start_point.1 as i32 - img_coord_y as i32).abs() as u32,
+                                        x: if img_coord_x >= start_point.0 { start_point.0 } else { start_point.0.saturating_sub(w) },
+                                        y: if img_coord_y >= start_point.1 { start_point.1 } else { start_point.1.saturating_sub(h) },
+                                        w,
+                                        h,
                                     });
                                 }
                             }
@@ -1038,6 +1067,55 @@ fn main() -> Result<(), slint::PlatformError> {
                                     }
                                     if y1 > y2 {
                                         std::mem::swap(&mut y1, &mut y2);
+                                    }
+
+                                    let mut w = (x2 - x1) as u32;
+                                    let mut h = (y2 - y1) as u32;
+
+                                    let settings = persistent_settings_clone.borrow();
+                                    if settings.crop_aspect_ratio != "Free" {
+                                        let parts: Vec<&str> = settings.crop_aspect_ratio.split(':').collect();
+                                        if parts.len() == 2 {
+                                            if let (Ok(rw), Ok(rh)) = (parts[0].parse::<f32>(), parts[1].parse::<f32>()) {
+                                                let ratio = rw / rh;
+                                                // When resizing, we usually want to follow the handle's intent.
+                                                // For side handles, we force the other dimension.
+                                                // For corner handles, we match the ratio based on the larger side.
+                                                match handle {
+                                                    ResizeHandle::Left | ResizeHandle::Right => {
+                                                        h = (w as f32 / ratio).round() as u32;
+                                                    }
+                                                    ResizeHandle::Top | ResizeHandle::Bottom => {
+                                                        w = (h as f32 * ratio).round() as u32;
+                                                    }
+                                                    _ => {
+                                                        if w as f32 / h as f32 > ratio {
+                                                            h = (w as f32 / ratio).round() as u32;
+                                                        } else {
+                                                            w = (h as f32 * ratio).round() as u32;
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                // Adjust coordinates based on handle to keep anchor fixed
+                                                match handle {
+                                                    ResizeHandle::Left | ResizeHandle::TopLeft | ResizeHandle::BottomLeft => {
+                                                        x1 = x2 - w as i32;
+                                                    }
+                                                    _ => {
+                                                        x2 = x1 + w as i32;
+                                                    }
+                                                }
+                                                match handle {
+                                                    ResizeHandle::Top | ResizeHandle::TopLeft | ResizeHandle::TopRight => {
+                                                        y1 = y2 - h as i32;
+                                                    }
+                                                    _ => {
+                                                        y2 = y1 + h as i32;
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
 
                                     x1 = x1.max(0).min((img_w - 1) as i32);
@@ -1285,6 +1363,13 @@ fn main() -> Result<(), slint::PlatformError> {
     settings_window.on_sort_order_changed(move |val| {
         let mut settings = settings_clone.borrow_mut();
         settings.sort_order = val.to_string();
+        let _ = settings.save_blocking();
+    });
+
+    let settings_clone = persistent_settings.clone();
+    settings_window.on_crop_aspect_ratio_changed(move |val| {
+        let mut settings = settings_clone.borrow_mut();
+        settings.crop_aspect_ratio = val.to_string();
         let _ = settings.save_blocking();
     });
 

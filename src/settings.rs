@@ -70,6 +70,7 @@ pub struct PersistentSettings {
     pub use_os_sorting: bool,
     pub sort_criteria: String,
     pub sort_order: String,
+    pub crop_aspect_ratio: String,
 }
 
 impl Default for PersistentSettings {
@@ -113,6 +114,7 @@ impl Default for PersistentSettings {
             use_os_sorting: true,
             sort_criteria: "Name".into(),
             sort_order: "Ascending".into(),
+            crop_aspect_ratio: "Free".into(),
         }
     }
 }

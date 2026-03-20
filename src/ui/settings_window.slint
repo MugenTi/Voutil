@@ -14,6 +14,7 @@ export component SettingsWindow inherits Window {
     in-out property <bool> use_os_sorting: true;
     in-out property <string> sort_criteria: "Name";
     in-out property <string> sort_order: "Ascending";
+    in-out property <string> crop_aspect_ratio: "Free";
 
     // --- Callbacks to notify Rust of changes ---
     callback vsync_changed(bool);
@@ -23,6 +24,7 @@ export component SettingsWindow inherits Window {
     callback use_os_sorting_changed(bool);
     callback sort_criteria_changed(string);
     callback sort_order_changed(string);
+    callback crop_aspect_ratio_changed(string);
 
 
     VerticalLayout {
@@ -86,6 +88,32 @@ export component SettingsWindow inherits Window {
                 model: ["Ascending", "Descending"];
                 current-value <=> root.sort_order;
                 selected => { root.sort_order_changed(self.current-value); }
+            }
+        }
+
+        Rectangle {
+            background: #333;
+            height: 1px;
+            width: 100%;
+        }
+
+        Text {
+            text: "Crop Settings";
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: start;
+            Text {
+                text: "Aspect ratio:";
+                vertical-alignment: center;
+            }
+            ComboBox {
+                model: ["Free", "1:1", "1:2", "2:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"];
+                current-value <=> root.crop_aspect_ratio;
+                selected => { root.crop_aspect_ratio_changed(self.current-value); }
             }
         }
 
