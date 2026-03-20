@@ -1,4 +1,4 @@
-import { CheckBox, Button } from "std-widgets.slint";
+import { CheckBox, Button, ComboBox } from "std-widgets.slint";
 
 export component SettingsWindow inherits Window {
     title: "Preferences";
@@ -11,12 +11,18 @@ export component SettingsWindow inherits Window {
     in-out property <bool> vsync_enabled: true;
     in-out property <bool> show_checker_background: false;
     in-out property <bool> reopen_last_image: true;
+    in-out property <bool> use_os_sorting: true;
+    in-out property <string> sort_criteria: "Name";
+    in-out property <string> sort_order: "Ascending";
 
     // --- Callbacks to notify Rust of changes ---
     callback vsync_changed(bool);
     callback show_checker_background_changed(bool);
     callback reopen_last_image_changed(bool);
     callback clear_cache();
+    callback use_os_sorting_changed(bool);
+    callback sort_criteria_changed(string);
+    callback sort_order_changed(string);
 
 
     VerticalLayout {
@@ -40,6 +46,47 @@ export component SettingsWindow inherits Window {
             text: "Re-open last image on startup";
             checked <=> root.reopen_last_image;
             toggled => { root.reopen_last_image_changed(self.checked); }
+        }
+
+        Rectangle {
+            background: #333;
+            height: 1px;
+            width: 100%;
+        }
+
+        Text {
+            text: "File List Sorting";
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        CheckBox {
+            text: "Use default OS sorting";
+            checked <=> root.use_os_sorting;
+            toggled => { root.use_os_sorting_changed(self.checked); }
+        }
+
+        if !root.use_os_sorting : HorizontalLayout {
+            spacing: 10px;
+            alignment: start;
+            Text {
+                text: "Sort by:";
+                vertical-alignment: center;
+            }
+            ComboBox {
+                model: ["Name", "Modified time", "Created time", "Size"];
+                current-value <=> root.sort_criteria;
+                selected => { root.sort_criteria_changed(self.current-value); }
+            }
+            Text {
+                text: "Order:";
+                vertical-alignment: center;
+            }
+            ComboBox {
+                model: ["Ascending", "Descending"];
+                current-value <=> root.sort_order;
+                selected => { root.sort_order_changed(self.current-value); }
+            }
         }
 
         // HorizontalLayout to prevent the button from stretching to full width

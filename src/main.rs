@@ -156,6 +156,7 @@ fn set_image(
     app_state: &mut AppState,
     path: PathBuf,
     volatile_settings: &Rc<RefCell<VolatileSettings>>,
+    persistent_settings: &Rc<RefCell<PersistentSettings>>,
 ) -> bool {
     app_state.selection = None;
 
@@ -212,7 +213,40 @@ fn set_image(
                             })
                     })
                     .collect();
-                paths.sort();
+
+                let settings = persistent_settings.borrow();
+                if !settings.use_os_sorting {
+                    match settings.sort_criteria.as_str() {
+                        "Modified time" => {
+                            paths.sort_by_key(|p| {
+                                std::fs::metadata(p)
+                                    .and_then(|m| m.modified())
+                                    .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+                            });
+                        }
+                        "Created time" => {
+                            paths.sort_by_key(|p| {
+                                std::fs::metadata(p)
+                                    .and_then(|m| m.created())
+                                    .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+                            });
+                        }
+                        "Size" => {
+                            paths.sort_by_key(|p| std::fs::metadata(p).map(|m| m.len()).unwrap_or(0));
+                        }
+                        _ => {
+                            // Default to Name
+                            paths.sort();
+                        }
+                    }
+
+                    if settings.sort_order == "Descending" {
+                        paths.reverse();
+                    }
+                } else {
+                    // Use default (alphabetical ascending)
+                    paths.sort();
+                }
                 paths
             } else {
                 vec![]
@@ -355,6 +389,9 @@ fn main() -> Result<(), slint::PlatformError> {
     settings_window
         .set_show_checker_background(persistent_settings.borrow().show_checker_background);
     settings_window.set_reopen_last_image(persistent_settings.borrow().reopen_last_image);
+    settings_window.set_use_os_sorting(persistent_settings.borrow().use_os_sorting);
+    settings_window.set_sort_criteria(persistent_settings.borrow().sort_criteria.clone().into());
+    settings_window.set_sort_order(persistent_settings.borrow().sort_order.clone().into());
 
     // Set initial current directory based on last opened directory
     let _ = std::env::set_current_dir(volatile_settings.borrow().last_open_directory.clone());
@@ -367,6 +404,7 @@ fn main() -> Result<(), slint::PlatformError> {
             &mut app_state.borrow_mut(),
             PathBuf::from(path_str),
             &volatile_settings.clone(),
+            &persistent_settings.clone(),
         );
     }
 
@@ -375,6 +413,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let thumbnail_window_handle = thumbnail_window.as_weak();
     let app_state_clone = app_state.clone();
     let volatile_settings_clone = volatile_settings.clone();
+    let persistent_settings_clone = persistent_settings.clone();
     main_window.on_request_open_file(move || {
         if let (Some(ui), Some(thumb_ui)) = (
             main_window_handle.upgrade(),
@@ -390,6 +429,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     &mut app_state_clone.borrow_mut(),
                     path,
                     &volatile_settings_clone,
+                    &persistent_settings_clone,
                 );
             } else {
                 ui.set_status_text("File open cancelled.".into());
@@ -745,6 +785,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let thumbnail_window_handle = thumbnail_window.as_weak();
     let app_state_clone = app_state.clone();
     let volatile_settings_clone = volatile_settings.clone();
+    let persistent_settings_clone = persistent_settings.clone();
     main_window.on_next_image(move || {
         if let (Some(ui), Some(thumb_ui)) = (
             main_window_handle.upgrade(),
@@ -756,7 +797,14 @@ fn main() -> Result<(), slint::PlatformError> {
                     let mut next_index = (index + 1) % app.image_list.len();
                     while next_index != index {
                         let path = app.image_list[next_index].clone();
-                        if set_image(&ui, &thumb_ui, &mut app, path, &volatile_settings_clone) {
+                        if set_image(
+                            &ui,
+                            &thumb_ui,
+                            &mut app,
+                            path,
+                            &volatile_settings_clone,
+                            &persistent_settings_clone,
+                        ) {
                             break;
                         }
                         next_index = (next_index + 1) % app.image_list.len();
@@ -770,6 +818,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let thumbnail_window_handle = thumbnail_window.as_weak();
     let app_state_clone = app_state.clone();
     let volatile_settings_clone = volatile_settings.clone();
+    let persistent_settings_clone = persistent_settings.clone();
     main_window.on_previous_image(move || {
         if let (Some(ui), Some(thumb_ui)) = (
             main_window_handle.upgrade(),
@@ -781,7 +830,14 @@ fn main() -> Result<(), slint::PlatformError> {
                     let mut prev_index = (index + app.image_list.len() - 1) % app.image_list.len();
                     while prev_index != index {
                         let path = app.image_list[prev_index].clone();
-                        if set_image(&ui, &thumb_ui, &mut app, path, &volatile_settings_clone) {
+                        if set_image(
+                            &ui,
+                            &thumb_ui,
+                            &mut app,
+                            path,
+                            &volatile_settings_clone,
+                            &persistent_settings_clone,
+                        ) {
                             break;
                         }
                         prev_index = (prev_index + app.image_list.len() - 1) % app.image_list.len();
@@ -1172,6 +1228,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let thumbnail_window_handle = thumbnail_window.as_weak();
     let app_state_clone = app_state.clone();
     let volatile_settings_clone = volatile_settings.clone();
+    let persistent_settings_clone = persistent_settings.clone();
     thumbnail_window.on_thumbnail_clicked(move |path_str| {
         if let (Some(ui), Some(thumb_ui)) = (
             main_window_handle.upgrade(),
@@ -1183,6 +1240,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 &mut app_state_clone.borrow_mut(),
                 PathBuf::from(path_str.to_string()),
                 &volatile_settings_clone,
+                &persistent_settings_clone,
             );
         }
     });
@@ -1209,6 +1267,27 @@ fn main() -> Result<(), slint::PlatformError> {
         let _ = settings.save_blocking();
     });
 
+    let settings_clone = persistent_settings.clone();
+    settings_window.on_use_os_sorting_changed(move |enabled| {
+        let mut settings = settings_clone.borrow_mut();
+        settings.use_os_sorting = enabled;
+        let _ = settings.save_blocking();
+    });
+
+    let settings_clone = persistent_settings.clone();
+    settings_window.on_sort_criteria_changed(move |val| {
+        let mut settings = settings_clone.borrow_mut();
+        settings.sort_criteria = val.to_string();
+        let _ = settings.save_blocking();
+    });
+
+    let settings_clone = persistent_settings.clone();
+    settings_window.on_sort_order_changed(move |val| {
+        let mut settings = settings_clone.borrow_mut();
+        settings.sort_order = val.to_string();
+        let _ = settings.save_blocking();
+    });
+
     let main_window_handle_for_cache = main_window.as_weak();
     settings_window.on_clear_cache(move || {
         if let Ok(cache_dir) = cache::get_cache_dir() {
@@ -1229,6 +1308,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let thumbnail_window_handle = thumbnail_window.as_weak();
             let app_state_clone = app_state.clone();
             let volatile_settings_clone = volatile_settings.clone();
+            let persistent_settings_clone = persistent_settings.clone();
             if let (Some(ui), Some(thumb_ui)) = (main_window_handle.upgrade(), thumbnail_window_handle.upgrade()) {
                 set_image(
                     &ui,
@@ -1236,6 +1316,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     &mut app_state_clone.borrow_mut(),
                     last_image_path,
                     &volatile_settings_clone,
+                    &persistent_settings_clone,
                 );
             }
         }

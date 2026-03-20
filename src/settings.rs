@@ -67,6 +67,9 @@ pub struct PersistentSettings {
     pub zen_mode_normal: bool,
     pub pan_speed_multiplier: f32,
     pub reopen_last_image: bool,
+    pub use_os_sorting: bool,
+    pub sort_criteria: String,
+    pub sort_order: String,
 }
 
 impl Default for PersistentSettings {
@@ -107,6 +110,9 @@ impl Default for PersistentSettings {
             zen_mode_normal: false,
             pan_speed_multiplier: 1.0,
             reopen_last_image: true,
+            use_os_sorting: true,
+            sort_criteria: "Name".into(),
+            sort_order: "Ascending".into(),
         }
     }
 }
