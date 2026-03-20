@@ -536,6 +536,11 @@ fn main() -> Result<(), slint::PlatformError> {
     main_window.on_rotate_right(move || {
         if let Some(ui) = main_window_handle.upgrade() {
             if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
+                let old_w = ui.get_image_w();
+                let old_h = ui.get_image_h();
+                let old_x = ui.get_image_x();
+                let old_y = ui.get_image_y();
+
                 let mut app_state = app_state_clone.borrow_mut();
                 let img_buffer: ImageBuffer<image::Rgba<u8>, _> = ImageBuffer::from_raw(
                     pixel_buffer.width(),
@@ -552,6 +557,12 @@ fn main() -> Result<(), slint::PlatformError> {
                         rotated.height(),
                     ),
                 ));
+
+                let new_x = old_x + (old_w - old_h) / 2;
+                let new_y = old_y + (old_h - old_w) / 2;
+                ui.set_image_x(new_x);
+                ui.set_image_y(new_y);
+
                 app_state.selection = None;
                 update_image_info(&ui);
                 ui.set_status_text("Image rotated 90° CW.".into());
