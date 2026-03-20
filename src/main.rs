@@ -16,6 +16,7 @@ use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::HashMap; // Added for sorting
 use std::env;
+use std::fs;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::mpsc;
@@ -1206,6 +1207,17 @@ fn main() -> Result<(), slint::PlatformError> {
         let mut settings = settings_clone.borrow_mut();
         settings.reopen_last_image = enabled;
         let _ = settings.save_blocking();
+    });
+
+    let main_window_handle_for_cache = main_window.as_weak();
+    settings_window.on_clear_cache(move || {
+        if let Ok(cache_dir) = cache::get_cache_dir() {
+            let _ = fs::remove_dir_all(&cache_dir);
+            let _ = fs::create_dir_all(&cache_dir);
+            if let Some(ui) = main_window_handle_for_cache.upgrade() {
+                ui.set_status_text("Thumbnail cache cleared.".into());
+            }
+        }
     });
 
     // --- Load last image on startup if enabled ---

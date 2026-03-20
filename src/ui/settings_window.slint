@@ -1,4 +1,4 @@
-import { CheckBox } from "std-widgets.slint";
+import { CheckBox, Button } from "std-widgets.slint";
 
 export component SettingsWindow inherits Window {
     title: "Preferences";
@@ -16,11 +16,13 @@ export component SettingsWindow inherits Window {
     callback vsync_changed(bool);
     callback show_checker_background_changed(bool);
     callback reopen_last_image_changed(bool);
+    callback clear_cache();
 
 
     VerticalLayout {
         padding: 10px;
         spacing: 10px;
+        alignment: start; // Align items to the top
 
         CheckBox {
             text: "Enable V-Sync";
@@ -38,6 +40,15 @@ export component SettingsWindow inherits Window {
             text: "Re-open last image on startup";
             checked <=> root.reopen_last_image;
             toggled => { root.reopen_last_image_changed(self.checked); }
+        }
+
+        // HorizontalLayout to prevent the button from stretching to full width
+        HorizontalLayout {
+            alignment: start;
+            Button {
+                text: "Clear thumbnail cache";
+                clicked => { root.clear_cache(); }
+            }
         }
     }
 }
