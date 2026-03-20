@@ -159,6 +159,7 @@ export component AppWindow inherits Window {
     callback show_resize_window();
     callback resize_confirmed();
     callback rotate_right();
+    callback flip_horizontal();
     callback previous_image();
     callback next_image();
     callback show_thumbnail_window();
@@ -497,6 +498,13 @@ export component AppWindow inherits Window {
                 alignment: end;
                 spacing: 4px;
 
+                ToolButton {
+                    icon: IconSet.FlipHorizontal2;
+                    text: "Flip horizontal";
+                    clicked => {
+                        root.flip_horizontal();
+                    }
+                }
                 ToolButton {
                     icon: IconSet.RotateCw;
                     text: "Rotate right";

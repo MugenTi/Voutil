@@ -505,6 +505,34 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let main_window_handle = main_window.as_weak();
     let app_state_clone = app_state.clone();
+    main_window.on_flip_horizontal(move || {
+        if let Some(ui) = main_window_handle.upgrade() {
+            if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
+                let mut app_state = app_state_clone.borrow_mut();
+                let mut img_buffer: ImageBuffer<image::Rgba<u8>, _> = ImageBuffer::from_raw(
+                    pixel_buffer.width(),
+                    pixel_buffer.height(),
+                    pixel_buffer.as_bytes().to_vec(),
+                )
+                .unwrap();
+
+                imageops::flip_horizontal_in_place(&mut img_buffer);
+                ui.set_image_display(Image::from_rgba8(
+                    SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+                        img_buffer.as_raw(),
+                        img_buffer.width(),
+                        img_buffer.height(),
+                    ),
+                ));
+                app_state.selection = None;
+                update_image_info(&ui);
+                ui.set_status_text("Image flipped horizontally.".into());
+            }
+        }
+    });
+
+    let main_window_handle = main_window.as_weak();
+    let app_state_clone = app_state.clone();
     main_window.on_rotate_right(move || {
         if let Some(ui) = main_window_handle.upgrade() {
             if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
