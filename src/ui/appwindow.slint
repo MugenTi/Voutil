@@ -464,12 +464,14 @@ export component AppWindow inherits Window {
                 spacing: 4px;
 
                 ToolButton {
-                    icon: IconSet.Grid3x3;
+                    //icon: IconSet.Grid3x3;
+                    icon: IconSet.LayoutGrid;
                     text: "Show thumbnail";
                     clicked => { root.show_thumbnail_window(); }
                 }
                 ToolButton {
-                    icon: IconSet.Move;
+                    //icon: IconSet.Move;
+                    icon: IconSet.SquareSquare;
                     text: "Reset view";
                     clicked => { root.reset_view(); }
                 }
@@ -506,7 +508,8 @@ export component AppWindow inherits Window {
                     }
                 }
                 ToolButton {
-                    icon: IconSet.RotateCw;
+                    //icon: IconSet.RotateCw;
+                    icon: IconSet.RotateCwSquare;
                     text: "Rotate right";
                     clicked => {
                         root.rotate_right();

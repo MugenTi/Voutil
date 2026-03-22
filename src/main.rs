@@ -13,7 +13,7 @@ use slint::{
 };
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::cmp::min;
+//use std::cmp::min;
 use std::collections::HashMap; // Added for sorting
 use std::env;
 use std::fs;
@@ -968,38 +968,72 @@ fn main() -> Result<(), slint::PlatformError> {
                         match app_state.drag_mode {
                             DragMode::Selecting => {
                                 if let Some(start_point) = app_state.selection_start_point {
-                                    let mut w = (start_point.0 as i32 - img_coord_x as i32).abs() as u32;
-                                    let mut h = (start_point.1 as i32 - img_coord_y as i32).abs() as u32;
+                                    // Set the mouse coordinates as a tentative endpoint.
+                                    let mut x1 = start_point.0 as i32;
+                                    let mut y1 = start_point.1 as i32;
+                                    let mut x2 = unclamped_img_coord_x;
+                                    let mut y2 = unclamped_img_coord_y;
 
+                                    // Adjust the endpoint to apply the aspect ratio.
                                     let settings = persistent_settings_clone.borrow();
                                     if settings.crop_aspect_ratio != "Free" {
-                                        let parts: Vec<&str> = settings.crop_aspect_ratio.split(':').collect();
-                                        if parts.len() == 2 {
-                                            if let (Ok(rw), Ok(rh)) = (parts[0].parse::<f32>(), parts[1].parse::<f32>()) {
-                                                let ratio = rw / rh;
-                                                // Adjust based on the larger delta to feel more natural
-                                                if w as f32 / h as f32 > ratio {
-                                                    h = (w as f32 / ratio).round() as u32;
-                                                } else {
-                                                    w = (h as f32 * ratio).round() as u32;
-                                                }
-
-                                                // Final clamp check: if adjusted size exceeds image bounds, shrink both
-                                                if start_point.0 + w > img_w && (start_point.0 as i32) - (w as i32) < 0 {
-                                                     // Too large for both sides? (unlikely but safe)
-                                                     w = min(start_point.0, img_w - start_point.0);
-                                                     h = (w as f32 / ratio).round() as u32;
-                                                }
-                                                // (Simplification: just basic ratio enforcement for now)
+                                        if let Some(ratio) = settings.crop_aspect_ratio.split_once(':')
+                                            .and_then(|(a, b)| Some(a.parse::<f32>().ok()? / b.parse::<f32>().ok()?))
+                                        {
+                                            let dx = x2 - x1;
+                                            let dy = y2 - y1;
+                                            if dx.abs() as f32 / dy.abs().max(1) as f32 > ratio {
+                                                y2 = y1 + ( (dx.abs() as f32 / ratio).round() as i32 * (if dy == 0 {1} else {dy.signum()}) );
+                                            } else {
+                                                x2 = x1 + ( (dy.abs() as f32 * ratio).round() as i32 * (if dx == 0 {1} else {dx.signum()}) );
                                             }
                                         }
                                     }
 
+                                    // Clamp the coordinates exactly as in Free mode.
+                                    x1 = x1.clamp(0, img_w as i32);
+                                    y1 = y1.clamp(0, img_h as i32);
+                                    x2 = x2.clamp(0, img_w as i32);
+                                    y2 = y2.clamp(0, img_h as i32);
+
+                                    // Re-apply the aspect ratio, as clamping may have broken it.
+                                    if settings.crop_aspect_ratio != "Free" {
+                                        if let Some(ratio) = settings.crop_aspect_ratio.split_once(':')
+                                            .and_then(|(a, b)| Some(a.parse::<f32>().ok()? / b.parse::<f32>().ok()?))
+                                        {
+                                            let dx = x2 - x1;
+                                            let dy = y2 - y1;
+                                            let current_w = (x2 - x1).abs();
+                                            let current_h = (y2 - y1).abs();
+                                            if current_w as f32 / current_h.max(1) as f32 > ratio {
+                                                // Width is too wide -> adjust width to match height.
+                                                let new_w = (current_h as f32 * ratio).round() as i32;
+                                                if dx > 0 {
+                                                    x2 = x1 + new_w;
+                                                } else {
+                                                    x2 = x1 - new_w;
+                                                }
+                                            } else {
+                                                // Height is too tall -> adjust height to match width.
+                                                let new_h = (current_w as f32 / ratio).round() as i32;
+                                                if dy > 0 {
+                                                    y2 = y1 + new_h;
+                                                } else { 
+                                                    y2 = y1 - new_h;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Organize coordinates and determine the final rectangle.
+                                    if x1 > x2 { std::mem::swap(&mut x1, &mut x2); }
+                                    if y1 > y2 { std::mem::swap(&mut y1, &mut y2); }
+
                                     app_state.selection = Some(SelectionRect {
-                                        x: if img_coord_x >= start_point.0 { start_point.0 } else { start_point.0.saturating_sub(w) },
-                                        y: if img_coord_y >= start_point.1 { start_point.1 } else { start_point.1.saturating_sub(h) },
-                                        w,
-                                        h,
+                                        x: x1 as u32,
+                                        y: y1 as u32,
+                                        w: (x2 - x1) as u32,
+                                        h: (y2 - y1) as u32,
                                     });
                                 }
                             }
@@ -1062,13 +1096,6 @@ fn main() -> Result<(), slint::PlatformError> {
                                         }
                                     }
 
-                                    if x1 > x2 {
-                                        std::mem::swap(&mut x1, &mut x2);
-                                    }
-                                    if y1 > y2 {
-                                        std::mem::swap(&mut y1, &mut y2);
-                                    }
-
                                     let mut w = (x2 - x1) as u32;
                                     let mut h = (y2 - y1) as u32;
 
@@ -1118,10 +1145,44 @@ fn main() -> Result<(), slint::PlatformError> {
                                         }
                                     }
 
+                                    // Clamp the coordinates exactly as in Free mode.
                                     x1 = x1.max(0).min((img_w - 1) as i32);
-                                    x2 = x2.max(1).min(img_w as i32);
                                     y1 = y1.max(0).min((img_h - 1) as i32);
+                                    x2 = x2.max(1).min(img_w as i32);
                                     y2 = y2.max(1).min(img_h as i32);
+
+                                    // Re-apply the aspect ratio, as clamping may have broken it.
+                                    if settings.crop_aspect_ratio != "Free" {
+                                        if let Some(ratio) = settings.crop_aspect_ratio.split_once(':')
+                                            .and_then(|(a, b)| Some(a.parse::<f32>().ok()? / b.parse::<f32>().ok()?))
+                                        {
+                                            let dx = x2 - x1;
+                                            let dy = y2 - y1;
+                                            let current_w = (x2 - x1).abs();
+                                            let current_h = (y2 - y1).abs();
+                                            if current_w as f32 / current_h.max(1) as f32 > ratio {
+                                                // Width is too wide -> adjust width to match height.
+                                                let new_w = (current_h as f32 * ratio).round() as i32;
+                                                if dx > 0 {
+                                                    x2 = x1 + new_w;
+                                                } else {
+                                                    x2 = x1 - new_w;
+                                                }
+                                            } else {
+                                                // Height is too tall -> adjust height to match width.
+                                                let new_h = (current_w as f32 / ratio).round() as i32;
+                                                if dy > 0 {
+                                                    y2 = y1 + new_h;
+                                                } else { 
+                                                    y2 = y1 - new_h;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Organize coordinates and determine the final rectangle.
+                                    if x1 > x2 { std::mem::swap(&mut x1, &mut x2); }
+                                    if y1 > y2 { std::mem::swap(&mut y1, &mut y2); }
 
                                     app_state.selection = Some(SelectionRect {
                                         x: x1 as u32,
