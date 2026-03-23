@@ -158,6 +158,7 @@ export component AppWindow inherits Window {
     callback scale_changed(float);
     callback show_resize_window();
     callback resize_confirmed();
+    callback show_color_correction_window();
     callback rotate_right();
     callback flip_horizontal();
     callback previous_image();
@@ -513,6 +514,13 @@ export component AppWindow inherits Window {
                     text: "Rotate right";
                     clicked => {
                         root.rotate_right();
+                    }
+                }
+                ToolButton {
+                    icon: IconSet.Palette;
+                    text: "Color correction";
+                    clicked => {
+                        root.show_color_correction_window();
                     }
                 }
                 ToolButton {

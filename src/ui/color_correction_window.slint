@@ -1,0 +1,286 @@
+import { Slider, Button, GroupBox } from "std-widgets.slint";
+
+export component ColorCorrectionWindow inherits Window {
+    title: "Color Corrections";
+    min-width: 960px;
+    min-height: 800px;
+    preferred-width: 960px;
+    preferred-height: 800px;
+
+    callback apply();
+    callback cancel();
+    callback reset();
+    callback values-changed();
+
+    in-out property <image> original-image;
+    in-out property <image> preview-image;
+
+    in-out property <int> brightness: 0;
+    in-out property <int> contrast: 0;
+    in-out property <int> gamma: 100;
+    in-out property <int> red: 0;
+    in-out property <int> green: 0;
+    in-out property <int> blue: 0;
+    in-out property <int> saturation: 0;
+
+    private property<int> min-value: -100;
+    private property<int> max-value: 100;
+
+    GridLayout {
+        padding: 10px;
+        spacing: 10px;
+
+        HorizontalLayout { // Preview Area
+            col: 0;
+            row: 0;
+            colspan: 2;
+            alignment: space-around;
+            VerticalLayout {
+                Text {
+                    text: "Original";
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    height: 20px;
+                }
+                Image {
+                    source: root.original-image;
+                    width: 450px;
+                    height: 450px;
+                    image-fit: contain;
+                }
+            }
+            VerticalLayout {
+                Text { 
+                    text: "Preview";
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    height: 20px;
+                }
+                Image {
+                    source: root.preview-image;
+                    width: 450px;
+                    height: 450px;
+                    image-fit: contain;
+                }
+            }
+        }
+
+        VerticalLayout { // Sliders Column 1
+            col: 0;
+            row: 1;
+            spacing: 10px;
+            horizontal-stretch: 1;
+            width: 460px;
+            GroupBox {
+                title: "Brightness / Contrast / Gamma";
+                VerticalLayout {
+                    spacing: 5px;
+                    HorizontalLayout {
+                        Text { text: "Brightness:"; width: 80px;
+                            vertical-alignment: center;
+                            height: 20px;
+                        }
+                        Slider {
+                            value: root.brightness;
+                            minimum: min-value;
+                            maximum: max-value;
+                            changed(val) => {
+                                root.brightness = val;
+                                root.values-changed();
+                            }
+                            //horizontal-stretch: 1;
+                        }
+                        Text {
+                            text: root.brightness;
+                            min-width: 40px;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                            height: 20px;
+                        }
+                    }
+                    HorizontalLayout {
+                        Text { text: "Contrast:"; width: 80px;
+                            vertical-alignment: center;
+                            height: 20px;
+                        }
+                        Slider {
+                            value: root.contrast;
+                            minimum: min-value;
+                            maximum: max-value;
+                            changed(val) => {
+                                root.contrast = val;
+                                root.values-changed();
+                            }
+                            //horizontal-stretch: 1;
+                        }
+                        Text {
+                            text: root.contrast;
+                            min-width: 40px;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                            height: 20px;
+                        }
+                    }
+                    HorizontalLayout {
+                        Text { text: "Gamma:"; width: 80px;
+                            vertical-alignment: center;
+                            height: 20px;
+                        }
+                        Slider {
+                            value: root.gamma;
+                            minimum: 10;
+                            maximum: 500;
+                            changed(val) => {
+                                root.gamma = val;
+                                root.values-changed();
+                            }
+                            //horizontal-stretch: 1;
+                        }
+                        Text {
+                            text: (root.gamma / 100.0);
+                            min-width: 40px;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                            height: 20px;
+                        }
+                    }
+                    HorizontalLayout {
+                        Rectangle { vertical-stretch: 1; } // Spacer
+                    }
+                }
+            }
+
+            GroupBox {
+                title: "Color Balance";
+                VerticalLayout {
+                    spacing: 5px;
+                    HorizontalLayout {
+                        Text { text: "Red:"; width: 80px;
+                            vertical-alignment: center;
+                            height: 20px;
+                        }
+                        Slider {
+                            value: root.red;
+                            minimum: min-value;
+                            maximum: max-value;
+                            changed(val) => {
+                                root.red = val;
+                                root.values-changed();
+                            }
+                            //horizontal-stretch: 1;
+                         }
+                        Text {
+                            text: root.red;
+                            min-width: 40px;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                            height: 20px;
+                        }
+                    }
+                    HorizontalLayout {
+                        Text { text: "Green:"; width: 80px;
+                            vertical-alignment: center;
+                            height: 20px;
+                        }
+                        Slider {
+                            value: root.green;
+                            minimum: min-value;
+                            maximum: max-value;
+                            changed(val) => {
+                                root.green = val;
+                                root.values-changed();
+                            }
+                            //horizontal-stretch: 1;
+                        }
+                        Text {
+                            text: root.green;
+                            min-width: 40px;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                            height: 20px;
+                        }
+                    }
+                    HorizontalLayout {
+                        Text { text: "Blue:"; width: 80px;
+                            vertical-alignment: center;
+                            height: 20px;
+                        }
+                        Slider {
+                            value: root.blue;
+                            minimum: min-value;
+                            maximum: max-value;
+                            changed(val) => {
+                                root.blue = val;
+                                root.values-changed();
+                            }
+                            //horizontal-stretch: 1;
+                        }
+                        Text {
+                            text: root.blue;
+                            min-width: 40px;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                            height: 20px;
+                        }
+                    }
+                    HorizontalLayout {
+                        Rectangle { vertical-stretch: 1; } // Spacer
+                    }
+                }
+            }
+        }
+
+        VerticalLayout { // Sliders Column 2
+            col: 1;
+            row: 1;
+            spacing: 10px;
+            horizontal-stretch: 1;
+
+            GroupBox {
+                title: "Saturation";
+                VerticalLayout {
+                    spacing: 5px;
+                    HorizontalLayout {
+                        Text { text: "Saturation:"; width: 80px;
+                            vertical-alignment: center;
+                            height: 20px;
+                        }
+                        Slider {
+                            value: root.saturation;
+                            minimum: min-value;
+                            maximum: max-value;
+                            changed(val) => {
+                                root.saturation = val;
+                                root.values-changed();
+                            }
+                            horizontal-stretch: 1;
+                        }
+                        Text {
+                            text: root.saturation;
+                            min-width: 40px;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                            height: 20px;
+                        }
+                    }
+                    HorizontalLayout {
+                        Rectangle { vertical-stretch: 1; } // Spacer
+                    }
+                }
+            }
+
+            //Rectangle { vertical-stretch: 1; } // Spacer
+        }
+
+        HorizontalLayout { // Buttons
+            col: 0;
+            row: 2;
+            colspan: 2;
+            alignment: end;
+            spacing: 10px;
+            Button { text: "OK"; clicked => { root.apply(); } }
+            Button { text: "Cancel"; clicked => { root.cancel(); } }
+            Button { text: "Reset"; clicked => { root.reset(); } }
+        }
+    }
+}

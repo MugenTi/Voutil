@@ -2,7 +2,7 @@
 //#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use arboard::{Clipboard, ImageData};
-use image::{imageops, DynamicImage, ImageBuffer};
+use image::{imageops::{self, colorops}, DynamicImage, ImageBuffer};
 use oculante::settings::{PersistentSettings, VolatileSettings};
 use oculante::utils::reveal_in_file_manager;
 use rayon::prelude::*;
@@ -357,6 +357,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let main_window = AppWindow::new()?;
     let settings_window = SettingsWindow::new()?;
     let thumbnail_window = ThumbnailWindow::new()?;
+    let color_correction_window = ColorCorrectionWindow::new()?;
     let app_state = Rc::new(RefCell::new(AppState::default()));
 
     // --- Initial state setup from settings ---
@@ -478,12 +479,16 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let settings_window_handle_cloned_for_shared_logic = settings_window.as_weak();
     let thumbnail_window_handle_cloned_for_shared_logic = thumbnail_window.as_weak();
+    let color_correction_window_handle_cloned_for_shared_logic = color_correction_window.as_weak();
     let close_all_windows_logic = move || {
         if let Some(settings_ui) = settings_window_handle_cloned_for_shared_logic.upgrade() {
             let _ = settings_ui.hide();
         }
         if let Some(thumb_ui) = thumbnail_window_handle_cloned_for_shared_logic.upgrade() {
             let _ = thumb_ui.hide();
+        }
+        if let Some(cc_ui) = color_correction_window_handle_cloned_for_shared_logic.upgrade() {
+            let _ = cc_ui.hide();
         }
         slint::quit_event_loop().unwrap();
     };
@@ -531,6 +536,188 @@ fn main() -> Result<(), slint::PlatformError> {
                 .window()
                 .set_position(slint::PhysicalPosition::new(x, y));
             let _ = settings_ui.show();
+        }
+    });
+
+    let color_correction_window_handle = color_correction_window.as_weak();
+    let app_state_clone = app_state.clone();
+    let main_window_handle_for_cc = main_window.as_weak();
+    let color_correction_preview_buffer: Rc<RefCell<Option<ImageBuffer<image::Rgba<u8>, Vec<u8>>>>> = Rc::new(RefCell::new(None));
+    let cc_preview_buffer_for_show = color_correction_preview_buffer.clone();
+    main_window.on_show_color_correction_window(move || {
+        if let (Some(cc_ui), Some(main_ui)) = (color_correction_window_handle.upgrade(), main_window_handle_for_cc.upgrade()) {
+            if let Some(pixel_buffer) = main_ui.get_image_display().to_rgba8() {
+                
+                let current_dyn_image = DynamicImage::ImageRgba8(ImageBuffer::from_raw(
+                    pixel_buffer.width(),
+                    pixel_buffer.height(),
+                    pixel_buffer.as_bytes().to_vec(),
+                ).unwrap());
+
+                // Use DynamicImage's thumbnail method
+                let preview_dyn_img = current_dyn_image.thumbnail(450, 450);
+                let preview_buffer = preview_dyn_img.to_rgba8();
+
+                *cc_preview_buffer_for_show.borrow_mut() = Some(preview_buffer.clone());
+                
+                let slint_img = Image::from_rgba8(SharedPixelBuffer::clone_from_slice(
+                    preview_buffer.as_raw(),
+                    preview_buffer.width(),
+                    preview_buffer.height(),
+                ));
+
+                cc_ui.set_original_image(slint_img.clone());
+                cc_ui.set_preview_image(slint_img);
+                
+                let app_state = app_state_clone.borrow();
+                let x: i32 = app_state.last_window_position.x + 12;
+                let y: i32 = app_state.last_window_position.y + 75;
+                cc_ui.window().set_position(slint::PhysicalPosition::new(x, y));
+                let _ = cc_ui.show();
+            }
+        }
+    });
+
+    let cc_window_handle = color_correction_window.as_weak();
+    let cc_preview_buffer_for_values_changed = color_correction_preview_buffer.clone();
+    color_correction_window.on_values_changed(move || {
+        if let Some(cc_ui) = cc_window_handle.upgrade() {
+            if let Some(original_buffer) = &*cc_preview_buffer_for_values_changed.borrow() { 
+                let mut preview_buffer = original_buffer.clone();
+                
+                // Apply corrections
+                let brightness = cc_ui.get_brightness();
+                if brightness != 0 {
+                    colorops::brighten_in_place(&mut preview_buffer, brightness);
+                }
+
+                let contrast = cc_ui.get_contrast() as f32;
+                if contrast != 0.0 {
+                    // image crate contrast is bugged, this is a workaround
+                    for p in preview_buffer.pixels_mut() {
+                        let f = (1.0 + contrast / 100.0).max(0.0);
+                        *p = image::Rgba([
+                            (((p[0] as f32 - 128.0) * f) + 128.0).clamp(0.0, 255.0) as u8,
+                            (((p[1] as f32 - 128.0) * f) + 128.0).clamp(0.0, 255.0) as u8,
+                            (((p[2] as f32 - 128.0) * f) + 128.0).clamp(0.0, 255.0) as u8,
+                             p[3]
+                        ]);
+                    }
+                }
+                
+                // let gamma = cc_ui.get_gamma() as f32 / 100.0; // Commented out
+                // if gamma != 1.0 { colorops::gamma_in_place(&mut preview_buffer, gamma); } // Commented out
+                
+                let r = cc_ui.get_red() as f32 / 100.0;
+                let g = cc_ui.get_green() as f32 / 100.0;
+                let b = cc_ui.get_blue() as f32 / 100.0;
+                if r != 0.0 || g != 0.0 || b != 0.0 {
+                     for p in preview_buffer.pixels_mut() {
+                        *p = image::Rgba([
+                            (p[0] as f32 * (1.0 + r)).clamp(0.0, 255.0) as u8,
+                            (p[1] as f32 * (1.0 + g)).clamp(0.0, 255.0) as u8,
+                            (p[2] as f32 * (1.0 + b)).clamp(0.0, 255.0) as u8,
+                             p[3]
+                        ]);
+                    }
+                }
+
+                // let saturation = cc_ui.get_saturation(); // Commented out
+                // if saturation != 0 { colorops::saturate_in_place(&mut preview_buffer, saturation as f32 / 100.0); } // Commented out
+
+                let slint_img = Image::from_rgba8(SharedPixelBuffer::clone_from_slice(
+                    preview_buffer.as_raw(),
+                    preview_buffer.width(),
+                    preview_buffer.height(),
+                ));
+                cc_ui.set_preview_image(slint_img);
+            }
+        }
+    });
+
+    let cc_window_handle = color_correction_window.as_weak();
+    color_correction_window.on_cancel(move || {
+        if let Some(cc_ui) = cc_window_handle.upgrade() {
+            let _ = cc_ui.hide();
+        }
+    });
+
+    let cc_window_handle = color_correction_window.as_weak();
+    color_correction_window.on_reset(move || {
+        if let Some(cc_ui) = cc_window_handle.upgrade() {
+            cc_ui.set_brightness(0);
+            cc_ui.set_contrast(0);
+            cc_ui.set_gamma(100);
+            cc_ui.set_red(0);
+            cc_ui.set_green(0);
+            cc_ui.set_blue(0);
+            cc_ui.set_saturation(0);
+            cc_ui.invoke_values_changed();
+        }
+    });
+
+    let main_window_handle = main_window.as_weak();
+    let cc_window_handle = color_correction_window.as_weak();
+    let app_state_clone = app_state.clone();
+    //let cc_preview_buffer_for_apply = color_correction_preview_buffer.clone();
+    color_correction_window.on_apply(move || {
+        if let (Some(main_ui), Some(cc_ui)) = (main_window_handle.upgrade(), cc_window_handle.upgrade()) {
+            if let Some(pixel_buffer) = main_ui.get_image_display().to_rgba8() {
+                let mut buffer: ImageBuffer<image::Rgba<u8>, _> = ImageBuffer::from_raw(
+                    pixel_buffer.width(),
+                    pixel_buffer.height(),
+                    pixel_buffer.as_bytes().to_vec(),
+                ).unwrap();
+
+                // Apply corrections
+                let brightness = cc_ui.get_brightness();
+                if brightness != 0 { colorops::brighten_in_place(&mut buffer, brightness); }
+
+                let contrast = cc_ui.get_contrast() as f32;
+                if contrast != 0.0 {
+                    for p in buffer.pixels_mut() {
+                        let f = (1.0 + contrast / 100.0).max(0.0);
+                        *p = image::Rgba([
+                            (((p[0] as f32 - 128.0) * f) + 128.0).clamp(0.0, 255.0) as u8,
+                            (((p[1] as f32 - 128.0) * f) + 128.0).clamp(0.0, 255.0) as u8,
+                            (((p[2] as f32 - 128.0) * f) + 128.0).clamp(0.0, 255.0) as u8,
+                            p[3]
+                        ]);
+                    }
+                }
+                
+                // let gamma = cc_ui.get_gamma() as f32 / 100.0; // Commented out
+                // if gamma != 1.0 { colorops::gamma_in_place(&mut buffer, gamma); } // Commented out
+
+                let r = cc_ui.get_red() as f32 / 100.0;
+                let g = cc_ui.get_green() as f32 / 100.0;
+                let b = cc_ui.get_blue() as f32 / 100.0;
+                if r != 0.0 || g != 0.0 || b != 0.0 {
+                     for p in buffer.pixels_mut() {
+                        *p = image::Rgba([
+                            (p[0] as f32 * (1.0 + r)).clamp(0.0, 255.0) as u8,
+                            (p[1] as f32 * (1.0 + g)).clamp(0.0, 255.0) as u8,
+                            (p[2] as f32 * (1.0 + b)).clamp(0.0, 255.0) as u8,
+                            p[3]
+                        ]);
+                    }
+                }
+
+                // let saturation = cc_ui.get_saturation(); // Commented out
+                // if saturation != 0 { colorops::saturate_in_place(&mut buffer, saturation as f32 / 100.0); } // Commented out
+
+                let slint_img = Image::from_rgba8(SharedPixelBuffer::clone_from_slice(
+                    buffer.as_raw(),
+                    buffer.width(),
+                    buffer.height(),
+                ));
+                main_ui.set_image_display(slint_img);
+                app_state_clone.borrow_mut().selection = None;
+                update_image_info(&main_ui);
+                main_ui.set_status_text("Color corrections applied.".into());
+                
+                let _ = cc_ui.hide();
+            }
         }
     });
 
