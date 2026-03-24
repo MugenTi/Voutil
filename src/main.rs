@@ -587,8 +587,8 @@ fn main() -> Result<(), slint::PlatformError> {
                 
                 // Apply corrections
                 let brightness = cc_ui.get_brightness();
-                if brightness != 0 {
-                    colorops::brighten_in_place(&mut preview_buffer, brightness);
+                if brightness != 0.0 {
+                    colorops::brighten_in_place(&mut preview_buffer, brightness as i32);
                 }
 
                 let contrast = cc_ui.get_contrast() as f32;
@@ -645,13 +645,13 @@ fn main() -> Result<(), slint::PlatformError> {
     let cc_window_handle = color_correction_window.as_weak();
     color_correction_window.on_reset(move || {
         if let Some(cc_ui) = cc_window_handle.upgrade() {
-            cc_ui.set_brightness(0);
-            cc_ui.set_contrast(0);
-            cc_ui.set_gamma(100);
-            cc_ui.set_red(0);
-            cc_ui.set_green(0);
-            cc_ui.set_blue(0);
-            cc_ui.set_saturation(0);
+            cc_ui.set_brightness(0.0);
+            cc_ui.set_contrast(0.0);
+            cc_ui.set_gamma(100.0);
+            cc_ui.set_red(0.0);
+            cc_ui.set_green(0.0);
+            cc_ui.set_blue(0.0);
+            cc_ui.set_saturation(0.0);
             cc_ui.invoke_values_changed();
         }
     });
@@ -671,7 +671,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
                 // Apply corrections
                 let brightness = cc_ui.get_brightness();
-                if brightness != 0 { colorops::brighten_in_place(&mut buffer, brightness); }
+                if brightness != 0.0 { colorops::brighten_in_place(&mut buffer, brightness as i32); }
 
                 let contrast = cc_ui.get_contrast() as f32;
                 if contrast != 0.0 {

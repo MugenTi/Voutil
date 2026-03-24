@@ -15,13 +15,13 @@ export component ColorCorrectionWindow inherits Window {
     in-out property <image> original-image;
     in-out property <image> preview-image;
 
-    in-out property <int> brightness: 0;
-    in-out property <int> contrast: 0;
-    in-out property <int> gamma: 100;
-    in-out property <int> red: 0;
-    in-out property <int> green: 0;
-    in-out property <int> blue: 0;
-    in-out property <int> saturation: 0;
+    in-out property <float> brightness: 0.0;
+    in-out property <float> contrast: 0.0;
+    in-out property <float> gamma: 100.0;
+    in-out property <float> red: 0.0;
+    in-out property <float> green: 0.0;
+    in-out property <float> blue: 0.0;
+    in-out property <float> saturation: 0.0;
 
     private property<int> min-value: -100;
     private property<int> max-value: 100;
@@ -81,17 +81,13 @@ export component ColorCorrectionWindow inherits Window {
                             height: 20px;
                         }
                         Slider {
-                            value: root.brightness;
                             minimum: min-value;
                             maximum: max-value;
-                            changed(val) => {
-                                root.brightness = val;
-                                root.values-changed();
-                            }
-                            //horizontal-stretch: 1;
+                            value <=> root.brightness;
+                            changed(val) => { root.values-changed(); }
                         }
                         Text {
-                            text: root.brightness;
+                            text: round(root.brightness);
                             min-width: 40px;
                             horizontal-alignment: right;
                             vertical-alignment: center;
@@ -104,17 +100,13 @@ export component ColorCorrectionWindow inherits Window {
                             height: 20px;
                         }
                         Slider {
-                            value: root.contrast;
                             minimum: min-value;
                             maximum: max-value;
-                            changed(val) => {
-                                root.contrast = val;
-                                root.values-changed();
-                            }
-                            //horizontal-stretch: 1;
+                            value <=> root.contrast;
+                            changed(val) => { root.values-changed(); }
                         }
                         Text {
-                            text: root.contrast;
+                            text: round(root.contrast);
                             min-width: 40px;
                             horizontal-alignment: right;
                             vertical-alignment: center;
@@ -127,17 +119,13 @@ export component ColorCorrectionWindow inherits Window {
                             height: 20px;
                         }
                         Slider {
-                            value: root.gamma;
                             minimum: 10;
                             maximum: 500;
-                            changed(val) => {
-                                root.gamma = val;
-                                root.values-changed();
-                            }
-                            //horizontal-stretch: 1;
+                            value <=> root.gamma;
+                            changed(val) => { root.values-changed(); }
                         }
                         Text {
-                            text: (root.gamma / 100.0);
+                            text: round(root.gamma)/ 100.0;
                             min-width: 40px;
                             horizontal-alignment: right;
                             vertical-alignment: center;
@@ -160,17 +148,13 @@ export component ColorCorrectionWindow inherits Window {
                             height: 20px;
                         }
                         Slider {
-                            value: root.red;
                             minimum: min-value;
                             maximum: max-value;
-                            changed(val) => {
-                                root.red = val;
-                                root.values-changed();
-                            }
-                            //horizontal-stretch: 1;
+                            value <=> root.red;
+                            changed(val) => { root.values-changed(); }
                          }
                         Text {
-                            text: root.red;
+                            text: round(root.red);
                             min-width: 40px;
                             horizontal-alignment: right;
                             vertical-alignment: center;
@@ -183,17 +167,13 @@ export component ColorCorrectionWindow inherits Window {
                             height: 20px;
                         }
                         Slider {
-                            value: root.green;
                             minimum: min-value;
                             maximum: max-value;
-                            changed(val) => {
-                                root.green = val;
-                                root.values-changed();
-                            }
-                            //horizontal-stretch: 1;
+                            value <=> root.green;
+                            changed(val) => { root.values-changed(); }
                         }
                         Text {
-                            text: root.green;
+                            text: round(root.green);
                             min-width: 40px;
                             horizontal-alignment: right;
                             vertical-alignment: center;
@@ -206,17 +186,13 @@ export component ColorCorrectionWindow inherits Window {
                             height: 20px;
                         }
                         Slider {
-                            value: root.blue;
                             minimum: min-value;
                             maximum: max-value;
-                            changed(val) => {
-                                root.blue = val;
-                                root.values-changed();
-                            }
-                            //horizontal-stretch: 1;
+                            value <=> root.blue;
+                            changed(val) => { root.values-changed(); }
                         }
                         Text {
-                            text: root.blue;
+                            text: round(root.blue);
                             min-width: 40px;
                             horizontal-alignment: right;
                             vertical-alignment: center;
@@ -246,17 +222,14 @@ export component ColorCorrectionWindow inherits Window {
                             height: 20px;
                         }
                         Slider {
-                            value: root.saturation;
                             minimum: min-value;
                             maximum: max-value;
-                            changed(val) => {
-                                root.saturation = val;
-                                root.values-changed();
-                            }
-                            horizontal-stretch: 1;
+                            value <=> root.saturation;
+                            changed(val) => { root.values-changed(); }
+                            //horizontal-stretch: 1;
                         }
                         Text {
-                            text: root.saturation;
+                            text: round(root.saturation);
                             min-width: 40px;
                             horizontal-alignment: right;
                             vertical-alignment: center;
@@ -268,8 +241,6 @@ export component ColorCorrectionWindow inherits Window {
                     }
                 }
             }
-
-            //Rectangle { vertical-stretch: 1; } // Spacer
         }
 
         HorizontalLayout { // Buttons
