@@ -546,6 +546,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let cc_preview_buffer_for_show = color_correction_preview_buffer.clone();
     main_window.on_show_color_correction_window(move || {
         if let (Some(cc_ui), Some(main_ui)) = (color_correction_window_handle.upgrade(), main_window_handle_for_cc.upgrade()) {
+            cc_ui.invoke_reset();
             if let Some(pixel_buffer) = main_ui.get_image_display().to_rgba8() {
                 
                 let current_dyn_image = DynamicImage::ImageRgba8(ImageBuffer::from_raw(
@@ -600,13 +601,23 @@ fn main() -> Result<(), slint::PlatformError> {
                             (((p[0] as f32 - 128.0) * f) + 128.0).clamp(0.0, 255.0) as u8,
                             (((p[1] as f32 - 128.0) * f) + 128.0).clamp(0.0, 255.0) as u8,
                             (((p[2] as f32 - 128.0) * f) + 128.0).clamp(0.0, 255.0) as u8,
-                             p[3]
+                            p[3]
                         ]);
                     }
                 }
                 
-                // let gamma = cc_ui.get_gamma() as f32 / 100.0; // Commented out
-                // if gamma != 1.0 { colorops::gamma_in_place(&mut preview_buffer, gamma); } // Commented out
+                let gamma = cc_ui.get_gamma() as f32 / 100.0;
+                if gamma != 1.0 {
+                    let inv_gamma = 1.0 / gamma;
+                    for p in preview_buffer.pixels_mut() {
+                        *p = image::Rgba([
+                            ((p[0] as f32 / 255.0).powf(inv_gamma) * 255.0) as u8,
+                            ((p[1] as f32 / 255.0).powf(inv_gamma) * 255.0) as u8,
+                            ((p[2] as f32 / 255.0).powf(inv_gamma) * 255.0) as u8,
+                            p[3]
+                        ]);
+                    }
+                }
                 
                 let r = cc_ui.get_red() as f32 / 100.0;
                 let g = cc_ui.get_green() as f32 / 100.0;
@@ -617,13 +628,42 @@ fn main() -> Result<(), slint::PlatformError> {
                             (p[0] as f32 * (1.0 + r)).clamp(0.0, 255.0) as u8,
                             (p[1] as f32 * (1.0 + g)).clamp(0.0, 255.0) as u8,
                             (p[2] as f32 * (1.0 + b)).clamp(0.0, 255.0) as u8,
-                             p[3]
+                            p[3]
                         ]);
                     }
                 }
 
-                // let saturation = cc_ui.get_saturation(); // Commented out
-                // if saturation != 0 { colorops::saturate_in_place(&mut preview_buffer, saturation as f32 / 100.0); } // Commented out
+                let saturation = cc_ui.get_saturation();
+                // -100..100 の入力を 0.0..2.0 の係数に変換
+                // -100 -> 0.0 (無彩色)
+                //    0 -> 1.0 (変化なし)
+                //  100 -> 2.0 (彩度2倍)
+                let saturation = ((saturation as f32 / 100.0) + 1.0).clamp(0.0, 2.0);
+                if saturation != 0.0 {
+                    for p in preview_buffer.pixels_mut() {
+                        let [r, g, b, a] = p.0;
+
+                        // 1. 0.0 ~ 1.0 に正規化
+                        let (r_f, g_f, b_f) = (r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0);
+
+                        // 2. 輝度 (Luminance) を計算（Rec.709 係数を使用）
+                        // 彩度を下げた時に向かう「グレー」の基準点になる
+                        let luminance = 0.2126 * r_f + 0.7152 * g_f + 0.0722 * b_f;
+
+                        // 3. 各チャンネルと輝度の差を、彩度係数で増幅
+                        let new_r = (luminance + (r_f - luminance) * saturation).clamp(0.0, 1.0);
+                        let new_g = (luminance + (g_f - luminance) * saturation).clamp(0.0, 1.0);
+                        let new_b = (luminance + (b_f - luminance) * saturation).clamp(0.0, 1.0);
+
+                        // 4. 0 ~ 255 に戻して適用
+                        *p = image::Rgba([
+                            (new_r * 255.0) as u8,
+                            (new_g * 255.0) as u8,
+                            (new_b * 255.0) as u8,
+                            a,
+                        ]);
+                    }
+                }
 
                 let slint_img = Image::from_rgba8(SharedPixelBuffer::clone_from_slice(
                     preview_buffer.as_raw(),
@@ -686,8 +726,18 @@ fn main() -> Result<(), slint::PlatformError> {
                     }
                 }
                 
-                // let gamma = cc_ui.get_gamma() as f32 / 100.0; // Commented out
-                // if gamma != 1.0 { colorops::gamma_in_place(&mut buffer, gamma); } // Commented out
+                let gamma = cc_ui.get_gamma() as f32 / 100.0;
+                if gamma != 1.0 {
+                    let inv_gamma = 1.0 / gamma;
+                    for p in buffer.pixels_mut() {
+                        *p = image::Rgba([
+                            ((p[0] as f32 / 255.0).powf(inv_gamma) * 255.0) as u8,
+                            ((p[1] as f32 / 255.0).powf(inv_gamma) * 255.0) as u8,
+                            ((p[2] as f32 / 255.0).powf(inv_gamma) * 255.0) as u8,
+                            p[3]
+                        ]);
+                    }
+                }
 
                 let r = cc_ui.get_red() as f32 / 100.0;
                 let g = cc_ui.get_green() as f32 / 100.0;
@@ -703,8 +753,37 @@ fn main() -> Result<(), slint::PlatformError> {
                     }
                 }
 
-                // let saturation = cc_ui.get_saturation(); // Commented out
-                // if saturation != 0 { colorops::saturate_in_place(&mut buffer, saturation as f32 / 100.0); } // Commented out
+                let saturation = cc_ui.get_saturation();
+                // -100..100 の入力を 0.0..2.0 の係数に変換
+                // -100 -> 0.0 (無彩色)
+                //    0 -> 1.0 (変化なし)
+                //  100 -> 2.0 (彩度2倍)
+                let saturation = ((saturation as f32 / 100.0) + 1.0).clamp(0.0, 2.0);
+                if saturation != 0.0 {
+                    for p in buffer.pixels_mut() {
+                        let [r, g, b, a] = p.0;
+
+                        // 1. 0.0 ~ 1.0 に正規化
+                        let (r_f, g_f, b_f) = (r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0);
+
+                        // 2. 輝度 (Luminance) を計算（Rec.709 係数を使用）
+                        // 彩度を下げた時に向かう「グレー」の基準点になる
+                        let luminance = 0.2126 * r_f + 0.7152 * g_f + 0.0722 * b_f;
+
+                        // 3. 各チャンネルと輝度の差を、彩度係数で増幅
+                        let new_r = (luminance + (r_f - luminance) * saturation).clamp(0.0, 1.0);
+                        let new_g = (luminance + (g_f - luminance) * saturation).clamp(0.0, 1.0);
+                        let new_b = (luminance + (b_f - luminance) * saturation).clamp(0.0, 1.0);
+
+                        // 4. 0 ~ 255 に戻して適用
+                        *p = image::Rgba([
+                            (new_r * 255.0) as u8,
+                            (new_g * 255.0) as u8,
+                            (new_b * 255.0) as u8,
+                            a,
+                        ]);
+                    }
+                }
 
                 let slint_img = Image::from_rgba8(SharedPixelBuffer::clone_from_slice(
                     buffer.as_raw(),
