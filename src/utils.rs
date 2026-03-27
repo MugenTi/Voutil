@@ -22,7 +22,7 @@ use std::process::Command;
 
 use anyhow::{/* Context, */Result};
 // use image::{self, DynamicImage, GenericImageView};
-use image::{Rgba, RgbaImage};
+use image::{imageops::colorops, Rgba, RgbaImage};
 // use std::sync::mpsc::{self};
 // use std::sync::mpsc::{Receiver, Sender};
 // use strum::Display;
@@ -285,6 +285,92 @@ impl ExtendedImageInfo {
             name: Default::default(),
             exif: Default::default(),
             dicom: Default::default(),
+        }
+    }
+}
+
+pub fn apply_color_corrections(
+    buffer: &mut RgbaImage,
+    brightness: f32,
+    contrast: f32,
+    gamma: f32,
+    r: f32,
+    g: f32,
+    b: f32,
+    saturation: f32,
+) {
+    if brightness != 0.0 {
+        colorops::brighten_in_place(buffer, brightness as i32);
+    }
+
+    if contrast != 0.0 {
+        // image crate contrast is bugged, this is a workaround
+        for p in buffer.pixels_mut() {
+            let f = (1.0 + contrast / 100.0).max(0.0);
+            *p = Rgba([
+                (((p[0] as f32 - 128.0) * f) + 128.0).clamp(0.0, 255.0) as u8,
+                (((p[1] as f32 - 128.0) * f) + 128.0).clamp(0.0, 255.0) as u8,
+                (((p[2] as f32 - 128.0) * f) + 128.0).clamp(0.0, 255.0) as u8,
+                p[3],
+            ]);
+        }
+    }
+
+    if gamma != 100.0 {
+        let gamma_f = gamma / 100.0;
+        let inv_gamma = 1.0 / gamma_f;
+        for p in buffer.pixels_mut() {
+            *p = Rgba([
+                ((p[0] as f32 / 255.0).powf(inv_gamma) * 255.0) as u8,
+                ((p[1] as f32 / 255.0).powf(inv_gamma) * 255.0) as u8,
+                ((p[2] as f32 / 255.0).powf(inv_gamma) * 255.0) as u8,
+                p[3],
+            ]);
+        }
+    }
+
+    if r != 0.0 || g != 0.0 || b != 0.0 {
+        let r_f = r / 100.0;
+        let g_f = g / 100.0;
+        let b_f = b / 100.0;
+        for p in buffer.pixels_mut() {
+            *p = Rgba([
+                (p[0] as f32 * (1.0 + r_f)).clamp(0.0, 255.0) as u8,
+                (p[1] as f32 * (1.0 + g_f)).clamp(0.0, 255.0) as u8,
+                (p[2] as f32 * (1.0 + b_f)).clamp(0.0, 255.0) as u8,
+                p[3],
+            ]);
+        }
+    }
+
+    // Convert -100..100 input to 0.0..2.0 factor
+    // -100 -> 0.0 (grayscale)
+    //    0 -> 1.0 (no change)
+    //  100 -> 2.0 (double saturation)
+    let saturation_f = ((saturation as f32 / 100.0) + 1.0).clamp(0.0, 2.0);
+    if saturation_f != 1.0 {
+        for p in buffer.pixels_mut() {
+            let [r, g, b, a] = p.0;
+
+            // 1. Normalize to 0.0 ~ 1.0
+            let (r_f, g_f, b_f) = (r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0);
+
+            // 2. Calculate luminance (using Rec.709 coefficients)
+            // This is the "gray" reference point when saturation is reduced
+            let luminance = 0.2126 * r_f + 0.7152 * g_f + 0.0722 * b_f;
+
+            // 3. Amplify the difference between each channel and luminance by the saturation factor
+            let new_r = (luminance + (r_f - luminance) * saturation_f).clamp(0.0, 1.0);
+            let new_g = (luminance + (g_f - luminance) * saturation_f).clamp(0.0, 1.0);
+            let new_b = (luminance + (b_f - luminance) * saturation_f).clamp(0.0, 1.0);
+
+            // 4. Convert back to 0 ~ 255 and apply
+            *p = Rgba([
+                (new_r * 255.0) as u8,
+                (new_g * 255.0) as u8,
+                (new_b * 255.0) as u8,
+                a,
+            ]);
         }
     }
 }
