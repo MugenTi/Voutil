@@ -94,6 +94,8 @@ export component AppWindow inherits Window {
     in-out property <image> image_display;
     in-out property <string> status_text: "Ready";
     in-out property <string> info_text: "";
+    in-out property <int> current_image_index: -1;
+    in-out property <int> total_images: 0;
 
     // --- Properties for manual pan and zoom ---
     in-out property <int> image_x: 0;
@@ -648,6 +650,12 @@ export component AppWindow inherits Window {
                 Text {
                     font-size: 13px;
                     text: root.info_text;
+                    vertical-alignment: center;
+                    color: _icon_color;
+                }
+                if (root.total_images > 0) : Text {
+                    font-size: 13px;
+                    text: " | " + (root.current_image_index + 1) + "/" + root.total_images;
                     vertical-alignment: center;
                     color: _icon_color;
                 }
