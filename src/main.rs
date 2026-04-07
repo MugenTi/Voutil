@@ -1369,6 +1369,11 @@ fn main() -> Result<(), slint::PlatformError> {
                         }
                     }
                     "up" => {
+                        if let Some(selection) = app_state.selection {
+                            if selection.w < 10 || selection.h < 10 {
+                                app_state.selection = None;
+                            }
+                        }
                         app_state.drag_mode = DragMode::None;
                         app_state.selection_start_point = None;
                         app_state.initial_selection_on_drag = None;

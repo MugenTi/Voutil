@@ -119,6 +119,8 @@ export component AppWindow inherits Window {
     private property <bool> _zen_mode_before_enter: false;
     private property <int> _last_mouse_pos_x: 0;
     private property <int> _last_mouse_pos_y: 0;
+    private property <int> _right_click_start_x: 0;
+    private property <int> _right_click_start_y: 0;
 
     // --- Icon properties ---
     private property <brush> _icon_color: #9198A1; // #ccc;
@@ -612,6 +614,8 @@ export component AppWindow inherits Window {
                         } else if (event.button == PointerEventButton.right) {
                             _is_right_down = true;
                             _selection_was_active = root.selection_visible;
+                            _right_click_start_x = ta.mouse-x / 1px;
+                            _right_click_start_y = ta.mouse-y / 1px;
                             root.pointer_event("down", "right", ta.mouse-x / 1px, ta.mouse-y / 1px);
                         }
                     } else if (event.kind == PointerEventKind.up) {
@@ -619,15 +623,20 @@ export component AppWindow inherits Window {
                             _is_dragging = false;
                             root.pointer_event("up", "left", ta.mouse-x / 1px, ta.mouse-y / 1px);
                         } else if (event.button == PointerEventButton.right) {
+                            root.pointer_event("up", "right", ta.mouse-x / 1px, ta.mouse-y / 1px);
                             let is_on_selection = root.check_selection_hit(ta.mouse-x / 1px, ta.mouse-y / 1px);
+                            
+                            let dist_x = Math.abs(ta.mouse-x / 1px - _right_click_start_x);
+                            let dist_y = Math.abs(ta.mouse-y / 1px - _right_click_start_y);
+                            let is_small_drag = dist_x < 10 && dist_y < 10;
+
                             if (is_on_selection && !_is_right_dragging) {
                                 selection_context_menu.show();
-                            } else if (!_is_right_dragging && !_selection_was_active) {
+                            } else if (!_selection_was_active && (!_is_right_dragging || is_small_drag)) {
                                 image_context_menu.show();
                             }
                             _is_right_down = false;
                             _is_right_dragging = false;
-                            root.pointer_event("up", "right", ta.mouse-x / 1px, ta.mouse-y / 1px);
                         }
                     } else if (event.kind == PointerEventKind.move) {
                         if (_is_right_down) {
