@@ -274,7 +274,13 @@ export component AppWindow inherits Window {
             if (event.text == Key.LeftArrow || ((event.text == Key.LeftArrow) && event.modifiers.alt)) {
                 root.previous_image();
             }
+            if (event.text == "A" || event.text == "a") {
+                root.previous_image();
+            }
             if (event.text == Key.RightArrow || ((event.text == Key.RightArrow) && event.modifiers.alt)) {
+                root.next_image();
+            }
+            if (event.text == "D" || event.text == "d") {
                 root.next_image();
             }
             if (event.text == "1") {
@@ -380,7 +386,7 @@ export component AppWindow inherits Window {
                             background: #282828; // Darker background for the menu itself
                             border-radius: 4px;
                             preferred-width: 100%;
-                            height: 56px; // 28 * 2
+                            height: 84px; // 28 * 3
                             VerticalLayout {
                                 MenuButton {
                                     text: @tr("Invert border color");
@@ -389,6 +395,10 @@ export component AppWindow inherits Window {
                                         root.is_light_border = !root.is_light_border;
                                         selection_context_menu.close();
                                     }
+                                }
+                                MenuButton {
+                                    text: @tr("Preferences");
+                                    clicked => { root.show_settings_window(); selection_context_menu.close(); }
                                 }
                                 MenuButton {
                                     text: @tr("Crop");
@@ -419,8 +429,16 @@ export component AppWindow inherits Window {
                             background: #282828;
                             border-radius: 4px;
                             preferred-width: 100%;
-                            height: 28px; // 28 * 1
+                            height: 84px; // 28 * 3
                             VerticalLayout {
+                                MenuButton {
+                                    text: @tr("Reset view");
+                                    clicked => { root.reset_view(); image_context_menu.close(); }
+                                }
+                                MenuButton {
+                                    text: @tr("Preferences");
+                                    clicked => { root.show_settings_window(); image_context_menu.close(); }
+                                }
                                 MenuButton {
                                     text: @tr("Browse to file location");
                                     clicked => { root.browse_to_file_location(); image_context_menu.close(); }
@@ -655,7 +673,7 @@ export component AppWindow inherits Window {
                 }
                 if (root.total_images > 0) : Text {
                     font-size: 13px;
-                    text: " | " + (root.current_image_index + 1) + "/" + root.total_images;
+                    text: " | " + (root.current_image_index + 1) + " / " + root.total_images;
                     vertical-alignment: center;
                     color: _icon_color;
                 }
