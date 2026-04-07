@@ -264,6 +264,8 @@ export component AppWindow inherits Window {
             }
             if (event.text == Key.Escape) {
                 if (root.fullscreen_enabled) {
+                    root.reset_view();
+                    root.zen_mode_enabled = _zen_mode_before_enter;
                     root.fullscreen_enabled = false;
                 } else if (root.thumbnail_window_is_visible) {
                     root.show_thumbnail_window();
