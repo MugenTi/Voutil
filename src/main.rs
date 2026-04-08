@@ -1041,6 +1041,27 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
+    let main_window_handle = main_window.as_weak();
+    let thumbnail_window_handle = thumbnail_window.as_weak();
+    let app_state_clone = app_state.clone();
+    let volatile_settings_clone = volatile_settings.clone();
+    let persistent_settings_clone = persistent_settings.clone();
+    thumbnail_window.on_move_selection(move |delta| {
+        if let (Some(ui), Some(thumb_ui)) = (
+            main_window_handle.upgrade(),
+            thumbnail_window_handle.upgrade(),
+        ) {
+            let mut app = app_state_clone.borrow_mut();
+            if let Some(index) = app.current_image_index {
+                let new_index = (index as i32 + delta).max(0).min(app.image_list.len() as i32 - 1) as usize;
+                if new_index != index {
+                    let path = app.image_list[new_index].clone();
+                    set_image(&ui, &thumb_ui, &mut app, path, &volatile_settings_clone, &persistent_settings_clone);
+                }
+            }
+        }
+    });
+
     let thumbnail_window_handle = thumbnail_window.as_weak();
     main_window.on_show_thumbnail_window(move || {
         if let Some(thumb_ui) = thumbnail_window_handle.upgrade() {

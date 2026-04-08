@@ -18,6 +18,7 @@ export component ThumbnailWindow inherits Window {
     callback thumbnail_clicked(string);
     callback next_image();
     callback previous_image();
+    callback move_selection(int);
 
     private property <length> thumb-size: 100px;
     private property <length> spacing: 10px;
@@ -41,6 +42,12 @@ export component ThumbnailWindow inherits Window {
             }
             if (event.text == "D" || event.text == "d") {
                 root.next_image();
+            }
+            if (event.text == Key.UpArrow || event.text == "W" || event.text == "w") {
+                root.move_selection(-root.columns);
+            }
+            if (event.text == Key.DownArrow || event.text == "S" || event.text == "s") {
+                root.move_selection(root.columns);
             }
             accept // Consume event
         }
