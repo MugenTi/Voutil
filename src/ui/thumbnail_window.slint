@@ -50,31 +50,27 @@ export component ThumbnailWindow inherits Window {
             if (event.text == Key.Escape) {
                 root.hide();
             }
-            if (event.text == Key.LeftArrow || ((event.text == Key.LeftArrow) && event.modifiers.alt)) {
-                root.previous_image();
-                root.ensure_visible();
+            let old_index = root.selected-index;
+            if (event.text == Key.LeftArrow || event.text == "A" || event.text == "a") {
+                root.selected-index = Math.max(0, root.selected-index - 1);
+            } else if (event.text == Key.RightArrow || event.text == "D" || event.text == "d") {
+                root.selected-index = Math.min(root.thumbnails.length - 1, root.selected-index + 1);
+            } else if (event.text == Key.UpArrow || event.text == "W" || event.text == "w") {
+                root.selected-index = Math.max(0, root.selected-index - root.columns);
+            } else if (event.text == Key.DownArrow || event.text == "S" || event.text == "s") {
+                root.selected-index = Math.min(root.thumbnails.length - 1, root.selected-index + root.columns);
             }
-            if (event.text == "A" || event.text == "a") {
-                root.previous_image();
-                root.ensure_visible();
-            }
-            if (event.text == Key.RightArrow || ((event.text == Key.RightArrow) && event.modifiers.alt)) {
-                root.next_image();
-                root.ensure_visible();
-            }
-            if (event.text == "D" || event.text == "d") {
-                root.next_image();
-                root.ensure_visible();
-            }
-            if (event.text == Key.UpArrow || event.text == "W" || event.text == "w") {
-                root.move_selection(-root.columns);
-                root.ensure_visible();
-            }
-            if (event.text == Key.DownArrow || event.text == "S" || event.text == "s") {
-                root.move_selection(root.columns);
+            
+            if (root.selected-index != old_index) {
                 root.ensure_visible();
             }
             accept // Consume event
+        }
+        key-released(event) => {
+            if (root.selected-index >= 0 && root.selected-index < root.thumbnails.length) {
+                root.thumbnail_clicked(root.thumbnails[root.selected-index].path);
+            }
+            accept
         }
     }
 
@@ -89,8 +85,8 @@ export component ThumbnailWindow inherits Window {
                 x: root.spacing + Math.mod(i, root.columns) * (root.thumb-size + root.spacing);
                 y: root.spacing + Math.floor(i / root.columns) * (root.thumb-size + root.spacing);
                 Rectangle {
-                    border-width: (thumb.path == root.selected-path) ? 2px : 1px;
-                    border-color: (thumb.path == root.selected-path) ? green : (_touch.has-hover ? #555 : #191919);
+                    border-width: (i == root.selected-index) ? 2px : 1px;
+                    border-color: (i == root.selected-index) ? green : (_touch.has-hover ? #555 : #191919);
                     background: _touch.pressed ? #282828 : _touch.has-hover ? #3a3a3a :  #282828;
                     Image {
                         source: thumb.source;
