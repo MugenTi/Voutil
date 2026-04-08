@@ -258,8 +258,11 @@ export component AppWindow inherits Window {
             if (event.text == "F" || event.text == "f") {
                 root.fullscreen_enabled = !root.fullscreen_enabled;
             }
-            if (event.text == "T" || event.text == "t") {
+            if ((event.text == "T" || event.text == "t") && event.modifiers.control) {
                 root.always_on_top_enabled = !root.always_on_top_enabled;
+            }
+            if (event.text == "T" || event.text == "t") {
+                root.show_thumbnail_window();
             }
             if ((event.text == "Y" || event.text == "y") && event.modifiers.control) {
                 root.crop_in_place();
