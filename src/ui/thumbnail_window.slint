@@ -14,16 +14,35 @@ export component ThumbnailWindow inherits Window {
 
     in property <[Thumbnail]> thumbnails;
     in-out property <string> selected-path;
+    in-out property <int> selected-index: -1;
     callback hide();
     callback thumbnail_clicked(string);
     callback next_image();
     callback previous_image();
     callback move_selection(int);
+    callback ensure_visible();
 
     private property <length> thumb-size: 100px;
     private property <length> spacing: 10px;
     private property <int> columns: Math.floor(root.width / (thumb-size + spacing));
     private property <int> rows: Math.ceil(root.thumbnails.length / root.columns);
+
+    ensure_visible => {
+        if (root.selected-index < 0) { return; }
+        
+        let row = Math.floor(root.selected-index / root.columns);
+        let item_y_min = root.spacing + row * (root.thumb-size + root.spacing);
+        let item_y_max = item_y_min + root.thumb-size + root.spacing;
+        
+        // Check if the item is above the visible area
+        if (item_y_min < -sv.viewport-y) {
+            sv.viewport-y = -item_y_min;
+        } 
+        // Check if the item is below the visible area
+        else if (item_y_max > -sv.viewport-y + sv.height) {
+            sv.viewport-y = -(item_y_max - sv.height);
+        }
+    }
 
     forward-focus: key_handler;
     key_handler := FocusScope {
@@ -33,27 +52,33 @@ export component ThumbnailWindow inherits Window {
             }
             if (event.text == Key.LeftArrow || ((event.text == Key.LeftArrow) && event.modifiers.alt)) {
                 root.previous_image();
+                root.ensure_visible();
             }
             if (event.text == "A" || event.text == "a") {
                 root.previous_image();
+                root.ensure_visible();
             }
             if (event.text == Key.RightArrow || ((event.text == Key.RightArrow) && event.modifiers.alt)) {
                 root.next_image();
+                root.ensure_visible();
             }
             if (event.text == "D" || event.text == "d") {
                 root.next_image();
+                root.ensure_visible();
             }
             if (event.text == Key.UpArrow || event.text == "W" || event.text == "w") {
                 root.move_selection(-root.columns);
+                root.ensure_visible();
             }
             if (event.text == Key.DownArrow || event.text == "S" || event.text == "s") {
                 root.move_selection(root.columns);
+                root.ensure_visible();
             }
             accept // Consume event
         }
     }
 
-    ScrollView {
+    sv := ScrollView {
         viewport-height: root.rows * (root.thumb-size + root.spacing) + root.spacing;
         Rectangle {
             width: 100%;
@@ -74,7 +99,11 @@ export component ThumbnailWindow inherits Window {
                         image-fit: contain;
                     }
                 }
-                clicked => { root.thumbnail_clicked(thumb.path); }
+                clicked => { 
+                    root.thumbnail_clicked(thumb.path);
+                    root.selected-index = i;
+                    root.ensure_visible();
+                }
             }
         }
     }

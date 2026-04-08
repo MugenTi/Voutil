@@ -342,11 +342,17 @@ fn set_image(
         update_image_info(&ui);
         ui.set_status_text(format!("Loaded: {}", path.to_string_lossy()).into());
         thumbnail_window.set_selected_path(path.to_string_lossy().as_ref().into());
+        if let Some(index) = app_state.current_image_index {
+            thumbnail_window.set_selected_index(index as i32);
+        }
         true
     } else {
         app_state.current_image_index = app_state.image_list.iter().position(|p| p == &path);
         ui.set_status_text(format!("Failed to load: {}", path.to_string_lossy()).into());
         thumbnail_window.set_selected_path(path.to_string_lossy().as_ref().into());
+        if let Some(index) = app_state.current_image_index {
+            thumbnail_window.set_selected_index(index as i32);
+        }
         false
     }
 }
@@ -1513,6 +1519,10 @@ fn main() -> Result<(), slint::PlatformError> {
             update_image_info(&ui);
             ui.set_current_image_index(app_state.current_image_index.map(|i| i as i32).unwrap_or(-1));
             ui.set_total_images(app_state.image_list.len() as i32);
+
+            if thumb_ui.window().is_visible() {
+                thumb_ui.invoke_ensure_visible();
+            }
 
             // Process newly arrived thumbnails
             if let Some(ref rx) = app_state.thumbnail_receiver {
