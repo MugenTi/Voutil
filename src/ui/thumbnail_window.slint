@@ -16,6 +16,8 @@ export component ThumbnailWindow inherits Window {
     in-out property <string> selected-path;
     callback hide();
     callback thumbnail_clicked(string);
+    callback next_image();
+    callback previous_image();
 
     private property <length> thumb-size: 100px;
     private property <length> spacing: 10px;
@@ -27,6 +29,18 @@ export component ThumbnailWindow inherits Window {
         key-pressed(event) => {
             if (event.text == Key.Escape) {
                 root.hide();
+            }
+            if (event.text == Key.LeftArrow || ((event.text == Key.LeftArrow) && event.modifiers.alt)) {
+                root.previous_image();
+            }
+            if (event.text == "A" || event.text == "a") {
+                root.previous_image();
+            }
+            if (event.text == Key.RightArrow || ((event.text == Key.RightArrow) && event.modifiers.alt)) {
+                root.next_image();
+            }
+            if (event.text == "D" || event.text == "d") {
+                root.next_image();
             }
             accept // Consume event
         }

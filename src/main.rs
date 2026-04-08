@@ -351,6 +351,62 @@ fn set_image(
     }
 }
 
+fn show_next_image(
+    ui: &AppWindow,
+    thumb_ui: &ThumbnailWindow,
+    app_state: &mut AppState,
+    volatile_settings: &Rc<RefCell<VolatileSettings>>,
+    persistent_settings: &Rc<RefCell<PersistentSettings>>,
+) {
+    if let Some(index) = app_state.current_image_index {
+        if !app_state.image_list.is_empty() {
+            let mut next_index = (index + 1) % app_state.image_list.len();
+            while next_index != index {
+                let path = app_state.image_list[next_index].clone();
+                if set_image(
+                    ui,
+                    thumb_ui,
+                    app_state,
+                    path,
+                    volatile_settings,
+                    persistent_settings,
+                ) {
+                    break;
+                }
+                next_index = (next_index + 1) % app_state.image_list.len();
+            }
+        }
+    }
+}
+
+fn show_previous_image(
+    ui: &AppWindow,
+    thumb_ui: &ThumbnailWindow,
+    app_state: &mut AppState,
+    volatile_settings: &Rc<RefCell<VolatileSettings>>,
+    persistent_settings: &Rc<RefCell<PersistentSettings>>,
+) {
+    if let Some(index) = app_state.current_image_index {
+        if !app_state.image_list.is_empty() {
+            let mut prev_index = (index + app_state.image_list.len() - 1) % app_state.image_list.len();
+            while prev_index != index {
+                let path = app_state.image_list[prev_index].clone();
+                if set_image(
+                    ui,
+                    thumb_ui,
+                    app_state,
+                    path,
+                    volatile_settings,
+                    persistent_settings,
+                ) {
+                    break;
+                }
+                prev_index = (prev_index + app_state.image_list.len() - 1) % app_state.image_list.len();
+            }
+        }
+    }
+}
+
 fn main() -> Result<(), slint::PlatformError> {
     let persistent_settings = Rc::new(RefCell::new(PersistentSettings::load().unwrap_or_default()));
     let volatile_settings = Rc::new(RefCell::new(VolatileSettings::load().unwrap_or_default()));
@@ -936,25 +992,7 @@ fn main() -> Result<(), slint::PlatformError> {
             thumbnail_window_handle.upgrade(),
         ) {
             let mut app = app_state_clone.borrow_mut();
-            if let Some(index) = app.current_image_index {
-                if !app.image_list.is_empty() {
-                    let mut next_index = (index + 1) % app.image_list.len();
-                    while next_index != index {
-                        let path = app.image_list[next_index].clone();
-                        if set_image(
-                            &ui,
-                            &thumb_ui,
-                            &mut app,
-                            path,
-                            &volatile_settings_clone,
-                            &persistent_settings_clone,
-                        ) {
-                            break;
-                        }
-                        next_index = (next_index + 1) % app.image_list.len();
-                    }
-                }
-            }
+            show_next_image(&ui, &thumb_ui, &mut app, &volatile_settings_clone, &persistent_settings_clone);
         }
     });
 
@@ -969,25 +1007,37 @@ fn main() -> Result<(), slint::PlatformError> {
             thumbnail_window_handle.upgrade(),
         ) {
             let mut app = app_state_clone.borrow_mut();
-            if let Some(index) = app.current_image_index {
-                if !app.image_list.is_empty() {
-                    let mut prev_index = (index + app.image_list.len() - 1) % app.image_list.len();
-                    while prev_index != index {
-                        let path = app.image_list[prev_index].clone();
-                        if set_image(
-                            &ui,
-                            &thumb_ui,
-                            &mut app,
-                            path,
-                            &volatile_settings_clone,
-                            &persistent_settings_clone,
-                        ) {
-                            break;
-                        }
-                        prev_index = (prev_index + app.image_list.len() - 1) % app.image_list.len();
-                    }
-                }
-            }
+            show_previous_image(&ui, &thumb_ui, &mut app, &volatile_settings_clone, &persistent_settings_clone);
+        }
+    });
+
+    let main_window_handle = main_window.as_weak();
+    let thumbnail_window_handle = thumbnail_window.as_weak();
+    let app_state_clone = app_state.clone();
+    let volatile_settings_clone = volatile_settings.clone();
+    let persistent_settings_clone = persistent_settings.clone();
+    thumbnail_window.on_next_image(move || {
+        if let (Some(ui), Some(thumb_ui)) = (
+            main_window_handle.upgrade(),
+            thumbnail_window_handle.upgrade(),
+        ) {
+            let mut app = app_state_clone.borrow_mut();
+            show_next_image(&ui, &thumb_ui, &mut app, &volatile_settings_clone, &persistent_settings_clone);
+        }
+    });
+
+    let main_window_handle = main_window.as_weak();
+    let thumbnail_window_handle = thumbnail_window.as_weak();
+    let app_state_clone = app_state.clone();
+    let volatile_settings_clone = volatile_settings.clone();
+    let persistent_settings_clone = persistent_settings.clone();
+    thumbnail_window.on_previous_image(move || {
+        if let (Some(ui), Some(thumb_ui)) = (
+            main_window_handle.upgrade(),
+            thumbnail_window_handle.upgrade(),
+        ) {
+            let mut app = app_state_clone.borrow_mut();
+            show_previous_image(&ui, &thumb_ui, &mut app, &volatile_settings_clone, &persistent_settings_clone);
         }
     });
 
