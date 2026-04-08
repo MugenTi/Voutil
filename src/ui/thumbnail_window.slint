@@ -15,6 +15,8 @@ export component ThumbnailWindow inherits Window {
     in property <[Thumbnail]> thumbnails;
     in-out property <string> selected-path;
     in-out property <int> selected-index: -1;
+    changed selected-index => { root.ensure_visible(); }
+
     callback hide();
     callback thumbnail_clicked(string);
     callback next_image();
@@ -25,6 +27,7 @@ export component ThumbnailWindow inherits Window {
     private property <length> thumb-size: 100px;
     private property <length> spacing: 10px;
     private property <int> columns: Math.floor(root.width / (thumb-size + spacing));
+    changed columns => { root.ensure_visible(); }
     private property <int> rows: Math.ceil(root.thumbnails.length / root.columns);
 
     ensure_visible => {
@@ -49,21 +52,22 @@ export component ThumbnailWindow inherits Window {
         key-pressed(event) => {
             if (event.text == Key.Escape) {
                 root.hide();
+                return accept;
             }
             let old_index = root.selected-index;
+            let len = root.thumbnails.length;
+            if (len <= 0) { return reject; }
+
             if (event.text == Key.LeftArrow || event.text == "A" || event.text == "a") {
-                root.selected-index = Math.max(0, root.selected-index - 1);
+                root.selected-index = Math.mod(root.selected-index - 1 + len, len);
             } else if (event.text == Key.RightArrow || event.text == "D" || event.text == "d") {
-                root.selected-index = Math.min(root.thumbnails.length - 1, root.selected-index + 1);
+                root.selected-index = Math.mod(root.selected-index + 1, len);
             } else if (event.text == Key.UpArrow || event.text == "W" || event.text == "w") {
                 root.selected-index = Math.max(0, root.selected-index - root.columns);
             } else if (event.text == Key.DownArrow || event.text == "S" || event.text == "s") {
-                root.selected-index = Math.min(root.thumbnails.length - 1, root.selected-index + root.columns);
+                root.selected-index = Math.min(len - 1, root.selected-index + root.columns);
             }
             
-            if (root.selected-index != old_index) {
-                root.ensure_visible();
-            }
             accept // Consume event
         }
         key-released(event) => {
@@ -98,7 +102,6 @@ export component ThumbnailWindow inherits Window {
                 clicked => { 
                     root.thumbnail_clicked(thumb.path);
                     root.selected-index = i;
-                    root.ensure_visible();
                 }
             }
         }

@@ -1520,10 +1520,6 @@ fn main() -> Result<(), slint::PlatformError> {
             ui.set_current_image_index(app_state.current_image_index.map(|i| i as i32).unwrap_or(-1));
             ui.set_total_images(app_state.image_list.len() as i32);
 
-            if thumb_ui.window().is_visible() {
-                thumb_ui.invoke_ensure_visible();
-            }
-
             // Process newly arrived thumbnails
             if let Some(ref rx) = app_state.thumbnail_receiver {
                 while let Ok(msg) = rx.try_recv() {
