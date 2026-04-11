@@ -7,7 +7,7 @@
 use anyhow::{anyhow, Result};
 use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
-use slint::{PhysicalPosition, PhysicalSize};
+use slint::{LogicalPosition, LogicalSize};
 use std::{
     collections::{BTreeSet, HashSet, VecDeque},
     fmt::{self, Display, Formatter},
@@ -149,10 +149,10 @@ pub struct VolatileSettings {
     pub favourite_images: HashSet<PathBuf>,
     pub recent_images: VecDeque<PathBuf>,
     pub window_geometry: ((u32, u32), (u32, u32)), // No use
-    pub window_position: PhysicalPosition,
-    pub window_size: PhysicalSize,
-    pub thumbnail_window_position: PhysicalPosition,
-    pub thumbnail_window_size: PhysicalSize,
+    pub window_position: LogicalPosition,
+    pub window_size: LogicalSize,
+    pub thumbnail_window_position: LogicalPosition,
+    pub thumbnail_window_size: LogicalSize,
     pub last_open_directory: PathBuf,
     pub folder_bookmarks: BTreeSet<PathBuf>,
     pub image_scale: f64,
@@ -167,11 +167,14 @@ impl Default for VolatileSettings {
             recent_images: Default::default(),
             window_geometry: Default::default(),
             window_position: Default::default(),
-            window_size: Default::default(),
+            window_size: LogicalSize {
+                width: 1280.0,
+                height: 720.0,
+            },
             thumbnail_window_position: Default::default(),
-            thumbnail_window_size: PhysicalSize {
-                width: 1200,
-                height: 200,
+            thumbnail_window_size: LogicalSize {
+                width: 360.0,
+                height: 600.0,
             },
             last_open_directory: Default::default(),
             folder_bookmarks: Default::default(),

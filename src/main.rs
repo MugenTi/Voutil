@@ -8,7 +8,7 @@ use oculante::utils::{apply_color_corrections, reveal_in_file_manager};
 use rayon::prelude::*;
 use rfd;
 use slint::{
-    ComponentHandle, Image, Model, PhysicalPosition, PhysicalSize, Rgba8Pixel, SharedPixelBuffer,
+    ComponentHandle, Image, LogicalPosition, LogicalSize, Model, Rgba8Pixel, SharedPixelBuffer,
     VecModel,
 };
 use std::borrow::Cow;
@@ -98,10 +98,10 @@ impl Default for DragMode {
 
 #[derive(Default)]
 struct AppState {
-    last_window_size: PhysicalSize,
-    last_window_position: PhysicalPosition,
-    last_thumbnail_window_position: PhysicalPosition,
-    last_thumbnail_window_size: PhysicalSize,
+    last_window_size: LogicalSize,
+    last_window_position: LogicalPosition,
+    last_thumbnail_window_position: LogicalPosition,
+    last_thumbnail_window_size: LogicalSize,
     image_list: Vec<PathBuf>,
     current_image_index: Option<usize>,
     selection: Option<SelectionRect>,
@@ -423,20 +423,13 @@ fn main() -> Result<(), slint::PlatformError> {
     let app_state = Rc::new(RefCell::new(AppState::default()));
 
     // --- Initial state setup from settings ---
-    let mut initial_pos: PhysicalPosition = volatile_settings.borrow().window_position.into();
-    if initial_pos.x < 0 || initial_pos.y < 0 {
-        initial_pos = PhysicalPosition::default();
-    }
-    let initial_size: PhysicalSize = volatile_settings.borrow().window_size.into();
+    let initial_pos = volatile_settings.borrow().window_position;
+    let initial_size = volatile_settings.borrow().window_size;
     main_window.window().set_position(initial_pos);
     main_window.window().set_size(initial_size);
 
-    let mut thumb_initial_pos: PhysicalPosition =
-        volatile_settings.borrow().thumbnail_window_position.into();
-    if thumb_initial_pos.x < 0 || thumb_initial_pos.y < 0 {
-        thumb_initial_pos = PhysicalPosition::default();
-    }
-    let thumb_initial_size: PhysicalSize = volatile_settings.borrow().thumbnail_window_size.into();
+    let thumb_initial_pos = volatile_settings.borrow().thumbnail_window_position;
+    let thumb_initial_size = volatile_settings.borrow().thumbnail_window_size;
     thumbnail_window.window().set_position(thumb_initial_pos);
     thumbnail_window.window().set_size(thumb_initial_size);
 
@@ -592,11 +585,11 @@ fn main() -> Result<(), slint::PlatformError> {
     main_window.on_show_settings_window(move || {
         if let Some(settings_ui) = settings_window_handle.upgrade() {
             let app_state = app_state_clone.borrow_mut();
-            let x: i32 = app_state.last_window_position.x + 12;
-            let y: i32 = app_state.last_window_position.y + 75;
+            let x = app_state.last_window_position.x + 12.0;
+            let y = app_state.last_window_position.y + 75.0;
             settings_ui
                 .window()
-                .set_position(slint::PhysicalPosition::new(x, y));
+                .set_position(slint::LogicalPosition::new(x, y));
             let _ = settings_ui.show();
         }
     });
@@ -637,13 +630,13 @@ fn main() -> Result<(), slint::PlatformError> {
                 let main_window_size = app_state.last_window_size;
                 
                 // ColorCorrectionWindow has preferred-width: 960px and preferred-height: 800px
-                let cc_width = 960;
-                let cc_height = 800;
+                let cc_width = 960.0;
+                let cc_height = 800.0;
 
-                let x = main_window_pos.x + (main_window_size.width as i32 - cc_width) / 2;
-                let y = main_window_pos.y + (main_window_size.height as i32 - cc_height) / 2;
+                let x = main_window_pos.x + (main_window_size.width - cc_width) / 2.0;
+                let y = main_window_pos.y + (main_window_size.height - cc_height) / 2.0;
 
-                cc_ui.window().set_position(slint::PhysicalPosition::new(x, y));
+                cc_ui.window().set_position(slint::LogicalPosition::new(x, y));
                 let _ = cc_ui.show();
             }
         }
@@ -1475,19 +1468,20 @@ fn main() -> Result<(), slint::PlatformError> {
             let mut app_state = app_state_clone.borrow_mut();
             let mut volatile = volatile_settings_clone.borrow_mut();
 
-            let current_pos = ui.window().position();
-            let current_size = ui.window().size();
+            let scale_factor = ui.window().scale_factor();
+            let current_pos = slint::LogicalPosition::from_physical(ui.window().position(), scale_factor);
+            let current_size = slint::LogicalSize::from_physical(ui.window().size(), scale_factor);
 
             // Only save position and size if not in fullscreen mode
             if !ui.get_fullscreen_enabled() {
                 if app_state.last_window_position != current_pos {
-                    volatile.window_position = current_pos.into();
+                    volatile.window_position = current_pos;
                     let _ = volatile.save_blocking();
                     app_state.last_window_position = current_pos;
                 }
 
                 if app_state.last_window_size != current_size {
-                    volatile.window_size = current_size.into();
+                    volatile.window_size = current_size;
                     let _ = volatile.save_blocking();
                     app_state.last_window_size = current_size;
                     // Trigger auto-fit when window size changes
@@ -1501,16 +1495,17 @@ fn main() -> Result<(), slint::PlatformError> {
             }
 
             if thumb_ui.window().is_visible() {
-                let thumb_current_pos = thumb_ui.window().position();
+                let thumb_scale_factor = thumb_ui.window().scale_factor();
+                let thumb_current_pos = slint::LogicalPosition::from_physical(thumb_ui.window().position(), thumb_scale_factor);
                 if app_state.last_thumbnail_window_position != thumb_current_pos {
-                    volatile.thumbnail_window_position = thumb_current_pos.into();
+                    volatile.thumbnail_window_position = thumb_current_pos;
                     let _ = volatile.save_blocking();
                     app_state.last_thumbnail_window_position = thumb_current_pos;
                 }
 
-                let thumb_current_size = thumb_ui.window().size();
+                let thumb_current_size = slint::LogicalSize::from_physical(thumb_ui.window().size(), thumb_scale_factor);
                 if app_state.last_thumbnail_window_size != thumb_current_size {
-                    volatile.thumbnail_window_size = thumb_current_size.into();
+                    volatile.thumbnail_window_size = thumb_current_size;
                     let _ = volatile.save_blocking();
                     app_state.last_thumbnail_window_size = thumb_current_size;
                 }
@@ -1678,10 +1673,10 @@ fn main() -> Result<(), slint::PlatformError> {
     let app_state_clone = app_state.clone();
     settings_window.on_reset_window_geometry(move || {
         if let (Some(ui), Some(thumb_ui)) = (main_window_handle.upgrade(), thumbnail_window_handle.upgrade()) {
-            let default_pos = PhysicalPosition::new(100, 100);
-            let default_size = PhysicalSize::new(1280, 720);
-            let thumb_default_pos = PhysicalPosition::new(150, 150);
-            let thumb_default_size = PhysicalSize::new(360, 600);
+            let default_pos = LogicalPosition::new(100.0, 100.0);
+            let default_size = LogicalSize::new(1280.0, 720.0);
+            let thumb_default_pos = LogicalPosition::new(150.0, 150.0);
+            let thumb_default_size = LogicalSize::new(360.0, 600.0);
 
             ui.window().set_position(default_pos);
             ui.window().set_size(default_size);
@@ -1689,10 +1684,10 @@ fn main() -> Result<(), slint::PlatformError> {
             thumb_ui.window().set_size(thumb_default_size);
 
             let mut volatile = volatile_settings_clone.borrow_mut();
-            volatile.window_position = default_pos.into();
-            volatile.window_size = default_size.into();
-            volatile.thumbnail_window_position = thumb_default_pos.into();
-            volatile.thumbnail_window_size = thumb_default_size.into();
+            volatile.window_position = default_pos;
+            volatile.window_size = default_size;
+            volatile.thumbnail_window_position = thumb_default_pos;
+            volatile.thumbnail_window_size = thumb_default_size;
             let _ = volatile.save_blocking();
 
             let mut app_state = app_state_clone.borrow_mut();
