@@ -25,6 +25,7 @@ export component SettingsWindow inherits Window {
     callback sort_criteria_changed(string);
     callback sort_order_changed(string);
     callback crop_aspect_ratio_changed(string);
+    callback reset_window_geometry();
 
 
     VerticalLayout {
@@ -117,9 +118,26 @@ export component SettingsWindow inherits Window {
             }
         }
 
+        Rectangle {
+            background: #333;
+            height: 1px;
+            width: 100%;
+        }
+
+        Text {
+            text: "Maintenance";
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
         // HorizontalLayout to prevent the button from stretching to full width
         HorizontalLayout {
+            spacing: 10px;
             alignment: start;
+            Button {
+                text: "Reset window positions/sizes";
+                clicked => { root.reset_window_geometry(); }
+            }
             Button {
                 text: "Clear thumbnail cache";
                 clicked => { root.clear_cache(); }

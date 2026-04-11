@@ -1672,6 +1672,39 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
+    let main_window_handle = main_window.as_weak();
+    let thumbnail_window_handle = thumbnail_window.as_weak();
+    let volatile_settings_clone = volatile_settings.clone();
+    let app_state_clone = app_state.clone();
+    settings_window.on_reset_window_geometry(move || {
+        if let (Some(ui), Some(thumb_ui)) = (main_window_handle.upgrade(), thumbnail_window_handle.upgrade()) {
+            let default_pos = PhysicalPosition::new(100, 100);
+            let default_size = PhysicalSize::new(1280, 720);
+            let thumb_default_pos = PhysicalPosition::new(150, 150);
+            let thumb_default_size = PhysicalSize::new(360, 600);
+
+            ui.window().set_position(default_pos);
+            ui.window().set_size(default_size);
+            thumb_ui.window().set_position(thumb_default_pos);
+            thumb_ui.window().set_size(thumb_default_size);
+
+            let mut volatile = volatile_settings_clone.borrow_mut();
+            volatile.window_position = default_pos.into();
+            volatile.window_size = default_size.into();
+            volatile.thumbnail_window_position = thumb_default_pos.into();
+            volatile.thumbnail_window_size = thumb_default_size.into();
+            let _ = volatile.save_blocking();
+
+            let mut app_state = app_state_clone.borrow_mut();
+            app_state.last_window_position = default_pos;
+            app_state.last_window_size = default_size;
+            app_state.last_thumbnail_window_position = thumb_default_pos;
+            app_state.last_thumbnail_window_size = thumb_default_size;
+
+            ui.set_status_text("Window positions and sizes reset.".into());
+        }
+    });
+
     // --- Load last image on startup if enabled ---
     if persistent_settings.borrow().reopen_last_image {
         let last_image_path = volatile_settings.borrow().last_image_path.clone();
