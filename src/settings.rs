@@ -166,12 +166,18 @@ impl Default for VolatileSettings {
             favourite_images: Default::default(),
             recent_images: Default::default(),
             window_geometry: Default::default(),
-            window_position: Default::default(),
+            window_position: LogicalPosition {
+                x: 100.0,
+                y: 100.0,
+            },
             window_size: LogicalSize {
                 width: 1280.0,
                 height: 720.0,
             },
-            thumbnail_window_position: Default::default(),
+            thumbnail_window_position: LogicalPosition {
+                x: 150.0,
+                y: 150.0,
+            },
             thumbnail_window_size: LogicalSize {
                 width: 360.0,
                 height: 600.0,

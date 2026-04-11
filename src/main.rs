@@ -424,18 +424,18 @@ fn main() -> Result<(), slint::PlatformError> {
 
     // --- Initial state setup from settings ---
     let mut initial_pos = volatile_settings.borrow().window_position;
-    if initial_pos.x < 0.0 || initial_pos.y < 0.0 {
-        initial_pos = LogicalPosition::default();
-    }
     let initial_size = volatile_settings.borrow().window_size;
+    if initial_pos.x < 0.0 || initial_pos.y < 0.0 {
+        initial_pos = VolatileSettings::default().window_position;
+    }
     main_window.window().set_position(initial_pos);
     main_window.window().set_size(initial_size);
 
     let mut thumb_initial_pos = volatile_settings.borrow().thumbnail_window_position;
-    if thumb_initial_pos.x < 0.0 || thumb_initial_pos.y < 0.0 {
-        thumb_initial_pos = LogicalPosition::default();
-    }
     let thumb_initial_size = volatile_settings.borrow().thumbnail_window_size;
+    if thumb_initial_pos.x < 0.0 || thumb_initial_pos.y < 0.0 {
+        thumb_initial_pos = VolatileSettings::default().thumbnail_window_position;
+    }
     thumbnail_window.window().set_position(thumb_initial_pos);
     thumbnail_window.window().set_size(thumb_initial_size);
 
@@ -1679,28 +1679,25 @@ fn main() -> Result<(), slint::PlatformError> {
     let app_state_clone = app_state.clone();
     settings_window.on_reset_window_geometry(move || {
         if let (Some(ui), Some(thumb_ui)) = (main_window_handle.upgrade(), thumbnail_window_handle.upgrade()) {
-            let default_pos = LogicalPosition::new(100.0, 100.0);
-            let default_size = LogicalSize::new(1280.0, 720.0);
-            let thumb_default_pos = LogicalPosition::new(150.0, 150.0);
-            let thumb_default_size = LogicalSize::new(360.0, 600.0);
-
-            ui.window().set_position(default_pos);
-            ui.window().set_size(default_size);
-            thumb_ui.window().set_position(thumb_default_pos);
-            thumb_ui.window().set_size(thumb_default_size);
+            let defaults = VolatileSettings::default();
+            
+            ui.window().set_position(defaults.window_position);
+            ui.window().set_size(defaults.window_size);
+            thumb_ui.window().set_position(defaults.thumbnail_window_position);
+            thumb_ui.window().set_size(defaults.thumbnail_window_size);
 
             let mut volatile = volatile_settings_clone.borrow_mut();
-            volatile.window_position = default_pos;
-            volatile.window_size = default_size;
-            volatile.thumbnail_window_position = thumb_default_pos;
-            volatile.thumbnail_window_size = thumb_default_size;
+            volatile.window_position = defaults.window_position;
+            volatile.window_size = defaults.window_size;
+            volatile.thumbnail_window_position = defaults.thumbnail_window_position;
+            volatile.thumbnail_window_size = defaults.thumbnail_window_size;
             let _ = volatile.save_blocking();
 
             let mut app_state = app_state_clone.borrow_mut();
-            app_state.last_window_position = default_pos;
-            app_state.last_window_size = default_size;
-            app_state.last_thumbnail_window_position = thumb_default_pos;
-            app_state.last_thumbnail_window_size = thumb_default_size;
+            app_state.last_window_position = defaults.window_position;
+            app_state.last_window_size = defaults.window_size;
+            app_state.last_thumbnail_window_position = defaults.thumbnail_window_position;
+            app_state.last_thumbnail_window_size = defaults.thumbnail_window_size;
 
             ui.set_status_text("Window positions and sizes reset.".into());
         }
