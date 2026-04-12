@@ -22,13 +22,14 @@ use std::process::Command;
 
 use anyhow::{/* Context, */Result};
 // use image::{self, DynamicImage, GenericImageView};
-use image::{imageops::colorops, Rgba, RgbaImage};
+use image::{imageops::colorops, Rgba, RgbaImage, DynamicImage};
 // use std::sync::mpsc::{self};
 // use std::sync::mpsc::{Receiver, Sender};
-// use strum::Display;
+use strum::Display;
 // use strum_macros::EnumIter;
 
 // use crate::appstate::{ImageGeometry, Message, OculanteState};
+use crate::appstate::ImageGeometry;
 // use crate::cache::Cache;
 // use crate::image_loader::{open_image, rotate_dynimage};
 // use crate::settings::DecoderSettings;
@@ -78,20 +79,20 @@ pub const SUPPORTED_EXTENSIONS: &[&str] = &[
     "kra",
     // #[cfg(feature = "j2k")]
     // "jp2",
-    // #[cfg(feature = "heif")]
-    // "heif",
-    // #[cfg(feature = "heif")]
-    // "heic",
-    // #[cfg(feature = "heif")]
-    // "heifs",
-    // #[cfg(feature = "heif")]
-    // "heics",
-    // #[cfg(feature = "heif")]
-    // "avci",
-    // #[cfg(feature = "heif")]
-    // "avcs",
-    // #[cfg(feature = "heif")]
-    // "hif",
+    #[cfg(feature = "heif")]
+    "heif",
+    #[cfg(feature = "heif")]
+    "heic",
+    #[cfg(feature = "heif")]
+    "heifs",
+    #[cfg(feature = "heif")]
+    "heics",
+    #[cfg(feature = "heif")]
+    "avci",
+    #[cfg(feature = "heif")]
+    "avcs",
+    #[cfg(feature = "heif")]
+    "hif",
 ];
 
 pub fn reveal_in_file_manager(path: &Path) {
@@ -567,90 +568,90 @@ pub fn apply_color_corrections(
 //     });
 // }
 
-// /// A single frame
-// #[allow(dead_code)]
-// #[derive(Debug, Clone, PartialEq, Display)]
-// pub enum Frame {
-//     /// A regular still frame (most common)
-//     Still(DynamicImage),
-//     /// Part of an animation. Delay in ms
-//     Animation(DynamicImage, u16),
-//     /// First frame of animation. This is necessary to reset the image and stop the player.
-//     AnimationStart(DynamicImage),
-//     /// Result of an edit operation with image
-//     EditResult(DynamicImage),
-//     /// Only update the current texture.
-//     UpdateTexture,
-//     /// TODO: Replace with edit result. A result of a compare operation. Image keeps transform.
-//     CompareResult(DynamicImage, ImageGeometry),
-//     /// A member of a custom image collection, for example when dropping many files or opening the app with more than one file as argument
-//     ImageCollectionMember(DynamicImage),
-// }
+/// A single frame
+#[allow(dead_code)]
+#[derive(Debug, Clone, PartialEq, Display)]
+pub enum Frame {
+    /// A regular still frame (most common)
+    Still(DynamicImage),
+    /// Part of an animation. Delay in ms
+    Animation(DynamicImage, u16),
+    /// First frame of animation. This is necessary to reset the image and stop the player.
+    AnimationStart(DynamicImage),
+    /// Result of an edit operation with image
+    EditResult(DynamicImage),
+    /// Only update the current texture.
+    UpdateTexture,
+    /// TODO: Replace with edit result. A result of a compare operation. Image keeps transform.
+    CompareResult(DynamicImage, ImageGeometry),
+    /// A member of a custom image collection, for example when dropping many files or opening the app with more than one file as argument
+    ImageCollectionMember(DynamicImage),
+}
 
-// impl Frame {
-//     pub fn new(source: Frame) -> Frame {
-//         source
-//     }
+impl Frame {
+    pub fn new(source: Frame) -> Frame {
+        source
+    }
 
-//     pub fn new_reset(buffer: DynamicImage) -> Frame {
-//         Frame::AnimationStart(buffer)
-//     }
+    pub fn new_reset(buffer: DynamicImage) -> Frame {
+        Frame::AnimationStart(buffer)
+    }
 
-//     pub fn new_animation(buffer: DynamicImage, delay_ms: u16) -> Frame {
-//         Frame::Animation(buffer, delay_ms)
-//     }
+    pub fn new_animation(buffer: DynamicImage, delay_ms: u16) -> Frame {
+        Frame::Animation(buffer, delay_ms)
+    }
 
-//     #[allow(dead_code)]
-//     pub fn new_edit(buffer: DynamicImage) -> Frame {
-//         Frame::EditResult(buffer)
-//     }
+    #[allow(dead_code)]
+    pub fn new_edit(buffer: DynamicImage) -> Frame {
+        Frame::EditResult(buffer)
+    }
 
-//     #[allow(dead_code)]
-//     pub fn new_empty_edit() -> Frame {
-//         Frame::UpdateTexture
-//     }
+    #[allow(dead_code)]
+    pub fn new_empty_edit() -> Frame {
+        Frame::UpdateTexture
+    }
 
-//     pub fn new_still(buffer: DynamicImage) -> Frame {
-//         Frame::Still(buffer)
-//     }
+    pub fn new_still(buffer: DynamicImage) -> Frame {
+        Frame::Still(buffer)
+    }
 
-//     // Convert one `Frame` variant to something else, replacing its buffer.
-//     // This is useful to force a certain frame type.
-//     pub fn transmute(self, forced_variant: Self) -> Frame {
-//         let mut forced_variant = forced_variant;
-//         match &self {
-//             Frame::Still(img)
-//             | Frame::Animation(img, _)
-//             | Frame::AnimationStart(img)
-//             | Frame::EditResult(img)
-//             | Frame::CompareResult(img, _)
-//             | Frame::ImageCollectionMember(img) => match forced_variant {
-//                 Frame::Still(ref mut image_buffer)
-//                 | Frame::Animation(ref mut image_buffer, _)
-//                 | Frame::AnimationStart(ref mut image_buffer)
-//                 | Frame::EditResult(ref mut image_buffer)
-//                 | Frame::CompareResult(ref mut image_buffer, _)
-//                 | Frame::ImageCollectionMember(ref mut image_buffer) => *image_buffer = img.clone(),
-//                 Frame::UpdateTexture => (),
-//             },
-//             Frame::UpdateTexture => (),
-//         }
-//         forced_variant
-//     }
+    // Convert one `Frame` variant to something else, replacing its buffer.
+    // This is useful to force a certain frame type.
+    pub fn transmute(self, forced_variant: Self) -> Frame {
+        let mut forced_variant = forced_variant;
+        match &self {
+            Frame::Still(img)
+            | Frame::Animation(img, _)
+            | Frame::AnimationStart(img)
+            | Frame::EditResult(img)
+            | Frame::CompareResult(img, _)
+            | Frame::ImageCollectionMember(img) => match forced_variant {
+                Frame::Still(ref mut image_buffer)
+                | Frame::Animation(ref mut image_buffer, _)
+                | Frame::AnimationStart(ref mut image_buffer)
+                | Frame::EditResult(ref mut image_buffer)
+                | Frame::CompareResult(ref mut image_buffer, _)
+                | Frame::ImageCollectionMember(ref mut image_buffer) => *image_buffer = img.clone(),
+                Frame::UpdateTexture => (),
+            },
+            Frame::UpdateTexture => (),
+        }
+        forced_variant
+    }
 
-//     /// Return the image buffor of a `Frame`.
-//     pub fn get_image(&self) -> Option<DynamicImage> {
-//         match self {
-//             Frame::AnimationStart(img)
-//             | Frame::Still(img)
-//             | Frame::EditResult(img)
-//             | Frame::CompareResult(img, _)
-//             | Frame::Animation(img, _)
-//             | Frame::ImageCollectionMember(img) => Some(img.clone()),
-//             _ => None,
-//         }
-//     }
-// }
+    /// Return the image buffor of a `Frame`.
+    pub fn get_image(&self) -> Option<DynamicImage> {
+        match self {
+            Frame::AnimationStart(img)
+            | Frame::Still(img)
+            | Frame::EditResult(img)
+            | Frame::CompareResult(img, _)
+            | Frame::Animation(img, _)
+            | Frame::ImageCollectionMember(img) => Some(img.clone()),
+            _ => None,
+        }
+    }
+}
 
 // #[derive(Serialize, Deserialize, Debug, PartialEq, EnumIter, Display, Clone, Copy)]
 // pub enum ColorChannel {
@@ -1088,9 +1089,9 @@ pub fn apply_color_corrections(
 //     app.window().set_title(&title_string);
 // }
 
-// pub fn fit(oldvalue: f32, oldmin: f32, oldmax: f32, newmin: f32, newmax: f32) -> f32 {
-//     (((oldvalue - oldmin) * (newmax - newmin)) / (oldmax - oldmin)) + newmin
-// }
+pub fn fit(oldvalue: f32, oldmin: f32, oldmax: f32, newmin: f32, newmax: f32) -> f32 {
+    (((oldvalue - oldmin) * (newmax - newmin)) / (oldmax - oldmin)) + newmin
+}
 
 // pub fn set_zen_mode(state: &mut OculanteState, app: &mut App, enabled: bool) {
 //         state.persistent_settings.zen_mode = enabled;

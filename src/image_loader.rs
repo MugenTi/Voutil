@@ -1,7 +1,8 @@
-use crate::ktx2_loader::CompressedImageFormats;
+// use crate::ktx2_loader::CompressedImageFormats;
 use crate::settings::DecoderSettings;
 use crate::utils::{fit, Frame};
-use crate::{appstate::Message, ktx2_loader, FONT};
+// use crate::{appstate::Message, ktx2_loader, FONT};
+use crate::{appstate::Message};
 use log::{debug, error, info};
 use psd::Psd;
 
@@ -10,7 +11,7 @@ use dds::DDS;
 use exr::prelude as exrs;
 use exr::prelude::*;
 use image::{
-    DynamicImage, EncodableLayout, GrayAlphaImage, GrayImage, ImageDecoder, ImageReader, RgbImage,
+    DynamicImage, GrayAlphaImage, GrayImage, ImageDecoder, ImageReader, RgbImage,
     RgbaImage,
 };
 use jxl_oxide::{JxlImage, PixelFormat};
@@ -102,20 +103,20 @@ pub fn open_image(
             let dynamic_image = image.to_dynamic_image(0)?;
             _ = sender.send(Frame::new_still(dynamic_image));
         }
-        "ktx2" => {
-            // let file = File::open(img_location)?;
-            let data = std::fs::read(img_location)?;
+        // "ktx2" => {
+        //     // let file = File::open(img_location)?;
+        //     let data = std::fs::read(img_location)?;
 
-            let ktx = ktx2_loader::ktx2_buffer_to_image(
-                data.as_bytes(),
-                CompressedImageFormats::all(),
-                true,
-            )
-            .map_err(|e| anyhow!("{:?}", e))?;
-            let d = ktx.try_into_dynamic().map_err(|e| anyhow!("{:?}", e))?;
-            _ = sender.send(Frame::new_still(d));
-            return Ok(receiver);
-        }
+        //     let ktx = ktx2_loader::ktx2_buffer_to_image(
+        //         data.as_bytes(),
+        //         CompressedImageFormats::all(),
+        //         true,
+        //     )
+        //     .map_err(|e| anyhow!("{:?}", e))?;
+        //     let d = ktx.try_into_dynamic().map_err(|e| anyhow!("{:?}", e))?;
+        //     _ = sender.send(Frame::new_still(d));
+        //     return Ok(receiver);
+        // }
         #[cfg(feature = "dav1d")]
         "avif" | "avifs" => {
             use std::io::Read;
@@ -270,56 +271,56 @@ pub fn open_image(
                 }
             }
         }
-        "svg" => {
-            // TODO: Should the svg be scaled? if so by what number?
-            // This should be specified in a smarter way, maybe resolution * x?
+        // "svg" => {
+        //     // TODO: Should the svg be scaled? if so by what number?
+        //     // This should be specified in a smarter way, maybe resolution * x?
 
-            let render_scale = 2.;
-            let mut opt = usvg::Options::default();
+        //     let render_scale = 2.;
+        //     let mut opt = usvg::Options::default();
 
-            let fontdb = opt.fontdb_mut();
-            fontdb.load_system_fonts();
-            fontdb.load_font_data(FONT.to_vec());
-            fontdb.set_cursive_family("Inter");
-            fontdb.set_sans_serif_family("Inter");
-            fontdb.set_serif_family("Inter");
+        //     let fontdb = opt.fontdb_mut();
+        //     fontdb.load_system_fonts();
+        //     fontdb.load_font_data(FONT.to_vec());
+        //     fontdb.set_cursive_family("Inter");
+        //     fontdb.set_sans_serif_family("Inter");
+        //     fontdb.set_serif_family("Inter");
 
-            opt.font_family = "Inter".into();
-            opt.font_size = 6.;
+        //     opt.font_family = "Inter".into();
+        //     opt.font_size = 6.;
 
-            let svg_data = std::fs::read(img_location)?;
-            if let Ok(tree) = usvg::Tree::from_data(&svg_data, &opt) {
-                let pixmap_size = tree
-                    .size()
-                    .to_int_size()
-                    .scale_by(render_scale)
-                    .context("Can't get SVG size")?;
+        //     let svg_data = std::fs::read(img_location)?;
+        //     if let Ok(tree) = usvg::Tree::from_data(&svg_data, &opt) {
+        //         let pixmap_size = tree
+        //             .size()
+        //             .to_int_size()
+        //             .scale_by(render_scale)
+        //             .context("Can't get SVG size")?;
 
-                if let Some(mut pixmap) =
-                    tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height())
-                {
-                    let mut fontdb = usvg::fontdb::Database::new();
-                    fontdb.load_system_fonts();
-                    fontdb.load_font_data(FONT.to_vec());
-                    fontdb.set_cursive_family("Inter");
-                    fontdb.set_sans_serif_family("Inter");
-                    fontdb.set_serif_family("Inter");
+        //         if let Some(mut pixmap) =
+        //             tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height())
+        //         {
+        //             let mut fontdb = usvg::fontdb::Database::new();
+        //             fontdb.load_system_fonts();
+        //             fontdb.load_font_data(FONT.to_vec());
+        //             fontdb.set_cursive_family("Inter");
+        //             fontdb.set_sans_serif_family("Inter");
+        //             fontdb.set_serif_family("Inter");
 
-                    let render_ts = tiny_skia::Transform::from_scale(render_scale, render_scale);
-                    resvg::render(&tree, render_ts, &mut pixmap.as_mut());
-                    let buf: RgbaImage = image::ImageBuffer::from_raw(
-                        pixmap_size.width(),
-                        pixmap_size.height(),
-                        pixmap.data().to_vec(),
-                    )
-                    .context("Can't create image buffer from SVG render")?;
-                    let i = DynamicImage::ImageRgba8(buf);
+        //             let render_ts = tiny_skia::Transform::from_scale(render_scale, render_scale);
+        //             resvg::render(&tree, render_ts, &mut pixmap.as_mut());
+        //             let buf: RgbaImage = image::ImageBuffer::from_raw(
+        //                 pixmap_size.width(),
+        //                 pixmap_size.height(),
+        //                 pixmap.data().to_vec(),
+        //             )
+        //             .context("Can't create image buffer from SVG render")?;
+        //             let i = DynamicImage::ImageRgba8(buf);
 
-                    _ = sender.send(Frame::new_still(i));
-                    return Ok(receiver);
-                }
-            }
-        }
+        //             _ = sender.send(Frame::new_still(i));
+        //             return Ok(receiver);
+        //         }
+        //     }
+        // }
         "exr" => {
             let reader = exrs::read()
                 .no_deep_data()

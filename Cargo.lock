@@ -3632,7 +3632,7 @@ dependencies = [
  "scoped-tls-hkt",
  "scopeguard",
  "softbuffer",
- "strum",
+ "strum 0.27.2",
  "vtable",
  "wasm-bindgen",
  "web-sys",
@@ -3675,7 +3675,7 @@ dependencies = [
  "rowan",
  "rspolib",
  "smol_str 0.3.4",
- "strum",
+ "strum 0.27.2",
  "typed-index-collections",
  "url",
 ]
@@ -3717,7 +3717,7 @@ dependencies = [
  "serde",
  "skrifa",
  "slab",
- "strum",
+ "strum 0.27.2",
  "sys-locale",
  "thiserror 2.0.17",
  "unicode-linebreak",
@@ -5027,7 +5027,7 @@ checksum = "ab6ea0f88f70f855daf177f9382b676c21ae37d82990833ac2064b125af36a06"
 dependencies = [
  "regex",
  "serde",
- "strum",
+ "strum 0.27.2",
  "tinytemplate",
  "toml 0.9.8",
 ]
@@ -6021,12 +6021,15 @@ dependencies = [
  "rayon",
  "resvg 0.41.0",
  "rfd",
+ "rgb",
  "ruzstd",
  "serde",
  "serde_json",
  "sha2",
  "slint",
  "slint-build",
+ "strum 0.26.3",
+ "strum_macros 0.26.4",
  "sys-info",
  "thiserror 1.0.69",
  "tiff 0.9.1",
@@ -7904,11 +7907,33 @@ dependencies = [
 
 [[package]]
 name = "strum"
+version = "0.26.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
+dependencies = [
+ "strum_macros 0.26.4",
+]
+
+[[package]]
+name = "strum"
 version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
 dependencies = [
- "strum_macros",
+ "strum_macros 0.27.2",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.26.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c6bee85a5a24955dc440386795aa378cd9cf82acd5f764469152d2270e581be"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote 1.0.42",
+ "rustversion",
+ "syn 2.0.110",
 ]
 
 [[package]]

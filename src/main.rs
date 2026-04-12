@@ -170,7 +170,52 @@ fn set_image(
         }
     }
 
-    if let Ok(img) = image::open(&path) {
+    if let Ok(img) = {
+        let extension = path.extension().unwrap_or_default().to_str().unwrap_or_default().to_lowercase();
+        if extension == "heif" || extension == "heic" {
+            #[cfg(feature = "heif")]
+            {
+                use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
+                let lib_heif = LibHeif::new();
+                let ctx = HeifContext::read_from_file(&path.to_string_lossy());
+                let result: Result<DynamicImage, anyhow::Error> = ctx.map_err(|e| anyhow::anyhow!("{}", e)).and_then(|ctx| {
+                    let handle = ctx.primary_image_handle().map_err(|e| anyhow::anyhow!("{}", e))?;
+                    let img = lib_heif.decode(&handle, ColorSpace::Rgb(RgbChroma::Rgba), None).map_err(|e| anyhow::anyhow!("{}", e))?;
+                    let planes = img.planes();
+                    let interleaved = planes.interleaved.ok_or_else(|| anyhow::anyhow!("Can't create interleaved plane"))?;
+                    let data = interleaved.data;
+                    let width = interleaved.width;
+                    let height = interleaved.height;
+                    let stride = interleaved.stride;
+
+                    let mut res: Vec<u8> = Vec::with_capacity((width * height * 4) as usize);
+                    for y in 0..height {
+                        let mut step = y as usize * stride;
+                        for _ in 0..width {
+                            res.extend_from_slice(&[
+                                data[step],
+                                data[step + 1],
+                                data[step + 2],
+                                data[step + 3],
+                            ]);
+                            step += 4;
+                        }
+                    }
+                    let buf = image::ImageBuffer::from_vec(width, height, res)
+                        .ok_or_else(|| anyhow::anyhow!("Can't create HEIC/HEIF ImageBuffer"))?;
+                    Ok(DynamicImage::ImageRgba8(buf))
+                });
+                
+                result
+            }
+            #[cfg(not(feature = "heif"))]
+            {
+                image::open(&path).map_err(|e| anyhow::anyhow!("{}", e))
+            }
+        } else {
+            image::open(&path).map_err(|e| anyhow::anyhow!("{}", e))
+        }
+    } {
         let new_slint_image = load_image_to_slint(img);
         volatile_settings.borrow_mut().last_image_path = path.clone();
         let _ = volatile_settings.borrow_mut().save_blocking();
@@ -200,7 +245,8 @@ fn set_image(
             let image_list = if let Ok(entries) = std::fs::read_dir(&parent_dir) {
                 let supported_extensions: std::collections::HashSet<&str> = [
                     "pnm", "pgm", "ppm", "pam", "png", "jpg", "jpeg", "gif", "webp", "tif",
-                    "tiff", "tga", "dds", "bmp", "ico", "hdr", "exr", "ff", "farbfeld", "avif", "qoi"
+                    "tiff", "tga", "dds", "bmp", "ico", "hdr", "exr", "ff", "farbfeld", "avif", "qoi",
+                    "heif", "heic"
                 ].iter().cloned().collect();
 
                 let mut paths: Vec<_> = entries
@@ -291,7 +337,52 @@ fn set_image(
 
                         // If not loaded, generate new and try to save to cache
                         if !loaded_from_cache {
-                            if let Ok(img) = image::open(p) {
+                            if let Ok(img) = {
+                                let extension = p.extension().unwrap_or_default().to_str().unwrap_or_default().to_lowercase();
+                                if extension == "heif" || extension == "heic" {
+                                    #[cfg(feature = "heif")]
+                                    {
+                                        use libheif_rs::{ColorSpace, HeifContext, LibHeif, RgbChroma};
+                                        let lib_heif = LibHeif::new();
+                                        let ctx = HeifContext::read_from_file(&p.to_string_lossy());
+                                        let result: Result<DynamicImage, anyhow::Error> = ctx.map_err(|e| anyhow::anyhow!("{}", e)).and_then(|ctx| {
+                                            let handle = ctx.primary_image_handle().map_err(|e| anyhow::anyhow!("{}", e))?;
+                                            let img = lib_heif.decode(&handle, ColorSpace::Rgb(RgbChroma::Rgba), None).map_err(|e| anyhow::anyhow!("{}", e))?;
+                                            let planes = img.planes();
+                                            let interleaved = planes.interleaved.ok_or_else(|| anyhow::anyhow!("Can't create interleaved plane"))?;
+                                            let data = interleaved.data;
+                                            let width = interleaved.width;
+                                            let height = interleaved.height;
+                                            let stride = interleaved.stride;
+
+                                            let mut res: Vec<u8> = Vec::with_capacity((width * height * 4) as usize);
+                                            for y in 0..height {
+                                                let mut step = y as usize * stride;
+                                                for _ in 0..width {
+                                                    res.extend_from_slice(&[
+                                                        data[step],
+                                                        data[step + 1],
+                                                        data[step + 2],
+                                                        data[step + 3],
+                                                    ]);
+                                                    step += 4;
+                                                }
+                                            }
+                                            let buf = image::ImageBuffer::from_vec(width, height, res)
+                                                .ok_or_else(|| anyhow::anyhow!("Can't create HEIC/HEIF ImageBuffer"))?;
+                                            Ok(DynamicImage::ImageRgba8(buf))
+                                        });
+                                        
+                                        result
+                                    }
+                                    #[cfg(not(feature = "heif"))]
+                                    {
+                                        image::open(p).map_err(|e| anyhow::anyhow!("{}", e))
+                                    }
+                                } else {
+                                    image::open(p).map_err(|e| anyhow::anyhow!("{}", e))
+                                }
+                            } {
                                 let thumb = img.thumbnail(120, 120);
                                 let rgba_image = thumb.to_rgba8();
 

@@ -8,12 +8,19 @@ use anyhow::{anyhow, Result};
 use log::{debug, info, trace};
 use serde::{Deserialize, Serialize};
 use slint::{LogicalPosition, LogicalSize};
+
+#[cfg(feature = "heif")]
+use libheif_rs::SecurityLimits;
+
 use std::{
     collections::{BTreeSet, HashSet, VecDeque},
     fmt::{self, Display, Formatter},
     fs::{create_dir_all, File},
     path::PathBuf,
 };
+
+#[cfg(feature = "heif")]
+use std::sync::OnceLock;
 
 fn get_config_dir() -> Result<PathBuf> {
     // This uses dirs_next instead of dirs to avoid a dependency conflict for now.
@@ -62,7 +69,7 @@ pub struct PersistentSettings {
     pub borderless: bool,
     pub min_window_size: (u32, u32),
     pub experimental_features: bool,
-    // pub decoders: DecoderSettings,
+    pub decoders: DecoderSettings,
     pub show_status_bar: bool,
     pub zen_mode_normal: bool,
     pub pan_speed_multiplier: f32,
@@ -106,7 +113,7 @@ impl Default for PersistentSettings {
             borderless: false,
             min_window_size: (100, 100),
             experimental_features: false,
-            // decoders: Default::default(),
+            decoders: Default::default(),
             show_status_bar: true,
             zen_mode_normal: false,
             pan_speed_multiplier: 1.0,
