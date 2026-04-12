@@ -75,7 +75,6 @@ pub const SUPPORTED_EXTENSIONS: &[&str] = &[
     "dcm",
     "ima",
     "qoi",
-    "ktx2",
     "kra",
     // #[cfg(feature = "j2k")]
     // "jp2",

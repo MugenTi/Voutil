@@ -1,7 +1,5 @@
-// use crate::ktx2_loader::CompressedImageFormats;
 use crate::settings::DecoderSettings;
 use crate::utils::{fit, Frame};
-// use crate::{appstate::Message, ktx2_loader, FONT};
 use crate::{appstate::Message};
 use log::{debug, error, info};
 use psd::Psd;
@@ -103,20 +101,6 @@ pub fn open_image(
             let dynamic_image = image.to_dynamic_image(0)?;
             _ = sender.send(Frame::new_still(dynamic_image));
         }
-        // "ktx2" => {
-        //     // let file = File::open(img_location)?;
-        //     let data = std::fs::read(img_location)?;
-
-        //     let ktx = ktx2_loader::ktx2_buffer_to_image(
-        //         data.as_bytes(),
-        //         CompressedImageFormats::all(),
-        //         true,
-        //     )
-        //     .map_err(|e| anyhow!("{:?}", e))?;
-        //     let d = ktx.try_into_dynamic().map_err(|e| anyhow!("{:?}", e))?;
-        //     _ = sender.send(Frame::new_still(d));
-        //     return Ok(receiver);
-        // }
         #[cfg(feature = "dav1d")]
         "avif" | "avifs" => {
             use std::io::Read;
