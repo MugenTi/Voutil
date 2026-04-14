@@ -5,7 +5,7 @@ use crate::{
     settings::{PersistentSettings, VolatileSettings},
 //     texture_wrapper::TextureWrapperManager,
 //     thumbnails::Thumbnails,
-    utils::ExtendedImageInfo,
+//    utils::ExtendedImageInfo,
 //     utils::{Frame, Player},
 };
 
@@ -94,7 +94,7 @@ pub struct OculanteState {
     pub current_path: Option<PathBuf>,
     pub current_image: Option<DynamicImage>,
     pub settings_enabled: bool,
-    pub image_metadata: Option<ExtendedImageInfo>,
+//    pub image_metadata: Option<ExtendedImageInfo>,
     pub tiling: usize,
     pub mouse_grab: bool,
     pub key_grab: bool,
@@ -184,7 +184,7 @@ impl Default for OculanteState {
             current_image: Default::default(),
             current_path: Default::default(),
             settings_enabled: Default::default(),
-            image_metadata: Default::default(),
+        //    image_metadata: Default::default(),
             tiling: 1,
             mouse_grab: Default::default(),
             key_grab: Default::default(),

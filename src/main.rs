@@ -3,6 +3,7 @@
 
 use arboard::{Clipboard, ImageData};
 use image::{imageops, DynamicImage, ImageBuffer};
+use oculante::file_encoder::{CompressionLevel, FileEncoder};
 use oculante::settings::{PersistentSettings, VolatileSettings};
 use oculante::utils::{apply_color_corrections, reveal_in_file_manager};
 use rayon::prelude::*;
@@ -546,6 +547,7 @@ fn main() -> Result<(), slint::PlatformError> {
     settings_window.set_sort_criteria(persistent_settings.borrow().sort_criteria.clone().into());
     settings_window.set_sort_order(persistent_settings.borrow().sort_order.clone().into());
     settings_window.set_crop_aspect_ratio(persistent_settings.borrow().crop_aspect_ratio.clone().into());
+    settings_window.set_default_save_format(persistent_settings.borrow().default_save_format.clone().into());
 
     // Set initial current directory based on last opened directory
     let _ = std::env::set_current_dir(volatile_settings.borrow().last_open_directory.clone());
@@ -593,12 +595,21 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let main_window_handle = main_window.as_weak();
     let app_state_clone = app_state.clone();
+    let persistent_settings_clone = persistent_settings.clone();
     main_window.on_save_as(move || {
         if let Some(ui) = main_window_handle.upgrade() {
             if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
+                let default_format = persistent_settings_clone.borrow().default_save_format.clone();
+                let (filter_name, filter_ext, default_name) = match default_format.as_str() {
+                    "Jpg" => ("JPEG Image", "jpg", "Untitled.jpg"),
+                    "Bmp" => ("BMP Image", "bmp", "Untitled.bmp"),
+                    "WebP" => ("WebP Image", "webp", "Untitled.webp"),
+                    _ => ("PNG Image", "png", "Untitled.png"),
+                };
+
                 if let Some(path) = rfd::FileDialog::new()
-                    .add_filter("PNG Image", &["png"])
-                    .set_file_name("Untitled.png")
+                    .add_filter(filter_name, &[filter_ext])
+                    .set_file_name(default_name)
                     .save_file()
                 {
                     let img_buffer: ImageBuffer<image::Rgba<u8>, _> = ImageBuffer::from_raw(
@@ -607,8 +618,16 @@ fn main() -> Result<(), slint::PlatformError> {
                         pixel_buffer.as_bytes().to_vec(),
                     )
                     .unwrap();
+                    let dyn_img = DynamicImage::ImageRgba8(img_buffer);
 
-                    if let Err(e) = img_buffer.save(&path) {
+                    let encoder = match path.extension().and_then(|e| e.to_str()).unwrap_or_default().to_lowercase().as_str() {
+                        "jpg" | "jpeg" => FileEncoder::Jpg { quality: 80 },
+                        "bmp" => FileEncoder::Bmp,
+                        "webp" => FileEncoder::WebP,
+                        _ => FileEncoder::Png { compressionlevel: CompressionLevel::Default },
+                    };
+
+                    if let Err(e) = encoder.save(&dyn_img, &path) {
                         ui.set_status_text(format!("Error saving file: {}", e).into());
                     } else {
                         ui.set_status_text(format!("Saved to {}", path.display()).into());
@@ -1750,6 +1769,13 @@ fn main() -> Result<(), slint::PlatformError> {
     settings_window.on_crop_aspect_ratio_changed(move |val| {
         let mut settings = settings_clone.borrow_mut();
         settings.crop_aspect_ratio = val.to_string();
+        let _ = settings.save_blocking();
+    });
+
+    let settings_clone = persistent_settings.clone();
+    settings_window.on_default_save_format_changed(move |val| {
+        let mut settings = settings_clone.borrow_mut();
+        settings.default_save_format = val.to_string();
         let _ = settings.save_blocking();
     });
 

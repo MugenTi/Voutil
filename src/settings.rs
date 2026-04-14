@@ -1,8 +1,8 @@
-// use crate::{
-//     file_encoder::FileEncoder,
+use crate::{
+    file_encoder::FileEncoder,
 //     shortcuts::*,
 //     utils::ColorChannel
-// };
+};
 // use notan::egui::{Context, Visuals};
 use anyhow::{anyhow, Result};
 use log::{debug, info, trace};
@@ -78,6 +78,7 @@ pub struct PersistentSettings {
     pub sort_criteria: String,
     pub sort_order: String,
     pub crop_aspect_ratio: String,
+    pub default_save_format: String,
 }
 
 impl Default for PersistentSettings {
@@ -122,6 +123,7 @@ impl Default for PersistentSettings {
             sort_criteria: "Name".into(),
             sort_order: "Ascending".into(),
             crop_aspect_ratio: "Free".into(),
+            default_save_format: "Png".into(),
         }
     }
 }
@@ -164,7 +166,7 @@ pub struct VolatileSettings {
     pub folder_bookmarks: BTreeSet<PathBuf>,
     pub image_scale: f64,
     pub last_image_path: PathBuf,
-    // pub encoding_options: Vec<FileEncoder>,
+    pub encoding_options: Vec<FileEncoder>,
 }
 
 impl Default for VolatileSettings {
@@ -193,18 +195,16 @@ impl Default for VolatileSettings {
             folder_bookmarks: Default::default(),
             image_scale: 1.0,
             last_image_path: Default::default(),
-            // encoding_options: [
-            //     // ("jpg".to_string(), FileEncoder::Jpg { quality: 75 }),
-            //     // ("png".to_string(), FileEncoder::WebP),
-            //     FileEncoder::Jpg { quality: 75 },
-            //     FileEncoder::WebP,
-            //     FileEncoder::Png {
-            //         compressionlevel: crate::file_encoder::CompressionLevel::Default,
-            //     },
-            //     FileEncoder::Bmp,
-            // ]
-            // .into_iter()
-            // .collect(),
+            encoding_options: [
+                FileEncoder::Jpg { quality: 75 },
+                FileEncoder::WebP,
+                FileEncoder::Png {
+                    compressionlevel: crate::file_encoder::CompressionLevel::Default,
+                },
+                FileEncoder::Bmp,
+            ]
+            .into_iter()
+            .collect(),
         }
     }
 }

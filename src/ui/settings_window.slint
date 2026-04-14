@@ -15,6 +15,7 @@ export component SettingsWindow inherits Window {
     in-out property <string> sort_criteria: "Name";
     in-out property <string> sort_order: "Ascending";
     in-out property <string> crop_aspect_ratio: "Free";
+    in-out property <string> default_save_format: "Png";
 
     // --- Callbacks to notify Rust of changes ---
     callback vsync_changed(bool);
@@ -25,6 +26,7 @@ export component SettingsWindow inherits Window {
     callback sort_criteria_changed(string);
     callback sort_order_changed(string);
     callback crop_aspect_ratio_changed(string);
+    callback default_save_format_changed(string);
     callback reset_window_geometry();
 
 
@@ -115,6 +117,32 @@ export component SettingsWindow inherits Window {
                 model: ["Free", "1:1", "1:2", "2:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"];
                 current-value <=> root.crop_aspect_ratio;
                 selected => { root.crop_aspect_ratio_changed(self.current-value); }
+            }
+        }
+
+        Rectangle {
+            background: #333;
+            height: 1px;
+            width: 100%;
+        }
+
+        Text {
+            text: "File Settings";
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: start;
+            Text {
+                text: "Default save format:";
+                vertical-alignment: center;
+            }
+            ComboBox {
+                model: ["Png", "Jpg", "Bmp", "WebP"];
+                current-value <=> root.default_save_format;
+                selected => { root.default_save_format_changed(self.current-value); }
             }
         }
 
