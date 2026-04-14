@@ -1,4 +1,4 @@
-import { CheckBox, Button, ComboBox } from "std-widgets.slint";
+import { CheckBox, Button, ComboBox, Slider } from "std-widgets.slint";
 
 export component SettingsWindow inherits Window {
     title: "Preferences";
@@ -16,6 +16,7 @@ export component SettingsWindow inherits Window {
     in-out property <string> sort_order: "Ascending";
     in-out property <string> crop_aspect_ratio: "Free";
     in-out property <string> default_save_format: "Png";
+    in-out property <int> jpeg_quality: 85;
 
     // --- Callbacks to notify Rust of changes ---
     callback vsync_changed(bool);
@@ -27,6 +28,7 @@ export component SettingsWindow inherits Window {
     callback sort_order_changed(string);
     callback crop_aspect_ratio_changed(string);
     callback default_save_format_changed(string);
+    callback jpeg_quality_changed(int);
     callback reset_window_geometry();
 
 
@@ -143,6 +145,32 @@ export component SettingsWindow inherits Window {
                 model: ["Png", "Jpg", "Bmp", "WebP"];
                 current-value <=> root.default_save_format;
                 selected => { root.default_save_format_changed(self.current-value); }
+            }
+        }
+
+        if (root.default_save_format == "Jpg") : HorizontalLayout {
+            spacing: 10px;
+            alignment: start;
+            Text {
+                text: "Jpeg quality:";
+                vertical-alignment: center;
+                width: 100px;
+            }
+            Slider {
+                width: 200px;
+                minimum: 0;
+                maximum: 100;
+                value: root.jpeg_quality;
+                changed(val) => { 
+                    let quantized = Math.round(val / 5) * 5;
+                    root.jpeg_quality = quantized;
+                    root.jpeg_quality_changed(quantized); 
+                }
+            }
+            Text {
+                text: root.jpeg_quality;
+                vertical-alignment: center;
+                width: 30px;
             }
         }
 

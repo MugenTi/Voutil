@@ -79,6 +79,7 @@ pub struct PersistentSettings {
     pub sort_order: String,
     pub crop_aspect_ratio: String,
     pub default_save_format: String,
+    pub jpeg_quality: u32,
 }
 
 impl Default for PersistentSettings {
@@ -124,6 +125,7 @@ impl Default for PersistentSettings {
             sort_order: "Ascending".into(),
             crop_aspect_ratio: "Free".into(),
             default_save_format: "Png".into(),
+            jpeg_quality: 85,
         }
     }
 }

@@ -548,6 +548,7 @@ fn main() -> Result<(), slint::PlatformError> {
     settings_window.set_sort_order(persistent_settings.borrow().sort_order.clone().into());
     settings_window.set_crop_aspect_ratio(persistent_settings.borrow().crop_aspect_ratio.clone().into());
     settings_window.set_default_save_format(persistent_settings.borrow().default_save_format.clone().into());
+    settings_window.set_jpeg_quality(persistent_settings.borrow().jpeg_quality as i32);
 
     // Set initial current directory based on last opened directory
     let _ = std::env::set_current_dir(volatile_settings.borrow().last_open_directory.clone());
@@ -620,8 +621,9 @@ fn main() -> Result<(), slint::PlatformError> {
                     .unwrap();
                     let dyn_img = DynamicImage::ImageRgba8(img_buffer);
 
+                    let quality = persistent_settings_clone.borrow().jpeg_quality;
                     let encoder = match path.extension().and_then(|e| e.to_str()).unwrap_or_default().to_lowercase().as_str() {
-                        "jpg" | "jpeg" => FileEncoder::Jpg { quality: 80 },
+                        "jpg" | "jpeg" => FileEncoder::Jpg { quality },
                         "bmp" => FileEncoder::Bmp,
                         "webp" => FileEncoder::WebP,
                         _ => FileEncoder::Png { compressionlevel: CompressionLevel::Default },
@@ -1776,6 +1778,13 @@ fn main() -> Result<(), slint::PlatformError> {
     settings_window.on_default_save_format_changed(move |val| {
         let mut settings = settings_clone.borrow_mut();
         settings.default_save_format = val.to_string();
+        let _ = settings.save_blocking();
+    });
+
+    let settings_clone = persistent_settings.clone();
+    settings_window.on_jpeg_quality_changed(move |val| {
+        let mut settings = settings_clone.borrow_mut();
+        settings.jpeg_quality = val as u32;
         let _ = settings.save_blocking();
     });
 
