@@ -116,7 +116,7 @@ export component AppWindow inherits Window {
     private property <bool> _is_right_down: false;
     private property <bool> _is_right_dragging: false;
     private property <bool> _selection_was_active: false;
-    private property <bool> _zen_mode_before_enter: false;
+    in-out property <bool> zen_mode_before_enter: false;
     private property <int> _last_mouse_pos_x: 0;
     private property <int> _last_mouse_pos_y: 0;
     private property <int> _right_click_start_x: 0;
@@ -174,6 +174,7 @@ export component AppWindow inherits Window {
     callback show_custom_menu();
     callback save_as();
     callback browse_to_file_location();
+    callback shortcut_pressed(string, bool, bool, bool) -> bool;
 
     function get-cursor-from-type(handle_type: string) -> MouseCursor {
         if (handle_type == "move") { return MouseCursor.move; }
@@ -234,7 +235,7 @@ export component AppWindow inherits Window {
         }
     }
 
-    function apply_view_one_to_one_properties() {
+    public function apply_view_one_to_one_properties() {
         let container_w: int = image_container.width / 1px;
         let container_h: int = image_container.height / 1px;
 
@@ -252,70 +253,8 @@ export component AppWindow inherits Window {
     forward-focus: key_handler;
     key_handler := FocusScope {
         key-pressed(event) => {
-            if ((event.text == "O" || event.text == "o") && event.modifiers.control) {
-                root.request_open_file();
-            }
-            if (event.text == "F" || event.text == "f") {
-                root.fullscreen_enabled = !root.fullscreen_enabled;
-            }
-            if ((event.text == "T" || event.text == "t") && event.modifiers.control) {
-                root.always_on_top_enabled = !root.always_on_top_enabled;
-            }
-            if (event.text == "T" || event.text == "t") {
-                root.show_thumbnail_window();
-            }
-            if ((event.text == "Y" || event.text == "y") && event.modifiers.control) {
-                root.crop_in_place();
-            }
-            if (event.text == Key.Escape) {
-                if (root.fullscreen_enabled) {
-                    root.reset_view();
-                    root.zen_mode_enabled = _zen_mode_before_enter;
-                    root.fullscreen_enabled = false;
-                } else if (root.thumbnail_window_is_visible) {
-                    root.show_thumbnail_window();
-                } else {
-                    root.exit();
-                }
-            }
-            if (event.text == Key.LeftArrow || ((event.text == Key.LeftArrow) && event.modifiers.alt)) {
-                root.previous_image();
-            }
-            if (event.text == "A" || event.text == "a") {
-                root.previous_image();
-            }
-            if (event.text == Key.RightArrow || ((event.text == Key.RightArrow) && event.modifiers.alt)) {
-                root.next_image();
-            }
-            if (event.text == "D" || event.text == "d") {
-                root.next_image();
-            }
-            if (event.text == "1") {
-                apply_view_one_to_one_properties();          
-                root.view_one_to_one();
-            }
-            if (event.text == "V" || event.text == "v") {
-                root.reset_view();
-            }
-            if ((event.text == "C" || event.text == "c") && event.modifiers.control) {
-                root.copy_to_clipboard();
-            }
-            if ((event.text == "V" || event.text == "v") && event.modifiers.control) {
-                root.paste_from_clipboard();
-            }
-            if (event.text == "Z" || event.text == "z") {
-                root.zen_mode_enabled = !root.zen_mode_enabled;
-            }
-            if (event.text == Key.Return) {
-                root.reset_view();
-                if (root.fullscreen_enabled) {
-                    root.zen_mode_enabled = _zen_mode_before_enter;
-                    root.fullscreen_enabled = false;
-                } else {
-                    _zen_mode_before_enter = root.zen_mode_enabled;
-                    root.zen_mode_enabled = true;
-                    root.fullscreen_enabled = true;
-                }
+            if (root.shortcut_pressed(event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift)) {
+                return accept;
             }
             accept // Consume event
         }

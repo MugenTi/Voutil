@@ -5,6 +5,7 @@ use arboard::{Clipboard, ImageData};
 use image::{imageops, DynamicImage, ImageBuffer};
 use oculante::file_encoder::{CompressionLevel, FileEncoder};
 use oculante::settings::{PersistentSettings, VolatileSettings};
+use oculante::shortcuts::{InputEvent, lookup};
 use oculante::utils::{apply_color_corrections, reveal_in_file_manager};
 use rayon::prelude::*;
 use rfd;
@@ -571,6 +572,68 @@ fn main() -> Result<(), slint::PlatformError> {
     let app_state_clone = app_state.clone();
     let volatile_settings_clone = volatile_settings.clone();
     let persistent_settings_clone = persistent_settings.clone();
+
+    let shortcut_settings_clone = persistent_settings.clone();
+    let shortcut_ui_handle = main_window.as_weak();
+    main_window.on_shortcut_pressed(move |text, ctrl, alt, shift| {
+        if let Some(ui) = shortcut_ui_handle.upgrade() {
+            if let Some(command) = lookup(&shortcut_settings_clone.borrow().shortcuts, &text, ctrl, alt, shift) {
+                match command {
+                    InputEvent::OpenFile => ui.invoke_request_open_file(),
+                    InputEvent::Fullscreen => {
+                        let current = ui.get_fullscreen_enabled();
+                        ui.set_fullscreen_enabled(!current);
+                    }
+                    InputEvent::AlwaysOnTop => {
+                        let current = ui.get_always_on_top_enabled();
+                        ui.set_always_on_top_enabled(!current);
+                    }
+                    InputEvent::ToggleThumbnails => ui.invoke_show_thumbnail_window(),
+                    InputEvent::CropSelection => ui.invoke_crop_in_place(),
+                    InputEvent::Exit => {
+                        if ui.get_fullscreen_enabled() {
+                            ui.invoke_reset_view();
+                            let before = ui.get_zen_mode_before_enter();
+                            ui.set_zen_mode_enabled(before);
+                            ui.set_fullscreen_enabled(false);
+                        } else if ui.get_thumbnail_window_is_visible() {
+                            ui.invoke_show_thumbnail_window();
+                        } else {
+                            ui.invoke_exit();
+                        }
+                    }
+                    InputEvent::PreviousImage => ui.invoke_previous_image(),
+                    InputEvent::NextImage => ui.invoke_next_image(),
+                    InputEvent::ZoomActualSize => {
+                        ui.invoke_apply_view_one_to_one_properties();
+                        ui.invoke_view_one_to_one();
+                    }
+                    InputEvent::ResetView => ui.invoke_reset_view(),
+                    InputEvent::Copy => ui.invoke_copy_to_clipboard(),
+                    InputEvent::Paste => ui.invoke_paste_from_clipboard(),
+                    InputEvent::ZenMode => {
+                        let current = ui.get_zen_mode_enabled();
+                        ui.set_zen_mode_enabled(!current);
+                    }
+                    InputEvent::PerfectFullscreen => {
+                        ui.invoke_reset_view();
+                        if ui.get_fullscreen_enabled() {
+                            let before = ui.get_zen_mode_before_enter();
+                            ui.set_zen_mode_enabled(before);
+                            ui.set_fullscreen_enabled(false);
+                        } else {
+                            ui.set_zen_mode_before_enter(ui.get_zen_mode_enabled());
+                            ui.set_zen_mode_enabled(true);
+                            ui.set_fullscreen_enabled(true);
+                        }
+                    }
+                }
+                return true;
+            }
+        }
+        false
+    });
+
     main_window.on_request_open_file(move || {
         if let (Some(ui), Some(thumb_ui)) = (
             main_window_handle.upgrade(),

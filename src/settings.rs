@@ -1,6 +1,6 @@
 use crate::{
     file_encoder::FileEncoder,
-//     shortcuts::*,
+    shortcuts::*,
 //     utils::ColorChannel
 };
 // use notan::egui::{Context, Visuals};
@@ -43,7 +43,7 @@ pub struct PersistentSettings {
     pub background_color: [u8; 3],
     pub vsync: bool,
     pub force_redraw: bool,
-    // pub shortcuts: Shortcuts,
+    pub shortcuts: Shortcuts,
     pub keep_view: bool,
     pub max_cache: usize,
     pub max_recents: u8,
@@ -89,7 +89,7 @@ impl Default for PersistentSettings {
             background_color: [30, 30, 30],
             vsync: true,
             force_redraw: false,
-            // shortcuts: Shortcuts::default_keys(),
+            shortcuts: Shortcuts::default_keys(),
             keep_view: Default::default(),
             max_cache: 30,
             max_recents: 12,
