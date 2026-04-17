@@ -537,6 +537,27 @@ export component AppWindow inherits Window {
             ta := TouchArea {
                 mouse-cursor: get-cursor-from-type(root.cursor_handle_type);
 
+                double-clicked => {
+                    if (!root.auto_fit) {
+                        root.reset_view();
+                    } else {
+                        // Current mouse in image coordinates at current scale
+                        let mouse_img_x = (ta.mouse-x / 1px - root.image_x) / root.image_scale;
+                        let mouse_img_y = (ta.mouse-y / 1px - root.image_y) / root.image_scale;
+
+                        root.auto_fit = false;
+                        root.image_scale = 1.0;
+                        root.image_w = root.image_display.width;
+                        root.image_h = root.image_display.height;
+                        
+                        // Set image_x/y such that the point that was under the mouse stays there at 1:1 scale
+                        root.image_x = Math.round(ta.mouse-x / 1px - mouse_img_x);
+                        root.image_y = Math.round(ta.mouse-y / 1px - mouse_img_y);
+                        
+                        root.view_one_to_one();
+                    }
+                }
+
                 pointer-event(event) => {
                     if (event.kind == PointerEventKind.down) {
                         let is_on_selection = root.check_selection_hit(ta.mouse-x / 1px, ta.mouse-y / 1px);
@@ -544,11 +565,6 @@ export component AppWindow inherits Window {
                             if (is_on_selection) {
                                 root.pointer_event("down", "left", ta.mouse-x / 1px, ta.mouse-y / 1px);
                             } else {
-                                if (root.auto_fit) {
-                                    root.auto_fit = false;
-                                    apply_auto_fit_properties();
-                                    scale_changed(root.image_scale);
-                                }
                                 _is_dragging = true;
                                 _last_mouse_pos_x = ta.mouse-x / 1px;
                                 _last_mouse_pos_y = ta.mouse-y / 1px;
@@ -585,6 +601,11 @@ export component AppWindow inherits Window {
                             _is_right_dragging = true;
                         }
                         if (_is_dragging) {
+                            if (root.auto_fit) {
+                                root.auto_fit = false;
+                                apply_auto_fit_properties();
+                                scale_changed(root.image_scale);
+                            }
                             image_x += ta.mouse-x / 1px - _last_mouse_pos_x;
                             image_y += ta.mouse-y / 1px - _last_mouse_pos_y;
                         }
