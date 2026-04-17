@@ -21,7 +21,7 @@ pub enum InputEvent {
     Exit,
 }
 
-pub type Shortcuts = BTreeMap<InputEvent, SimultaneousKeypresses>;
+pub type Shortcuts = BTreeMap<InputEvent, Vec<SimultaneousKeypresses>>;
 
 #[derive(Debug, Default, PartialEq, Eq, Clone, Serialize, Deserialize, PartialOrd, Ord)]
 pub struct SimultaneousKeypresses {
@@ -89,20 +89,31 @@ pub trait ShortcutExt {
 impl ShortcutExt for Shortcuts {
     fn default_keys() -> Self {
         let mut s = Shortcuts::default();
-        s.insert(InputEvent::OpenFile, SimultaneousKeypresses::new("O").ctrl());
-        s.insert(InputEvent::Fullscreen, SimultaneousKeypresses::new("F"));
-        s.insert(InputEvent::AlwaysOnTop, SimultaneousKeypresses::new("T").ctrl());
-        s.insert(InputEvent::ToggleThumbnails, SimultaneousKeypresses::new("T"));
-        s.insert(InputEvent::CropSelection, SimultaneousKeypresses::new("Y").ctrl());
-        s.insert(InputEvent::Exit, SimultaneousKeypresses::from_key(Key::Escape));
-        s.insert(InputEvent::PreviousImage, SimultaneousKeypresses::new("A"));
-        s.insert(InputEvent::NextImage, SimultaneousKeypresses::new("D"));
-        s.insert(InputEvent::ZoomActualSize, SimultaneousKeypresses::new("1"));
-        s.insert(InputEvent::ResetView, SimultaneousKeypresses::new("V"));
-        s.insert(InputEvent::Copy, SimultaneousKeypresses::new("C").ctrl());
-        s.insert(InputEvent::Paste, SimultaneousKeypresses::new("V").ctrl());
-        s.insert(InputEvent::ZenMode, SimultaneousKeypresses::new("Z"));
-        s.insert(InputEvent::PerfectFullscreen, SimultaneousKeypresses::from_key(Key::Return));
+        s.insert(InputEvent::OpenFile, vec![SimultaneousKeypresses::new("O").ctrl()]);
+        s.insert(InputEvent::Fullscreen, vec![SimultaneousKeypresses::new("F")]);
+        s.insert(InputEvent::AlwaysOnTop, vec![SimultaneousKeypresses::new("T").ctrl()]);
+        s.insert(InputEvent::ToggleThumbnails, vec![SimultaneousKeypresses::new("T")]);
+        s.insert(InputEvent::CropSelection, vec![SimultaneousKeypresses::new("Y").ctrl()]);
+        s.insert(InputEvent::Exit, vec![
+            SimultaneousKeypresses::from_key(Key::Escape),
+            SimultaneousKeypresses::new("Q")
+        ]);
+        s.insert(InputEvent::PreviousImage, vec![
+            SimultaneousKeypresses::new("A"),
+            SimultaneousKeypresses::from_key(Key::LeftArrow),
+            SimultaneousKeypresses::from_key(Key::LeftArrow).alt()
+        ]);
+        s.insert(InputEvent::NextImage, vec![
+            SimultaneousKeypresses::new("D"),
+            SimultaneousKeypresses::from_key(Key::RightArrow),
+            SimultaneousKeypresses::from_key(Key::RightArrow).alt()
+        ]);
+        s.insert(InputEvent::ZoomActualSize, vec![SimultaneousKeypresses::new("1")]);
+        s.insert(InputEvent::ResetView, vec![SimultaneousKeypresses::new("V")]);
+        s.insert(InputEvent::Copy, vec![SimultaneousKeypresses::new("C").ctrl()]);
+        s.insert(InputEvent::Paste, vec![SimultaneousKeypresses::new("V").ctrl()]);
+        s.insert(InputEvent::ZenMode, vec![SimultaneousKeypresses::new("Z")]);
+        s.insert(InputEvent::PerfectFullscreen, vec![SimultaneousKeypresses::from_key(Key::Return)]);
         s
     }
 }
@@ -114,29 +125,12 @@ pub fn lookup(
     alt: bool,
     shift: bool,
 ) -> Option<InputEvent> {
-    for (input_event, keys) in shortcuts {
-        if keys.matches(text, ctrl, alt, shift) {
-            return Some(input_event.clone());
+    for (input_event, key_list) in shortcuts {
+        for keys in key_list {
+            if keys.matches(text, ctrl, alt, shift) {
+                return Some(input_event.clone());
+            }
         }
     }
-    
-    // Fallback for special keys that might not match exactly or have multiple defaults
-    if ctrl || alt || shift {
-        // Special case: Alt + Left/Right for navigation
-        if alt {
-            let left_arrow: SharedString = Key::LeftArrow.into();
-            if text == left_arrow.as_str() { return Some(InputEvent::PreviousImage); }
-            let right_arrow: SharedString = Key::RightArrow.into();
-            if text == right_arrow.as_str() { return Some(InputEvent::NextImage); }
-        }
-        return None;
-    }
-
-    // Slint Key constants as strings
-    let left_arrow: SharedString = Key::LeftArrow.into();
-    if text == left_arrow.as_str() { return Some(InputEvent::PreviousImage); }
-    let right_arrow: SharedString = Key::RightArrow.into();
-    if text == right_arrow.as_str() { return Some(InputEvent::NextImage); }
-
     None
 }
