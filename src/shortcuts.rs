@@ -21,6 +21,27 @@ pub enum InputEvent {
     Exit,
 }
 
+impl InputEvent {
+    pub fn description(&self) -> &str {
+        match self {
+            InputEvent::OpenFile => "Open File",
+            InputEvent::Fullscreen => "Toggle Fullscreen",
+            InputEvent::AlwaysOnTop => "Toggle Always on Top",
+            InputEvent::NextImage => "Next Image",
+            InputEvent::PreviousImage => "Previous Image",
+            InputEvent::ResetView => "Reset View",
+            InputEvent::ZoomActualSize => "Zoom to Actual Size (1:1)",
+            InputEvent::Copy => "Copy to Clipboard",
+            InputEvent::Paste => "Paste from Clipboard",
+            InputEvent::CropSelection => "Crop Image",
+            InputEvent::ZenMode => "Toggle Zen Mode",
+            InputEvent::PerfectFullscreen => "Fullscreen (Zen + Reset)",
+            InputEvent::ToggleThumbnails => "Toggle Thumbnails",
+            InputEvent::Exit => "Quit Application / Close Window",
+        }
+    }
+}
+
 pub type Shortcuts = BTreeMap<InputEvent, Vec<SimultaneousKeypresses>>;
 
 #[derive(Debug, Default, PartialEq, Eq, Clone, Serialize, Deserialize, PartialOrd, Ord)]
@@ -32,9 +53,18 @@ pub struct SimultaneousKeypresses {
 }
 
 impl SimultaneousKeypresses {
+    pub fn format(&self) -> String {
+        let mut parts = Vec::new();
+        if self.ctrl { parts.push("Ctrl".to_string()); }
+        if self.alt { parts.push("Alt".to_string()); }
+        if self.shift { parts.push("Shift".to_string()); }
+        parts.push(self.key.to_uppercase());
+        parts.join(" + ")
+    }
+
     pub fn new(key: &str) -> Self {
         Self {
-            key: key.to_string(),
+            key: key.to_uppercase(),
             ..Default::default()
         }
     }
@@ -84,6 +114,17 @@ impl SimultaneousKeypresses {
 }
 
 pub fn slint_to_human_readable(key: &str) -> String {
+    if key == SharedString::from(Key::Return).as_str() { return "Return".into(); }
+    if key == SharedString::from(Key::Escape).as_str() { return "Esc".into(); }
+    if key == SharedString::from(Key::Delete).as_str() { return "Delete".into(); }
+    if key == SharedString::from(Key::Backspace).as_str() { return "Backspace".into(); }
+    if key == SharedString::from(Key::Tab).as_str() { return "Tab".into(); }
+    if key == SharedString::from(Key::Space).as_str() { return "Space".into(); }
+    if key == SharedString::from(Key::LeftArrow).as_str() { return "Left".into(); }
+    if key == SharedString::from(Key::RightArrow).as_str() { return "Right".into(); }
+    if key == SharedString::from(Key::UpArrow).as_str() { return "Up".into(); }
+    if key == SharedString::from(Key::DownArrow).as_str() { return "Down".into(); }
+
     match key {
         "\r" | "\n" => "Return".to_string(),
         "\u{001b}" => "Esc".to_string(),
@@ -101,18 +142,25 @@ pub fn slint_to_human_readable(key: &str) -> String {
 
 pub fn human_readable_to_slint(name: &str) -> String {
     match name {
-        "Return" | "Enter" => "\r".to_string(),
-        "Esc" | "Escape" => "\u{001b}".to_string(),
-        "Delete" | "Del" => "\u{007f}".to_string(),
-        "Backspace" => "\u{0008}".to_string(),
-        "Tab" => "\t".to_string(),
-        "Space" => " ".to_string(),
-        "Left" => "\u{f702}".to_string(),
-        "Right" => "\u{f703}".to_string(),
-        "Up" => "\u{f700}".to_string(),
-        "Down" => "\u{f701}".to_string(),
+        "Return" | "Enter" => SharedString::from(Key::Return).to_string(),
+        "Esc" | "Escape" => SharedString::from(Key::Escape).to_string(),
+        "Delete" | "Del" => SharedString::from(Key::Delete).to_string(),
+        "Backspace" => SharedString::from(Key::Backspace).to_string(),
+        "Tab" => SharedString::from(Key::Tab).to_string(),
+        "Space" => SharedString::from(Key::Space).to_string(),
+        "Left" => SharedString::from(Key::LeftArrow).to_string(),
+        "Right" => SharedString::from(Key::RightArrow).to_string(),
+        "Up" => SharedString::from(Key::UpArrow).to_string(),
+        "Down" => SharedString::from(Key::DownArrow).to_string(),
         _ => name.to_string(),
     }
+}
+
+pub fn is_modifier(text: &str) -> bool {
+    text == SharedString::from(Key::Control).as_str() ||
+    text == SharedString::from(Key::Shift).as_str() ||
+    text == SharedString::from(Key::Alt).as_str() ||
+    text == SharedString::from(Key::Meta).as_str()
 }
 
 pub trait ShortcutExt {

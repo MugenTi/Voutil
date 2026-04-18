@@ -5,7 +5,7 @@ use arboard::{Clipboard, ImageData};
 use image::{imageops, DynamicImage, ImageBuffer};
 use oculante::file_encoder::{CompressionLevel, FileEncoder};
 use oculante::settings::{PersistentSettings, VolatileSettings};
-use oculante::shortcuts::{InputEvent, lookup};
+use oculante::shortcuts::{InputEvent, lookup, ShortcutExt};
 use oculante::utils::{apply_color_corrections, reveal_in_file_manager};
 use rayon::prelude::*;
 use rfd;
@@ -506,6 +506,19 @@ fn show_previous_image(
     }
 }
 
+fn populate_shortcut_list(settings_window: &SettingsWindow, shortcuts: &oculante::shortcuts::Shortcuts) {
+    let mut entries = Vec::new();
+    for (event, key_list) in shortcuts {
+        let keys: Vec<slint::SharedString> = key_list.iter().map(|k| k.format().into()).collect();
+        entries.push(ShortcutEntry {
+            description: event.description().into(),
+            event_type: format!("{:?}", event).into(),
+            keys: Rc::new(slint::VecModel::from(keys)).into(),
+        });
+    }
+    settings_window.set_shortcut_list(Rc::new(slint::VecModel::from(entries)).into());
+}
+
 fn main() -> Result<(), slint::PlatformError> {
     let persistent_settings = Rc::new(RefCell::new(PersistentSettings::load().unwrap_or_default()));
     let volatile_settings = Rc::new(RefCell::new(VolatileSettings::load().unwrap_or_default()));
@@ -550,6 +563,7 @@ fn main() -> Result<(), slint::PlatformError> {
     settings_window.set_crop_aspect_ratio(persistent_settings.borrow().crop_aspect_ratio.clone().into());
     settings_window.set_default_save_format(persistent_settings.borrow().default_save_format.clone().into());
     settings_window.set_jpeg_quality(persistent_settings.borrow().jpeg_quality as i32);
+    populate_shortcut_list(&settings_window, &persistent_settings.borrow().shortcuts);
 
     // Set initial current directory based on last opened directory
     let _ = std::env::set_current_dir(volatile_settings.borrow().last_open_directory.clone());
@@ -574,9 +588,94 @@ fn main() -> Result<(), slint::PlatformError> {
     let persistent_settings_clone = persistent_settings.clone();
 
     let shortcut_settings_clone = persistent_settings.clone();
+    let settings_window_handle_for_record = settings_window.as_weak();
+    settings_window.on_key_recorded(move |text, ctrl, alt, shift| {
+        if let Some(sw) = settings_window_handle_for_record.upgrade() {
+            let event_type_str = sw.get_recording_event_type();
+            if event_type_str != "" {
+                // If only a modifier is pressed, don't finish yet
+                if oculante::shortcuts::is_modifier(&text) {
+                    return true;
+                }
+
+                let mut settings = shortcut_settings_clone.borrow_mut();
+                let mut target_event = None;
+                for event in settings.shortcuts.keys() {
+                    if format!("{:?}", event) == event_type_str.as_str() {
+                        target_event = Some(event.clone());
+                        break;
+                    }
+                }
+
+                if let Some(event) = target_event {
+                    let new_keypress = oculante::shortcuts::SimultaneousKeypresses {
+                        key: oculante::shortcuts::slint_to_human_readable(&text),
+                        ctrl,
+                        alt,
+                        shift,
+                    };
+                    
+                    let key_list = settings.shortcuts.entry(event).or_insert_with(|| Vec::new());
+                    // Add only if not already exists
+                    if !key_list.contains(&new_keypress) {
+                        key_list.push(new_keypress);
+                        let _ = settings.save_blocking();
+                        populate_shortcut_list(&sw, &settings.shortcuts);
+                    }
+                }
+
+                sw.set_recording_event_type("".into());
+                sw.set_recording_description("".into());
+                return true;
+            }
+        }
+        false
+    });
+    let shortcut_settings_clone = persistent_settings.clone();
     let shortcut_ui_handle = main_window.as_weak();
+    let shortcut_settings_window_handle = settings_window.as_weak();
     main_window.on_shortcut_pressed(move |text, ctrl, alt, shift| {
         if let Some(ui) = shortcut_ui_handle.upgrade() {
+            // Check if we are recording a shortcut in settings window
+            if let Some(sw) = shortcut_settings_window_handle.upgrade() {
+                let event_type_str = sw.get_recording_event_type();
+                if event_type_str != "" {
+                    // If only a modifier is pressed, don't finish yet
+                    if oculante::shortcuts::is_modifier(&text) {
+                        return true;
+                    }
+
+                    let mut settings = shortcut_settings_clone.borrow_mut();
+                    let mut target_event = None;
+                    for event in settings.shortcuts.keys() {
+                        if format!("{:?}", event) == event_type_str.as_str() {
+                            target_event = Some(event.clone());
+                            break;
+                        }
+                    }
+
+                    if let Some(event) = target_event {
+                        let new_keypress = oculante::shortcuts::SimultaneousKeypresses {
+                            key: oculante::shortcuts::slint_to_human_readable(&text),
+                            ctrl,
+                            alt,
+                            shift,
+                        };
+                        
+                        let key_list = settings.shortcuts.entry(event).or_insert_with(|| Vec::new());
+                        // Add only if not already exists
+                        if !key_list.contains(&new_keypress) {
+                            key_list.push(new_keypress);
+                            let _ = settings.save_blocking();
+                            populate_shortcut_list(&sw, &settings.shortcuts);
+                        }
+                    }
+
+                    sw.set_recording_event_type("".into());
+                    return true;
+                }
+            }
+
             if let Some(command) = lookup(&shortcut_settings_clone.borrow().shortcuts, &text, ctrl, alt, shift) {
                 match command {
                     InputEvent::OpenFile => ui.invoke_request_open_file(),
@@ -1889,6 +1988,64 @@ fn main() -> Result<(), slint::PlatformError> {
             app_state.last_thumbnail_window_size = defaults.thumbnail_window_size;
 
             ui.set_status_text("Window positions and sizes reset.".into());
+        }
+    });
+
+    let settings_clone = persistent_settings.clone();
+    let settings_window_handle = settings_window.as_weak();
+    settings_window.on_start_recording(move |event_type_str| {
+        if let Some(sw) = settings_window_handle.upgrade() {
+            let settings = settings_clone.borrow();
+            let mut description = event_type_str.clone();
+            for event in settings.shortcuts.keys() {
+                if format!("{:?}", event) == event_type_str.as_str() {
+                    description = event.description().into();
+                    break;
+                }
+            }
+            sw.set_recording_event_type(event_type_str);
+            sw.set_recording_description(description);
+        }
+    });
+
+    let settings_window_handle = settings_window.as_weak();
+    settings_window.on_stop_recording(move || {
+        if let Some(sw) = settings_window_handle.upgrade() {
+            sw.set_recording_event_type("".into());
+            sw.set_recording_description("".into());
+        }
+    });
+
+    let settings_clone = persistent_settings.clone();
+    let settings_window_handle = settings_window.as_weak();
+    settings_window.on_clear_shortcuts(move |event_type_str| {
+        if let Some(sw) = settings_window_handle.upgrade() {
+            let mut settings = settings_clone.borrow_mut();
+            // Need to find which variant the string belongs to
+            // This is a bit hacky but works since we used format!("{:?}", event)
+            let mut target_event = None;
+            for event in settings.shortcuts.keys() {
+                if format!("{:?}", event) == event_type_str.as_str() {
+                    target_event = Some(event.clone());
+                    break;
+                }
+            }
+            if let Some(event) = target_event {
+                settings.shortcuts.insert(event, Vec::new());
+                let _ = settings.save_blocking();
+                populate_shortcut_list(&sw, &settings.shortcuts);
+            }
+        }
+    });
+
+    let settings_clone = persistent_settings.clone();
+    let settings_window_handle = settings_window.as_weak();
+    settings_window.on_reset_shortcuts(move || {
+        if let Some(sw) = settings_window_handle.upgrade() {
+            let mut settings = settings_clone.borrow_mut();
+            settings.shortcuts = oculante::shortcuts::Shortcuts::default_keys();
+            let _ = settings.save_blocking();
+            populate_shortcut_list(&sw, &settings.shortcuts);
         }
     });
 
