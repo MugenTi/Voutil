@@ -763,18 +763,22 @@ fn main() -> Result<(), slint::PlatformError> {
         if let Some(ui) = main_window_handle.upgrade() {
             if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
                 let default_format = persistent_settings_clone.borrow().default_save_format.clone();
-                let (filter_name, filter_ext, default_name) = match default_format.as_str() {
-                    "Jpg" => ("JPEG Image", "jpg", "Untitled.jpg"),
-                    "Bmp" => ("BMP Image", "bmp", "Untitled.bmp"),
-                    "WebP" => ("WebP Image", "webp", "Untitled.webp"),
-                    _ => ("PNG Image", "png", "Untitled.png"),
-                };
+                
+                let dialog = rfd::FileDialog::new()
+                    .add_filter("PNG Image", &["png"])
+                    .add_filter("JPEG Image", &["jpg", "jpeg"])
+                    .add_filter("BMP Image", &["bmp"])
+                    .add_filter("WebP Image", &["webp"]);
 
-                if let Some(path) = rfd::FileDialog::new()
-                    .add_filter(filter_name, &[filter_ext])
-                    .set_file_name(default_name)
-                    .save_file()
-                {
+                // Set initial filename and preferred filter based on settings
+                let default_name = match default_format.as_str() {
+                    "Jpg" => "Untitled.jpg",
+                    "Bmp" => "Untitled.bmp",
+                    "WebP" => "Untitled.webp",
+                    _ => "Untitled.png",
+                };
+                
+                if let Some(path) = dialog.set_file_name(default_name).save_file() {
                     let img_buffer: ImageBuffer<image::Rgba<u8>, _> = ImageBuffer::from_raw(
                         pixel_buffer.width(),
                         pixel_buffer.height(),
