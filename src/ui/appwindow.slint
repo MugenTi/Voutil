@@ -256,7 +256,7 @@ export component AppWindow inherits Window {
             if (root.shortcut_pressed(event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift)) {
                 return accept;
             }
-            accept // Consume event
+            reject
         }
     }
 

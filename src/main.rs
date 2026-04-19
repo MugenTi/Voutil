@@ -686,6 +686,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     }
 
                     sw.set_recording_event_type("".into());
+                    sw.set_recording_description("".into());
                     return true;
                 }
             }

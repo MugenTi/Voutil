@@ -73,7 +73,7 @@ impl SimultaneousKeypresses {
 
     pub fn from_key(key: Key) -> Self {
         Self {
-            key: slint_to_human_readable(SharedString::from(key).as_str()),
+            key: slint_to_human_readable(SharedString::from(key).as_str()).to_uppercase(),
             ..Default::default()
         }
     }
@@ -96,17 +96,17 @@ impl SimultaneousKeypresses {
     pub fn matches(&self, text: &str, ctrl: bool, alt: bool, shift: bool) -> bool {
         let stored_key = human_readable_to_slint(&self.key);
         
-        let mut key_match = if text.len() == 1 && stored_key.len() == 1 {
+        let mut key_match = if text == stored_key {
+            true
+        } else if text.len() == 1 && stored_key.len() == 1 {
             text.to_lowercase() == stored_key.to_lowercase()
         } else {
-            text == stored_key
+            false
         };
 
         // Normalize Return key (\r vs \n)
-        if !key_match && text.len() == 1 && stored_key.len() == 1 {
-            let t = text.as_bytes()[0];
-            let k = stored_key.as_bytes()[0];
-            if (t == 10 || t == 13) && (k == 10 || k == 13) {
+        if !key_match && text.len() == 1 && (text == "\r" || text == "\n") {
+            if stored_key == "\r" || stored_key == "\n" {
                 key_match = true;
             }
         }
@@ -116,44 +116,32 @@ impl SimultaneousKeypresses {
 }
 
 pub fn slint_to_human_readable(key: &str) -> String {
-    if key == SharedString::from(Key::Return).as_str() { return "Return".into(); }
-    if key == SharedString::from(Key::Escape).as_str() { return "Esc".into(); }
-    if key == SharedString::from(Key::Delete).as_str() { return "Delete".into(); }
-    if key == SharedString::from(Key::Backspace).as_str() { return "Backspace".into(); }
-    if key == SharedString::from(Key::Tab).as_str() { return "Tab".into(); }
-    if key == SharedString::from(Key::Space).as_str() { return "Space".into(); }
-    if key == SharedString::from(Key::LeftArrow).as_str() { return "Left".into(); }
-    if key == SharedString::from(Key::RightArrow).as_str() { return "Right".into(); }
-    if key == SharedString::from(Key::UpArrow).as_str() { return "Up".into(); }
-    if key == SharedString::from(Key::DownArrow).as_str() { return "Down".into(); }
-
-    match key {
-        "\r" | "\n" => "Return".to_string(),
-        "\u{001b}" => "Esc".to_string(),
-        "\u{007f}" => "Delete".to_string(),
-        "\u{0008}" => "Backspace".to_string(),
-        "\t" => "Tab".to_string(),
-        " " => "Space".to_string(),
-        "\u{f702}" | "\u{f060}" => "Left".to_string(),
-        "\u{f703}" | "\u{f061}" => "Right".to_string(),
-        "\u{f700}" | "\u{f062}" => "Up".to_string(),
-        "\u{f701}" | "\u{f063}" => "Down".to_string(),
-        _ => key.to_string(),
-    }
+    let k_lower = key.to_lowercase();
+    if k_lower == "\r" || k_lower == "\n" || key == SharedString::from(Key::Return).as_str() { return "Return".into(); }
+    if key == "\u{001b}" || key == SharedString::from(Key::Escape).as_str() { return "Esc".into(); }
+    if key == "\u{007f}" || key == SharedString::from(Key::Delete).as_str() { return "Delete".into(); }
+    if key == "\u{0008}" || key == SharedString::from(Key::Backspace).as_str() { return "Backspace".into(); }
+    if key == "\t" || key == SharedString::from(Key::Tab).as_str() { return "Tab".into(); }
+    if key == " " || key == SharedString::from(Key::Space).as_str() { return "Space".into(); }
+    if key == "\u{f702}" || key == "\u{f060}" || key == SharedString::from(Key::LeftArrow).as_str() { return "Left".into(); }
+    if key == "\u{f703}" || key == "\u{f061}" || key == SharedString::from(Key::RightArrow).as_str() { return "Right".into(); }
+    if key == "\u{f700}" || key == "\u{f062}" || key == SharedString::from(Key::UpArrow).as_str() { return "Up".into(); }
+    if key == "\u{f701}" || key == "\u{f063}" || key == SharedString::from(Key::DownArrow).as_str() { return "Down".into(); }
+    key.to_string()
 }
 
 pub fn human_readable_to_slint(name: &str) -> String {
-    match name {
-        "Return" | "Enter" => "\r".to_string(),
-        "Esc" | "Escape" => "\u{001b}".to_string(),
-        "Delete" | "Del" => "\u{007f}".to_string(),
-        "Backspace" => "\u{0008}".to_string(),
-        "Tab" => "\t".to_string(),
-        "Space" => " ".to_string(),
-        "Left" => "\u{f702}".to_string(),
-        "Right" => "\u{f703}".to_string(),
-        "Up" => "\u{f700}".to_string(),
-        "Down" => "\u{f701}".to_string(),
+    match name.to_uppercase().as_str() {
+        "RETURN" | "ENTER" => "\r".to_string(),
+        "ESC" | "ESCAPE" => "\u{001b}".to_string(),
+        "DELETE" | "DEL" => "\u{007f}".to_string(),
+        "BACKSPACE" => "\u{0008}".to_string(),
+        "TAB" => "\t".to_string(),
+        "SPACE" => " ".to_string(),
+        "LEFT" => "\u{f702}".to_string(),
+        "RIGHT" => "\u{f703}".to_string(),
+        "UP" => "\u{f700}".to_string(),
+        "DOWN" => "\u{f701}".to_string(),
         _ => name.to_string(),
     }
 }
