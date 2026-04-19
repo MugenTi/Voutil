@@ -519,6 +519,18 @@ fn populate_shortcut_list(settings_window: &SettingsWindow, shortcuts: &oculante
     settings_window.set_shortcut_list(Rc::new(slint::VecModel::from(entries)).into());
 }
 
+fn parse_serial_number(stem: &str) -> (String, Option<u32>) {
+    if let Some(open_paren) = stem.rfind(" (") {
+        if stem.ends_with(')') {
+            let num_str = &stem[open_paren + 2..stem.len() - 1];
+            if let Ok(n) = num_str.parse::<u32>() {
+                return (stem[..open_paren].to_string(), Some(n));
+            }
+        }
+    }
+    (stem.to_string(), None)
+}
+
 fn main() -> Result<(), slint::PlatformError> {
     let persistent_settings = Rc::new(RefCell::new(PersistentSettings::load().unwrap_or_default()));
     let volatile_settings = Rc::new(RefCell::new(VolatileSettings::load().unwrap_or_default()));
@@ -757,11 +769,12 @@ fn main() -> Result<(), slint::PlatformError> {
     });
 
     let main_window_handle = main_window.as_weak();
+    let thumbnail_window_handle = thumbnail_window.as_weak();
     let app_state_clone = app_state.clone();
     let persistent_settings_clone = persistent_settings.clone();
     let volatile_settings_clone = volatile_settings.clone();
     main_window.on_save_as(move || {
-        if let Some(ui) = main_window_handle.upgrade() {
+        if let (Some(ui), Some(thumb_ui)) = (main_window_handle.upgrade(), thumbnail_window_handle.upgrade()) {
             if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
                 let default_format = persistent_settings_clone.borrow().default_save_format.clone();
                 
@@ -796,13 +809,21 @@ fn main() -> Result<(), slint::PlatformError> {
                     _ => "png",
                 };
 
+                let (clean_base, existing_num) = parse_serial_number(&base_stem);
                 let mut final_name = format!("{}.{}", base_stem, ext);
-                if target_dir.join(&final_name).exists() {
-                    let mut counter = 1;
-                    while target_dir.join(format!("{} ({}).{}", base_stem, counter, ext)).exists() {
-                        counter += 1;
+
+                // If the file exists, OR if it already had a number (implying it's a copy),
+                // we should suggest an incremented number.
+                if target_dir.join(&final_name).exists() || existing_num.is_some() {
+                    let mut next_num = existing_num.unwrap_or(0) + 1;
+                    loop {
+                        let candidate = format!("{} ({}).{}", clean_base, next_num, ext);
+                        if !target_dir.join(&candidate).exists() {
+                            final_name = candidate;
+                            break;
+                        }
+                        next_num += 1;
                     }
-                    final_name = format!("{} ({}).{}", base_stem, counter, ext);
                 }
                 
                 if let Some(path) = dialog
@@ -829,14 +850,19 @@ fn main() -> Result<(), slint::PlatformError> {
                     if let Err(e) = encoder.save(&dyn_img, &path) {
                         ui.set_status_text(format!("Error saving file: {}", e).into());
                     } else {
-                        ui.set_status_text(format!("Saved to {}", path.display()).into());
-                        // If the file was saved in the current directory, force a refresh
+                        // After successful save, point the app to the new file
+                        // Clear the image list to force set_image to re-scan the directory
                         let mut app = app_state_clone.borrow_mut();
-                        if let Some(current_image_path) = app.image_list.get(0) {
-                            if path.parent() == current_image_path.parent() {
-                                app.image_list.clear();
-                            }
-                        }
+                        app.image_list.clear();
+                        set_image(
+                            &ui,
+                            &thumb_ui,
+                            &mut app,
+                            path.clone(),
+                            &volatile_settings_clone,
+                            &persistent_settings_clone,
+                        );
+                        ui.set_status_text(format!("Saved to {}", path.display()).into());
                     }
                 } else {
                     ui.set_status_text("Save cancelled.".into());
