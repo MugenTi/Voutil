@@ -14,6 +14,7 @@ pub enum InputEvent {
     ZoomActualSize,
     Copy,
     Paste,
+    SaveAs,
     CropSelection,
     ZenMode,
     PerfectFullscreen,
@@ -33,6 +34,7 @@ impl InputEvent {
             InputEvent::ZoomActualSize => "Zoom to Actual Size (1:1)",
             InputEvent::Copy => "Copy to Clipboard",
             InputEvent::Paste => "Paste from Clipboard",
+            InputEvent::SaveAs => "Save as...",
             InputEvent::CropSelection => "Crop Image",
             InputEvent::ZenMode => "Toggle Zen Mode",
             InputEvent::PerfectFullscreen => "Fullscreen (Zen + Reset)",
@@ -142,16 +144,16 @@ pub fn slint_to_human_readable(key: &str) -> String {
 
 pub fn human_readable_to_slint(name: &str) -> String {
     match name {
-        "Return" | "Enter" => SharedString::from(Key::Return).to_string(),
-        "Esc" | "Escape" => SharedString::from(Key::Escape).to_string(),
-        "Delete" | "Del" => SharedString::from(Key::Delete).to_string(),
-        "Backspace" => SharedString::from(Key::Backspace).to_string(),
-        "Tab" => SharedString::from(Key::Tab).to_string(),
-        "Space" => SharedString::from(Key::Space).to_string(),
-        "Left" => SharedString::from(Key::LeftArrow).to_string(),
-        "Right" => SharedString::from(Key::RightArrow).to_string(),
-        "Up" => SharedString::from(Key::UpArrow).to_string(),
-        "Down" => SharedString::from(Key::DownArrow).to_string(),
+        "Return" | "Enter" => "\r".to_string(),
+        "Esc" | "Escape" => "\u{001b}".to_string(),
+        "Delete" | "Del" => "\u{007f}".to_string(),
+        "Backspace" => "\u{0008}".to_string(),
+        "Tab" => "\t".to_string(),
+        "Space" => " ".to_string(),
+        "Left" => "\u{f702}".to_string(),
+        "Right" => "\u{f703}".to_string(),
+        "Up" => "\u{f700}".to_string(),
+        "Down" => "\u{f701}".to_string(),
         _ => name.to_string(),
     }
 }
@@ -191,6 +193,7 @@ impl ShortcutExt for Shortcuts {
         s.insert(InputEvent::ResetView, vec![SimultaneousKeypresses::new("V")]);
         s.insert(InputEvent::Copy, vec![SimultaneousKeypresses::new("C").ctrl()]);
         s.insert(InputEvent::Paste, vec![SimultaneousKeypresses::new("V").ctrl()]);
+        s.insert(InputEvent::SaveAs, vec![SimultaneousKeypresses::new("S").ctrl().shift()]);
         s.insert(InputEvent::ZenMode, vec![SimultaneousKeypresses::new("Z")]);
         s.insert(InputEvent::PerfectFullscreen, vec![SimultaneousKeypresses::new("Return")]);
         s

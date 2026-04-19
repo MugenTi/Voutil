@@ -722,6 +722,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     InputEvent::ResetView => ui.invoke_reset_view(),
                     InputEvent::Copy => ui.invoke_copy_to_clipboard(),
                     InputEvent::Paste => ui.invoke_paste_from_clipboard(),
+                    InputEvent::SaveAs => ui.invoke_save_as(),
                     InputEvent::ZenMode => {
                         let current = ui.get_zen_mode_enabled();
                         ui.set_zen_mode_enabled(!current);
@@ -2100,11 +2101,11 @@ fn main() -> Result<(), slint::PlatformError> {
     });
 
     let settings_clone = persistent_settings.clone();
-    let settings_window_handle = settings_window.as_weak();
+    let settings_window_handle_for_reset = settings_window.as_weak();
     settings_window.on_reset_shortcuts(move || {
-        if let Some(sw) = settings_window_handle.upgrade() {
+        if let Some(sw) = settings_window_handle_for_reset.upgrade() {
             let mut settings = settings_clone.borrow_mut();
-            settings.shortcuts = oculante::shortcuts::Shortcuts::default_keys();
+            settings.shortcuts = oculante::shortcuts::ShortcutExt::default_keys();
             let _ = settings.save_blocking();
             populate_shortcut_list(&sw, &settings.shortcuts);
         }
