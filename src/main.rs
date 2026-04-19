@@ -112,6 +112,7 @@ struct AppState {
     initial_selection_on_drag: Option<SelectionRect>,
     initial_mouse_on_drag: Option<(u32, u32)>,
     thumbnail_receiver: Option<mpsc::Receiver<ThumbnailMessage>>,
+    is_from_clipboard: bool,
 }
 
 enum ThumbnailMessage {
@@ -430,6 +431,7 @@ fn set_image(
         }
 
         app_state.current_image_index = app_state.image_list.iter().position(|p| p == &path);
+        app_state.is_from_clipboard = false;
         ui.set_auto_fit(true);
         ui.set_image_display(new_slint_image);
         update_image_info(&ui);
@@ -790,11 +792,15 @@ fn main() -> Result<(), slint::PlatformError> {
                     let app = app_state_clone.borrow();
                     let current_file_path = app.current_image_index.and_then(|idx| app.image_list.get(idx));
                     
-                    let base_stem = current_file_path
-                        .and_then(|p| p.file_stem())
-                        .and_then(|s| s.to_str())
-                        .unwrap_or("Untitled")
-                        .to_string();
+                    let base_stem = if app.is_from_clipboard {
+                        "Untitled".to_string()
+                    } else {
+                        current_file_path
+                            .and_then(|p| p.file_stem())
+                            .and_then(|s| s.to_str())
+                            .unwrap_or("Untitled")
+                            .to_string()
+                    };
 
                     let target_dir = current_file_path
                         .and_then(|p| p.parent())
@@ -1304,6 +1310,8 @@ fn main() -> Result<(), slint::PlatformError> {
                 if let Ok(clipboard_image) = clipboard.get_image() {
                     let mut app = app_state_clone.borrow_mut();
                     volatile_settings_clone.borrow_mut().last_image_path.clear();
+                    app.current_image_index = None;
+                    app.is_from_clipboard = true;
                     app.selection = None;
                     ui.set_auto_fit(true);
                     ui.set_image_display(Image::from_rgba8(
