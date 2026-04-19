@@ -759,6 +759,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let main_window_handle = main_window.as_weak();
     let app_state_clone = app_state.clone();
     let persistent_settings_clone = persistent_settings.clone();
+    let volatile_settings_clone = volatile_settings.clone();
     main_window.on_save_as(move || {
         if let Some(ui) = main_window_handle.upgrade() {
             if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
@@ -770,15 +771,41 @@ fn main() -> Result<(), slint::PlatformError> {
                     .add_filter("BMP Image", &["bmp"])
                     .add_filter("WebP Image", &["webp"]);
 
-                // Set initial filename and preferred filter based on settings
-                let default_name = match default_format.as_str() {
-                    "Jpg" => "Untitled.jpg",
-                    "Bmp" => "Untitled.bmp",
-                    "WebP" => "Untitled.webp",
-                    _ => "Untitled.png",
-                };
+                // Determine base name and target directory
+                let app = app_state_clone.borrow();
+                let current_file_path = app.current_image_index.and_then(|idx| app.image_list.get(idx));
                 
-                if let Some(path) = dialog.set_file_name(default_name).save_file() {
+                let base_stem = current_file_path
+                    .and_then(|p| p.file_stem())
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("Untitled");
+
+                let target_dir = current_file_path
+                    .and_then(|p| p.parent())
+                    .map(|p| p.to_path_buf())
+                    .unwrap_or_else(|| volatile_settings_clone.borrow().last_open_directory.clone());
+
+                let ext = match default_format.as_str() {
+                    "Jpg" => "jpg",
+                    "Bmp" => "bmp",
+                    "WebP" => "webp",
+                    _ => "png",
+                };
+
+                let mut final_name = format!("{}.{}", base_stem, ext);
+                if target_dir.join(&final_name).exists() {
+                    let mut counter = 1;
+                    while target_dir.join(format!("{} ({}).{}", base_stem, counter, ext)).exists() {
+                        counter += 1;
+                    }
+                    final_name = format!("{} ({}).{}", base_stem, counter, ext);
+                }
+                
+                if let Some(path) = dialog
+                    .set_directory(&target_dir)
+                    .set_file_name(final_name)
+                    .save_file() 
+                {
                     let img_buffer: ImageBuffer<image::Rgba<u8>, _> = ImageBuffer::from_raw(
                         pixel_buffer.width(),
                         pixel_buffer.height(),
