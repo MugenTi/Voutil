@@ -771,19 +771,23 @@ fn main() -> Result<(), slint::PlatformError> {
                     .add_filter("BMP Image", &["bmp"])
                     .add_filter("WebP Image", &["webp"]);
 
-                // Determine base name and target directory
-                let app = app_state_clone.borrow();
-                let current_file_path = app.current_image_index.and_then(|idx| app.image_list.get(idx));
-                
-                let base_stem = current_file_path
-                    .and_then(|p| p.file_stem())
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("Untitled");
+                // Determine base name and target directory in a limited scope to avoid borrow conflict
+                let (base_stem, target_dir) = {
+                    let app = app_state_clone.borrow();
+                    let current_file_path = app.current_image_index.and_then(|idx| app.image_list.get(idx));
+                    
+                    let base_stem = current_file_path
+                        .and_then(|p| p.file_stem())
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("Untitled")
+                        .to_string();
 
-                let target_dir = current_file_path
-                    .and_then(|p| p.parent())
-                    .map(|p| p.to_path_buf())
-                    .unwrap_or_else(|| volatile_settings_clone.borrow().last_open_directory.clone());
+                    let target_dir = current_file_path
+                        .and_then(|p| p.parent())
+                        .map(|p| p.to_path_buf())
+                        .unwrap_or_else(|| volatile_settings_clone.borrow().last_open_directory.clone());
+                    (base_stem, target_dir)
+                };
 
                 let ext = match default_format.as_str() {
                     "Jpg" => "jpg",
