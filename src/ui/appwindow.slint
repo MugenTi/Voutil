@@ -1,5 +1,6 @@
 import { SettingsWindow } from "./settings_window.slint";
 import { ResizeWindow } from "./resize_window.slint";
+import { Theme } from "./theme.slint";
 import { Palette } from "std-widgets.slint";
 import { IconDisplay, IconSet } from "@lucide";
 
@@ -48,14 +49,14 @@ component ToolButton inherits Rectangle {
 
     border-radius: 4px;
     border-width: 1px;
-    border-color: _touch.has-hover ? #555 : #191919;
+    border-color: _touch.has-hover ? Theme.tool-button-border-color : Theme.menu-bar-background;
     width: 30px;
     height: 30px;
-    background: _touch.has-hover ? #3a3a3a : #191919;
+    background: _touch.has-hover ? Theme.tool-button-background : Theme.menu-bar-background;
 
     _touch := TouchArea {
         _icon := IconDisplay {
-            stroke: active ? green : #9198A1;
+            stroke: active ? green : Theme.tool-button-color;
             size: 24px;
             stroke-width: 2;
         }
@@ -123,11 +124,11 @@ export component AppWindow inherits Window {
     private property <int> _right_click_start_y: 0;
 
     // --- Icon properties ---
-    private property <brush> _icon_color: #9198A1; // #ccc;
+    // private property <brush> _status_bar_color: Theme.status-bar-color;
 
     // --- Menu bar properties ---
-    private property <length> _menu_bar_height: 40px;
-    private property <brush> _menu_bar_background: #191919;
+    // private property <length> _menu_bar_height: Theme.menu-bar-height;
+    // private property <brush> _menu_bar_background: Theme.menu-bar-background;
 
     // --- Resize Dialog properties ---
     in-out property <int> resize_dialog_original_w;
@@ -263,12 +264,12 @@ export component AppWindow inherits Window {
     VerticalLayout {
         spacing: 0;
         menu_bar := Rectangle {
-            height: root.zen_mode_enabled ? 0px : root._menu_bar_height;
-            background: root._menu_bar_background;
+            height: root.zen_mode_enabled ? 0px : Theme.menu-bar-height;
+            background: Theme.menu-bar-background;
 
             main_menu := PopupWindow {
                 x: 5px;
-                y: _menu_bar_height;
+                y: Theme.menu-bar-height;
                 width: 200px;
                 Rectangle {
                     background: #282828;
@@ -501,7 +502,7 @@ export component AppWindow inherits Window {
             }
         }
         image_container := Rectangle {
-            background: #1E1E1E;
+            background: Theme.image-container-background;
             clip: true;
 
             img_element := Image {
@@ -626,8 +627,8 @@ export component AppWindow inherits Window {
             }
         }
         status_bar := Rectangle {
-            height: root.zen_mode_enabled ? 0px : 28px;
-            background: _menu_bar_background;
+            height: root.zen_mode_enabled ? 0px : Theme.status-bar-height;
+            background: Theme.status-bar-background;
             HorizontalLayout {
                 padding: 5px;
                 padding-left: 10px;
@@ -636,20 +637,20 @@ export component AppWindow inherits Window {
                     font-size: 13px;
                     text: root.status_text;
                     vertical-alignment: center;
-                    color: _icon_color;
+                    color: Theme.status-bar-color;
                 }
                 Rectangle { horizontal-stretch: 1; } // Spacer
                 Text {
                     font-size: 13px;
                     text: root.info_text;
                     vertical-alignment: center;
-                    color: _icon_color;
+                    color: Theme.status-bar-color;
                 }
                 if (root.total_images > 0) : Text {
                     font-size: 13px;
                     text: " | " + (root.current_image_index + 1) + " / " + root.total_images;
                     vertical-alignment: center;
-                    color: _icon_color;
+                    color: Theme.status-bar-color;
                 }
             }
         }
