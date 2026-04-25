@@ -3,10 +3,10 @@
 
 use arboard::{Clipboard, ImageData};
 use image::{imageops, DynamicImage, ImageBuffer};
-use oculante::file_encoder::{CompressionLevel, FileEncoder};
-use oculante::settings::{PersistentSettings, VolatileSettings};
-use oculante::shortcuts::{InputEvent, lookup, ShortcutExt};
-use oculante::utils::{apply_color_corrections, reveal_in_file_manager};
+use voutil::file_encoder::{CompressionLevel, FileEncoder};
+use voutil::settings::{PersistentSettings, VolatileSettings};
+use voutil::shortcuts::{InputEvent, lookup};
+use voutil::utils::{apply_color_corrections, reveal_in_file_manager};
 use rayon::prelude::*;
 use rfd;
 use slint::{
@@ -311,7 +311,7 @@ fn set_image(
                     let cache_dir = match cache::get_cache_dir() {
                         Ok(dir) => Some(dir),
                         Err(e) => {
-                            eprintln!("[Oculante] Failed to get/create cache directory: {}. Thumbnails will not be cached.", e);
+                            eprintln!("[Voutil] Failed to get/create cache directory: {}. Thumbnails will not be cached.", e);
                             None
                         }
                     };
@@ -396,7 +396,7 @@ fn set_image(
                                             .save_with_format(&thumb_path, image::ImageFormat::WebP)
                                         {
                                             eprintln!(
-                                                "[Oculante] Failed to save thumbnail for {:?}: {}",
+                                                "[Voutil] Failed to save thumbnail for {:?}: {}",
                                                 p, e
                                             );
                                         }
@@ -417,7 +417,7 @@ fn set_image(
                                 p.to_string_lossy().to_string(),
                             )) {
                                 eprintln!(
-                                    "[Oculante] Failed to send thumbnail (data) to UI thread: {}",
+                                    "[Voutil] Failed to send thumbnail (data) to UI thread: {}",
                                     e
                                 );
                             }
@@ -508,7 +508,7 @@ fn show_previous_image(
     }
 }
 
-fn populate_shortcut_list(settings_window: &SettingsWindow, shortcuts: &oculante::shortcuts::Shortcuts) {
+fn populate_shortcut_list(settings_window: &SettingsWindow, shortcuts: &voutil::shortcuts::Shortcuts) {
     let mut entries = Vec::new();
     for (event, key_list) in shortcuts {
         let keys: Vec<slint::SharedString> = key_list.iter().map(|k| k.format().into()).collect();
@@ -608,7 +608,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let event_type_str = sw.get_recording_event_type();
             if event_type_str != "" {
                 // If only a modifier is pressed, don't finish yet
-                if oculante::shortcuts::is_modifier(&text) {
+                if voutil::shortcuts::is_modifier(&text) {
                     return true;
                 }
 
@@ -622,8 +622,8 @@ fn main() -> Result<(), slint::PlatformError> {
                 }
 
                 if let Some(event) = target_event {
-                    let new_keypress = oculante::shortcuts::SimultaneousKeypresses {
-                        key: oculante::shortcuts::slint_to_human_readable(&text),
+                    let new_keypress = voutil::shortcuts::SimultaneousKeypresses {
+                        key: voutil::shortcuts::slint_to_human_readable(&text),
                         ctrl,
                         alt,
                         shift,
@@ -655,7 +655,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 let event_type_str = sw.get_recording_event_type();
                 if event_type_str != "" {
                     // If only a modifier is pressed, don't finish yet
-                    if oculante::shortcuts::is_modifier(&text) {
+                    if voutil::shortcuts::is_modifier(&text) {
                         return true;
                     }
 
@@ -669,8 +669,8 @@ fn main() -> Result<(), slint::PlatformError> {
                     }
 
                     if let Some(event) = target_event {
-                        let new_keypress = oculante::shortcuts::SimultaneousKeypresses {
-                            key: oculante::shortcuts::slint_to_human_readable(&text),
+                        let new_keypress = voutil::shortcuts::SimultaneousKeypresses {
+                            key: voutil::shortcuts::slint_to_human_readable(&text),
                             ctrl,
                             alt,
                             shift,
@@ -2114,7 +2114,7 @@ fn main() -> Result<(), slint::PlatformError> {
     settings_window.on_reset_shortcuts(move || {
         if let Some(sw) = settings_window_handle_for_reset.upgrade() {
             let mut settings = settings_clone.borrow_mut();
-            settings.shortcuts = oculante::shortcuts::ShortcutExt::default_keys();
+            settings.shortcuts = voutil::shortcuts::ShortcutExt::default_keys();
             let _ = settings.save_blocking();
             populate_shortcut_list(&sw, &settings.shortcuts);
         }

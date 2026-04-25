@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use oculante::image_editing::*;
-use oculante::image_loader::*;
+use voutil::image_editing::*;
+use voutil::image_loader::*;
 use std::hint::black_box;
 use std::path::PathBuf;
 

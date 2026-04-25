@@ -10,7 +10,7 @@ pub fn get_cache_dir() -> io::Result<PathBuf> {
     let mut cache_path;
     if let Some(base_dirs) = directories::BaseDirs::new() {
         cache_path = base_dirs.cache_dir().to_path_buf();
-        cache_path.push("oculante_slint"); // Application specific directory
+        cache_path.push("Voutil"); // Application specific directory
     } else {
         cache_path = PathBuf::from(".cache");
     }

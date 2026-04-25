@@ -1,6 +1,5 @@
 use crate::settings::DecoderSettings;
 use crate::utils::{fit, Frame};
-use crate::{appstate::Message};
 use log::{debug, error, info};
 use psd::Psd;
 
@@ -28,7 +27,6 @@ use zune_png::zune_core::result::DecodingResult;
 /// Open an image from disk and send it somewhere
 pub fn open_image(
     img_location: &Path,
-    message_sender: Option<Sender<Message>>,
     decoder_opts: Option<DecoderSettings>,
 ) -> Result<Receiver<Frame>> {
     let (sender, receiver): (Sender<Frame>, Receiver<Frame>) = channel();
@@ -64,12 +62,6 @@ pub fn open_image(
             if unchecked_extensions.contains(&extension.as_str()) {
                 info!("Extension {extension} skipped check.")
             } else {
-                message_sender.map(|s| {
-                    s.send(Message::Warning(format!(
-                        "Extension mismatch. This image is loaded as {}",
-                        fmt.extension()
-                    )))
-                });
                 extension = fmt.extension().into()
             }
         }

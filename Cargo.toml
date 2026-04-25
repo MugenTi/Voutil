@@ -1,8 +1,8 @@
 [package]
-name = "oculante"
+name = "voutil"
 version = "0.9.2"
 description = "A minimalistic image viewer with analysis and editing tools"
-repository = "https://github.com/woelper/oculante/"
+repository = "https://github.com/MugenTi/voutil/"
 authors = ["Johann Woelper <woelper@gmail.com>"]
 license = "MIT"
 readme = "README.md"
@@ -10,12 +10,12 @@ edition = "2021"
 build = "build.rs"
 
 [package.metadata.bundle]
-name = "Oculante"
-identifier = "com.github.woelper.oculante"
+name = "Voutil"
+identifier = "com.github.mugenti.voutil"
 icon = ["res/icons/icon.png"]
 resources = ["LICENSE"]
 short_description = "A lightweight and minimalistic image viewer"
-copyright = "Copyright (c) 2024 The Oculante Contributors"
+copyright = "Copyright (c) 2026 MugenTi and Voutil Contributors"
 
 [profile.dev.package."*"]
 opt-level = 1

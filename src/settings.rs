@@ -26,7 +26,7 @@ fn get_config_dir() -> Result<PathBuf> {
     // This uses dirs_next instead of dirs to avoid a dependency conflict for now.
     Ok(dirs_next::data_local_dir()
         .ok_or_else(|| anyhow!("Can't get local dir"))?
-        .join("oculante_slint"))
+        .join("Voutil"))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -256,7 +256,7 @@ pub struct DecoderSettings {
 /// Security limits for HEIF via libheif.
 ///
 /// This is essentially a wrapper for [`SecurityLimits`] to support de/serialization
-/// while still working if the Oculante is built without libheif support.
+/// while still working if Voutil is built without libheif support.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct HeifLimits {
     pub image_size_pixels: Limit,

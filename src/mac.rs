@@ -23,7 +23,7 @@ pub fn launch() -> Result<(), Box<dyn Error>> {
     info!("Mac: Now matching arguments {:?}", std::env::args());
     // Filter out strange mac args
     let args: Vec<String> = std::env::args().filter(|a| !a.contains("psn_")).collect();
-    let matches = clap::Command::new("Oculante")
+    let matches = clap::Command::new("Voutil")
         .arg(
             Arg::new("INPUT")
                 .help("Display this image")
@@ -77,18 +77,18 @@ pub fn launch() -> Result<(), Box<dyn Error>> {
     );
 
     // Run 'forever', until the URL callback fires
-    let _ = app.run(RunPeriod::Forever);
-
+    let matches = clap::Command::new("Voutil")
+    ...
     // Now it gets real ugly: Chainload this executable and quit, passing the received image as arg
-    if let Ok(oculante_exe) = std::env::current_exe() {
+    if let Ok(voutil_exe) = std::env::current_exe() {
         match file_arg.lock().unwrap().as_ref() {
             Some(f) => {
-                info!("Chainloading {:?} with {}", oculante_exe, f);
-                let _ = Command::new(oculante_exe).args([&f, "-c"]).spawn();
+                info!("Chainloading {:?} with {}", voutil_exe, f);
+                let _ = Command::new(voutil_exe).args([&f, "-c"]).spawn();
             }
             None => {
-                info!("Chainloading {:?} with -c arg", oculante_exe);
-                let _ = Command::new(oculante_exe).args(["-c"]).spawn();
+                info!("Chainloading {:?} with -c arg", voutil_exe);
+                let _ = Command::new(voutil_exe).args(["-c"]).spawn();
             }
         }
     }

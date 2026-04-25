@@ -4,27 +4,27 @@
 
  _A no-nonsense hardware-accelerated image viewer_
 
-[<img src="res/download.svg" height="50">](https://github.com/woelper/oculante/releases/latest)
+[<img src="res/download.svg" height="50">](https://github.com/woelper/voutil/releases/latest)
 
-Oculante's vision is to be a fast, unobtrusive, portable image viewer with a wide range of supported image formats while also offering image analysis and basic editing tools.
+Voutil's vision is to be a fast, unobtrusive, portable image viewer with a wide range of supported image formats while also offering image analysis and basic editing tools.
 
-Oculante is a free, open-source, bloat-free, and privacy-respecting image viewer that is fast to start up and open images. It is available on Windows, Mac, Linux, FreeBSD, and NetBSD, and supports a wide range of image formats. Oculante caches images for faster reloading and can correctly display unassociated channels. It also includes features for basic image analysis, and offers SIMD-accelerated, basic nondestructive editing tools such as cropping, resizing, painting, rotating, blurring, and more!
+Voutil is a free, open-source, bloat-free, and privacy-respecting image viewer that is fast to start up and open images. It is available on Windows, Mac, Linux, FreeBSD, and NetBSD, and supports a wide range of image formats. Voutil caches images for faster reloading and can correctly display unassociated channels. It also includes features for basic image analysis, and offers SIMD-accelerated, basic nondestructive editing tools such as cropping, resizing, painting, rotating, blurring, and more!
 
 [![](https://dcbadge.limes.pink/api/server/https://discord.gg/2Q6cF5ZWe7)](https://discord.gg/https://discord.gg/2Q6cF5ZWe7)
 ---
-[![OSX](https://github.com/woelper/oculante/actions/workflows/check_osx.yml/badge.svg)](https://github.com/woelper/oculante/actions/workflows/check_osx.yml)
-[![NetBSD](https://github.com/woelper/oculante/actions/workflows/check_netbsd_minimal.yml/badge.svg)](https://github.com/woelper/oculante/actions/workflows/check_netbsd_minimal.yml)
-[![Ubuntu](https://github.com/woelper/oculante/actions/workflows/check_ubuntu_no_default_features.yml/badge.svg)](https://github.com/woelper/oculante/actions/workflows/check_ubuntu_no_default_features.yml)
-[![Windows](https://github.com/woelper/oculante/actions/workflows/check_windows.yml/badge.svg)](https://github.com/woelper/oculante/actions/workflows/check_windows.yml)
-[![ARM](https://github.com/woelper/oculante/actions/workflows/check_arm7.yml/badge.svg)](https://github.com/woelper/oculante/actions/workflows/check_arm7.yml)
+[![OSX](https://github.com/woelper/voutil/actions/workflows/check_osx.yml/badge.svg)](https://github.com/woelper/voutil/actions/workflows/check_osx.yml)
+[![NetBSD](https://github.com/woelper/voutil/actions/workflows/check_netbsd_minimal.yml/badge.svg)](https://github.com/woelper/voutil/actions/workflows/check_netbsd_minimal.yml)
+[![Ubuntu](https://github.com/woelper/voutil/actions/workflows/check_ubuntu_no_default_features.yml/badge.svg)](https://github.com/woelper/voutil/actions/workflows/check_ubuntu_no_default_features.yml)
+[![Windows](https://github.com/woelper/voutil/actions/workflows/check_windows.yml/badge.svg)](https://github.com/woelper/voutil/actions/workflows/check_windows.yml)
+[![ARM](https://github.com/woelper/voutil/actions/workflows/check_arm7.yml/badge.svg)](https://github.com/woelper/voutil/actions/workflows/check_arm7.yml)
 ---
-![GitHub all releases](https://img.shields.io/github/downloads/woelper/oculante/total?label=release%20downloads)
-![Crates.io](https://img.shields.io/crates/d/oculante?label=crates.io%20downloads)
+![GitHub all releases](https://img.shields.io/github/downloads/woelper/voutil/total?label=release%20downloads)
+![Crates.io](https://img.shields.io/crates/d/voutil?label=crates.io%20downloads)
 ![Screenshot](res/previews/front.png "Screenshot")
 
 ## Flipbook
 
-With configurable caching, Oculante can quickly step through image sequences:
+With configurable caching, Voutil can quickly step through image sequences:
 
 ![Screenshot](res/previews/flipbook.avif "Screenshot")
 
@@ -36,26 +36,26 @@ Get information about pixel values and position, with precise picking:
 
 ## File Management
 
-Oculante's built-in File Manager allows you to access files on your system without leaving the application. This makes it easy to compare images, especially with the dedicated compare option that lets you flip between images while preserving the zoom level and position.
+Voutil's built-in File Manager allows you to access files on your system without leaving the application. This makes it easy to compare images, especially with the dedicated compare option that lets you flip between images while preserving the zoom level and position.
 
 ![Screenshot](res/previews/file_manager.png "Screenshot")
 
 ## Correct color channel display:
 
-Images may contain color information that is masked by the alpha channel. Although it is present you will not see it since usually RGB values are multiplied with the A channel when displayed. Oculante allows you to inspect all channels individually and see color data without transparency applied.
+Images may contain color information that is masked by the alpha channel. Although it is present you will not see it since usually RGB values are multiplied with the A channel when displayed. Voutil allows you to inspect all channels individually and see color data without transparency applied.
 
 ![Screenshot](res/premult.png "Screenshot")
 
 ## Installation
 
-Find and download the correct executable for your operating system on the [releases](https://github.com/woelper/oculante/releases/latest) page. The download is small, around 25MB, as we link dependencies statically by default. We also have packages available for ARM Linux. Have a different OS? Please feel free to open an issue if you want your operating system of choice supported!
+Find and download the correct executable for your operating system on the [releases](https://github.com/woelper/voutil/releases/latest) page. The download is small, around 25MB, as we link dependencies statically by default. We also have packages available for ARM Linux. Have a different OS? Please feel free to open an issue if you want your operating system of choice supported!
 
-For those looking to manage Oculante through a package manager, please see the options below.
+For those looking to manage Voutil through a package manager, please see the options below.
 
 ### Cargo
 
 ```sh
-cargo install oculante
+cargo install voutil
 ```
 
 ### Linux
@@ -63,31 +63,31 @@ cargo install oculante
 - Arch Linux 
 
 ```sh
-pacman -S oculante
+pacman -S voutil
 ```
 
 ```sh
-paru -S oculante-git
+paru -S voutil-git
 ```
 
 - NixOS
 
 ```sh
 environment.systemPackages = [
-    pkgs.oculante
+    pkgs.voutil
 ];
 ```
 
 - openSUSE
 
 ```sh
-zypper install oculante
+zypper install voutil
 ```
 
 - Flatpak
 
 ```sh
-flatpak install flathub io.github.woelper.Oculante
+flatpak install flathub io.github.woelper.Voutil
 ```
 
 ### BSD
@@ -95,13 +95,13 @@ flatpak install flathub io.github.woelper.Oculante
 - FreeBSD
 
 ```sh
-pkg install oculante
+pkg install voutil
 ```
 
 - NetBSD
 
 ```sh
-pkgin install oculante
+pkgin install voutil
 ```
 
 ###### NetBSD builds currently use glsl-to-spirv instead of shaderc ######
@@ -111,7 +111,7 @@ pkgin install oculante
 - Scoop
 
 ```sh
-scoop install extras/oculante
+scoop install extras/voutil
 ```
 
 ## Build Dependencies
@@ -128,19 +128,19 @@ Mac:
 
 ## Updates
 
-Oculante only gets updated when it improves something for you. You'll still see new releases about every month or two! To stay up to date you can use the update button in settings, or download the new release executable. Updates are also managed through your package manager if you installed through one.
+Voutil only gets updated when it improves something for you. You'll still see new releases about every month or two! To stay up to date you can use the update button in settings, or download the new release executable. Updates are also managed through your package manager if you installed through one.
 
 ## Uninstalling
 
-To uninstall Oculante, simply delete the executable file and the data folder. You can find the data folder in the relevant location for your operating system below.
+To uninstall Voutil, simply delete the executable file and the data folder. You can find the data folder in the relevant location for your operating system below.
 
-- Windows: `~/AppData/Local/.oculante`
-- Mac: `~/Library/Application Support/oculante`
-- Linux & BSD: `~/.local/share/oculante`
+- Windows: `~/AppData/Local/.voutil`
+- Mac: `~/Library/Application Support/voutil`
+- Linux & BSD: `~/.local/share/voutil`
 
 ## Roadmap
 
-You can see what we're currently working on in our [Release Plan](https://github.com/users/woelper/projects/2/views/1), or our [Milestones](https://github.com/woelper/oculante/milestones)!
+You can see what we're currently working on in our [Release Plan](https://github.com/users/woelper/projects/2/views/1), or our [Milestones](https://github.com/woelper/voutil/milestones)!
 
 
 ## Features
@@ -154,8 +154,8 @@ You can see what we're currently working on in our [Release Plan](https://github
 - Metadata and Metafile support: Load EXIF data and save metafile edit stacks.
 - Focused on Performance: Threaded image loading, configurable image caching, Low cpu usage, pretty fast startup / loading time.
 - Color Channel support: Display individual RGBA channels, unassociated / unpremultiplied alpha.
-- Network listen mode: Start with `oculante -l port` and oculante will switch to receive mode, listening on that port.
-- Load files from stdin: pipe your data with `cat image | oculante -s`.
+- Network listen mode: Start with `voutil -l port` and voutil will switch to receive mode, listening on that port.
+- Load files from stdin: pipe your data with `cat image | voutil -s`.
 
 ### Image format support
 
@@ -211,12 +211,12 @@ UI Design:
 
 ## Privacy pledge
 
-Oculante does in no way collect or send anonymous or non-anonynmous user data or statistics. Oculante is and will remain free and open-source. There will never be ads.
-There are only two instances where oculante interacts with the network, and both never happen without being triggered by the user:
+Voutil does in no way collect or send anonymous or non-anonynmous user data or statistics. Voutil is and will remain free and open-source. There will never be ads.
+There are only two instances where voutil interacts with the network, and both never happen without being triggered by the user:
 - Updating the application (must be triggered manually from settings)
 - Listening for incoming images on a custom port (must be set on command line)
 
-In addition, Oculante saves some settings locally, for example:
+In addition, Voutil saves some settings locally, for example:
 - UI accent color
 - Keybindings
 - Vsync preferences
@@ -225,7 +225,7 @@ In addition, Oculante saves some settings locally, for example:
 
 ## License
 
-This project is MIT licensed, but some parts such as the LUTs in res/LUT are under the GPL license. As a result, we're making our entire source code public. If you would like to use Oculante without publishing your source code, please remove any GPL-licensed components and their references.
+This project is MIT licensed, but some parts such as the LUTs in res/LUT are under the GPL license. As a result, we're making our entire source code public. If you would like to use Voutil without publishing your source code, please remove any GPL-licensed components and their references.
 
 ### Extras
 <details>
@@ -256,7 +256,7 @@ This project is MIT licensed, but some parts such as the LUTs in res/LUT are und
 <details>
 <summary>Extended Language Support</summary>
 
-Oculante can support some additional languages such as Arabic, Chinese, Japanese, Korean. This support depends on if your system has a supported font family installed. One supported font family is [Noto Sans](https://fonts.google.com/noto/specimen/Noto+Sans).
+Voutil can support some additional languages such as Arabic, Chinese, Japanese, Korean. This support depends on if your system has a supported font family installed. One supported font family is [Noto Sans](https://fonts.google.com/noto/specimen/Noto+Sans).
 
 ### Simplified Chinese
 
