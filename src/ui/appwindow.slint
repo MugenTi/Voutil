@@ -1,22 +1,22 @@
 import { SettingsWindow } from "./settings_window.slint";
 import { ResizeWindow } from "./resize_window.slint";
 import { Theme } from "./theme.slint";
-import { Palette } from "std-widgets.slint";
+import { Palette, Button } from "std-widgets.slint";
 import { IconDisplay, IconSet } from "@lucide";
 
 component MenuButton inherits Rectangle {
     in-out property text <=> _txt.text;
     callback clicked <=> _touch.clicked;
 
-    border-color: #282828;
+    border-color: Theme.border-color;
     border-radius: 4px;
     border-width: 1px;
     height: 28px;
     preferred-width: 100%;
-    background: _touch.pressed ? #282828 : _touch.has-hover ? #3a3a3a :  #282828;
+    background: _touch.pressed ? Theme.tool-button-background : _touch.has-hover ? Theme.tool-button-background : Theme.background;
 
     _txt := Text {
-        color: _touch.pressed ? #ccc : #eee;
+        color: _touch.pressed ? Theme.secondary-foreground : Theme.foreground;
         x: 30px;
         font-size: 1rem;
         vertical-alignment: center;
@@ -27,15 +27,15 @@ component MenuButton inherits Rectangle {
 component Tooltip inherits Rectangle {
     in-out property text <=> _txt.text;
 
-    background: #333;
+    background: Theme.background;
     border-radius: 4px;
     border-width: 1px;
-    border-color: #555;
+    border-color: Theme.border-color;
     height: 20px;
     width: _txt.preferred-width + 10px;
 
     _txt := Text {
-        color: white;
+        color: Theme.foreground;
         font-size: 12px;
     }
 }
@@ -56,7 +56,7 @@ component ToolButton inherits Rectangle {
 
     _touch := TouchArea {
         _icon := IconDisplay {
-            stroke: active ? green : Theme.tool-button-color;
+            stroke: active ? Theme.accent-color : Theme.tool-button-color;
             size: 24px;
             stroke-width: 2;
         }
@@ -80,7 +80,6 @@ component ToolButton inherits Rectangle {
 
 export component AppWindow inherits Window {
     init => {
-        Palette.color-scheme = ColorScheme.dark; // Force dark mode
         // IconSettings.default-size = 24px; // Planned for future availability
     }
     icon: @image-url("../../res/icons/icon.png");
@@ -91,6 +90,7 @@ export component AppWindow inherits Window {
     preferred-height: 720px;
     always-on-top: root.always_on_top_enabled;
     full-screen: root.fullscreen_enabled;
+    background: Theme.background;
 
     in-out property <image> image_display;
     in-out property <string> status_text: "Ready";
@@ -272,10 +272,10 @@ export component AppWindow inherits Window {
                 y: Theme.menu-bar-height;
                 width: 200px;
                 Rectangle {
-                    background: #282828;
+                    background: Theme.background;
                     border-width: 1px;
                     border-radius: 5px;
-                    border-color: #454545;
+                    border-color: Theme.border-color;
                     drop-shadow-color: #00000050;
                     drop-shadow-blur: 10px;
                     drop-shadow-offset-x: 2px;
@@ -501,6 +501,8 @@ export component AppWindow inherits Window {
                 }
             }
         }
+
+        // Main Image Area
         image_container := Rectangle {
             background: Theme.image-container-background;
             clip: true;
@@ -520,9 +522,10 @@ export component AppWindow inherits Window {
                 y: root.selection_y * 1px;
                 width: root.selection_w * 1px;
                 height: root.selection_h * 1px;
-                background: transparent;
+                // background: transparent;
                 border-width: 1px;
-                border-color: root.selection_border_color;
+                border-color: Theme.selection-border;
+                background: Theme.selection-background;
                 HorizontalLayout {
                     Text {
                         font-size: 13px;

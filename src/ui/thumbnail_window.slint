@@ -1,4 +1,5 @@
-import { ScrollView } from "std-widgets.slint";
+import { ScrollView, Palette } from "std-widgets.slint";
+import { Theme } from "./theme.slint";
 
 export struct Thumbnail {
     source: image,
@@ -11,6 +12,7 @@ export component ThumbnailWindow inherits Window {
     min-height: 210px;
     preferred-width: 210px;
     preferred-height: 600px;
+    background: Theme.background;
 
     in property <[Thumbnail]> thumbnails;
     in-out property <string> selected-path;
@@ -54,7 +56,6 @@ export component ThumbnailWindow inherits Window {
                 root.hide();
                 return accept;
             }
-            let old_index = root.selected-index;
             let len = root.thumbnails.length;
             if (len <= 0) { return reject; }
 
@@ -90,8 +91,8 @@ export component ThumbnailWindow inherits Window {
                 y: root.spacing + Math.floor(i / root.columns) * (root.thumb-size + root.spacing);
                 Rectangle {
                     border-width: (i == root.selected-index) ? 2px : 1px;
-                    border-color: (i == root.selected-index) ? green : (_touch.has-hover ? #555 : #191919);
-                    background: _touch.pressed ? #282828 : _touch.has-hover ? #3a3a3a :  #282828;
+                    border-color: (i == root.selected-index) ? Theme.accent-color : (_touch.has-hover ? Theme.tool-button-border-color : Theme.border-color);
+                    background: _touch.pressed ? Theme.tool-button-background : _touch.has-hover ? Theme.tool-button-background : Theme.background;
                     Image {
                         source: thumb.source;
                         width: 92%;

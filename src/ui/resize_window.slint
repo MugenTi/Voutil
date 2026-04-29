@@ -1,4 +1,5 @@
-import { LineEdit, CheckBox, ComboBox, Button } from "std-widgets.slint";
+import { LineEdit, CheckBox, ComboBox, Button, Palette } from "std-widgets.slint";
+import { Theme } from "./theme.slint";
 
 export component ResizeWindow {
     min-width: 300px;
@@ -62,10 +63,10 @@ export component ResizeWindow {
         close-policy: no-auto-close;
         width: 300px;
         Rectangle {
-            background: #282828;
+            background: Theme.background;
             border-width: 1px;
             border-radius: 5px;
-            border-color: #454545;
+            border-color: Theme.border-color;
             drop-shadow-color: #00000050;
             drop-shadow-blur: 10px;
             drop-shadow-offset-x: 2px;
@@ -76,13 +77,13 @@ export component ResizeWindow {
                 spacing: 5px;
 
                 // Row 0: Original and New size display
-                Text { text: "Original size:"; }
-                Text { text: @tr("{} x {}", root.original_w, root.original_h); }
-                Text { text: "New size:"; }
-                Text { text: @tr("{} x {}", root.new_w, root.new_h); }
+                Text { text: "Original size:"; color: Theme.foreground; }
+                Text { text: @tr("{} x {}", root.original_w, root.original_h); color: Theme.foreground; }
+                Text { text: "New size:"; color: Theme.foreground; }
+                Text { text: @tr("{} x {}", root.new_w, root.new_h); color: Theme.foreground; }
 
                 // Row 1: Unit selection
-                Text { text: "Unit:"; }
+                Text { text: "Unit:"; color: Theme.foreground; }
                 unit_combo := ComboBox {
                     model: ["Pixels", "Percent"];
                     current-value: root.unit;
@@ -111,7 +112,7 @@ export component ResizeWindow {
                 }
 
                 // Row 2: Width
-                Text { text: "Width:"; }
+                Text { text: "Width:"; color: Theme.foreground; }
                 width_edit := LineEdit {
                     text: root.var_w;
                     input-type: root.edit_type;
@@ -130,7 +131,7 @@ export component ResizeWindow {
                 }
 
                 // Row 3: Height
-                Text { text: "Height:"; }
+                Text { text: "Height:"; color: Theme.foreground; }
                 height_edit := LineEdit {
                     text: root.var_h;
                     input-type: root.edit_type;
@@ -156,7 +157,7 @@ export component ResizeWindow {
                 }
 
                 // Row 5: Interpolation
-                Text { text: "Interpolation:"; }
+                Text { text: "Interpolation:"; color: Theme.foreground; }
                 interpolation_combo := ComboBox {
                     model: ["Nearest", "Triangle", "CatmullRom", "Gaussian", "Lanczos3"];
                     current-value: root.interpolation;

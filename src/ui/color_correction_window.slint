@@ -1,4 +1,5 @@
-import { Slider, Button, GroupBox } from "std-widgets.slint";
+import { Slider, Button, GroupBox, Palette } from "std-widgets.slint";
+import { Theme } from "./theme.slint";
 
 export component ColorCorrectionWindow inherits Window {
     title: "Color Corrections";
@@ -6,6 +7,7 @@ export component ColorCorrectionWindow inherits Window {
     min-height: 800px;
     preferred-width: 960px;
     preferred-height: 800px;
+    background: Theme.background;
 
     callback apply();
     callback cancel();
@@ -38,6 +40,7 @@ export component ColorCorrectionWindow inherits Window {
             VerticalLayout {
                 Text {
                     text: "Original";
+                    color: Theme.foreground;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                     height: 20px;
@@ -52,6 +55,7 @@ export component ColorCorrectionWindow inherits Window {
             VerticalLayout {
                 Text { 
                     text: "Preview";
+                    color: Theme.foreground;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                     height: 20px;
@@ -77,6 +81,7 @@ export component ColorCorrectionWindow inherits Window {
                     spacing: 5px;
                     HorizontalLayout {
                         Text { text: "Brightness:"; width: 80px;
+                            color: Theme.foreground;
                             vertical-alignment: center;
                             height: 20px;
                         }
@@ -88,6 +93,7 @@ export component ColorCorrectionWindow inherits Window {
                         }
                         Text {
                             text: round(root.brightness);
+                            color: Theme.foreground;
                             min-width: 40px;
                             horizontal-alignment: right;
                             vertical-alignment: center;
@@ -96,6 +102,7 @@ export component ColorCorrectionWindow inherits Window {
                     }
                     HorizontalLayout {
                         Text { text: "Contrast:"; width: 80px;
+                            color: Theme.foreground;
                             vertical-alignment: center;
                             height: 20px;
                         }
@@ -107,6 +114,7 @@ export component ColorCorrectionWindow inherits Window {
                         }
                         Text {
                             text: round(root.contrast);
+                            color: Theme.foreground;
                             min-width: 40px;
                             horizontal-alignment: right;
                             vertical-alignment: center;
@@ -115,6 +123,7 @@ export component ColorCorrectionWindow inherits Window {
                     }
                     HorizontalLayout {
                         Text { text: "Gamma:"; width: 80px;
+                            color: Theme.foreground;
                             vertical-alignment: center;
                             height: 20px;
                         }
@@ -126,6 +135,7 @@ export component ColorCorrectionWindow inherits Window {
                         }
                         Text {
                             text: round(root.gamma)/ 100.0;
+                            color: Theme.foreground;
                             min-width: 40px;
                             horizontal-alignment: right;
                             vertical-alignment: center;
@@ -144,6 +154,7 @@ export component ColorCorrectionWindow inherits Window {
                     spacing: 5px;
                     HorizontalLayout {
                         Text { text: "Red:"; width: 80px;
+                            color: Theme.foreground;
                             vertical-alignment: center;
                             height: 20px;
                         }
@@ -155,6 +166,7 @@ export component ColorCorrectionWindow inherits Window {
                          }
                         Text {
                             text: round(root.red);
+                            color: Theme.foreground;
                             min-width: 40px;
                             horizontal-alignment: right;
                             vertical-alignment: center;
@@ -163,6 +175,7 @@ export component ColorCorrectionWindow inherits Window {
                     }
                     HorizontalLayout {
                         Text { text: "Green:"; width: 80px;
+                            color: Theme.foreground;
                             vertical-alignment: center;
                             height: 20px;
                         }
@@ -174,6 +187,7 @@ export component ColorCorrectionWindow inherits Window {
                         }
                         Text {
                             text: round(root.green);
+                            color: Theme.foreground;
                             min-width: 40px;
                             horizontal-alignment: right;
                             vertical-alignment: center;
@@ -182,6 +196,7 @@ export component ColorCorrectionWindow inherits Window {
                     }
                     HorizontalLayout {
                         Text { text: "Blue:"; width: 80px;
+                            color: Theme.foreground;
                             vertical-alignment: center;
                             height: 20px;
                         }
@@ -193,6 +208,7 @@ export component ColorCorrectionWindow inherits Window {
                         }
                         Text {
                             text: round(root.blue);
+                            color: Theme.foreground;
                             min-width: 40px;
                             horizontal-alignment: right;
                             vertical-alignment: center;
@@ -218,6 +234,7 @@ export component ColorCorrectionWindow inherits Window {
                     spacing: 5px;
                     HorizontalLayout {
                         Text { text: "Saturation:"; width: 80px;
+                            color: Theme.foreground;
                             vertical-alignment: center;
                             height: 20px;
                         }
@@ -230,6 +247,7 @@ export component ColorCorrectionWindow inherits Window {
                         }
                         Text {
                             text: round(root.saturation);
+                            color: Theme.foreground;
                             min-width: 40px;
                             horizontal-alignment: right;
                             vertical-alignment: center;

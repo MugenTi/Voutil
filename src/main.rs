@@ -10,8 +10,8 @@ use voutil::utils::{apply_color_corrections, reveal_in_file_manager};
 use rayon::prelude::*;
 use rfd;
 use slint::{
-    ComponentHandle, Image, LogicalPosition, LogicalSize, Model, Rgba8Pixel, SharedPixelBuffer,
-    VecModel,
+    ComponentHandle, Image, LogicalPosition, LogicalSize, Model, Rgba8Pixel,
+    SharedPixelBuffer, VecModel,
 };
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -113,6 +113,7 @@ struct AppState {
     initial_mouse_on_drag: Option<(u32, u32)>,
     thumbnail_receiver: Option<mpsc::Receiver<ThumbnailMessage>>,
     is_from_clipboard: bool,
+    tick_count: u64,
 }
 
 enum ThumbnailMessage {
@@ -150,6 +151,44 @@ fn update_image_info(ui: &AppWindow) {
             )
             .into(),
         );
+    }
+}
+
+fn apply_ui_theme(
+    main_ui: &AppWindow,
+    settings_ui: &SettingsWindow,
+    thumb_ui: &ThumbnailWindow,
+    color_correction_ui: &ColorCorrectionWindow,
+    choice: voutil::settings::ColorTheme,
+) {
+    let is_dark = match choice {
+        voutil::settings::ColorTheme::Dark => true,
+        voutil::settings::ColorTheme::Light => false,
+        voutil::settings::ColorTheme::System => match dark_light::detect() {
+            Ok(dark_light::Mode::Dark) => true,
+            Ok(dark_light::Mode::Light) => false,
+            _ => true, // Fallback to dark
+        },
+    };
+
+    // Only update if the theme state has actually changed
+    if main_ui.global::<Theme>().get_is_dark() != is_dark {
+        main_ui.global::<Theme>().set_is_dark(is_dark);
+        settings_ui.global::<Theme>().set_is_dark(is_dark);
+        thumb_ui.global::<Theme>().set_is_dark(is_dark);
+        color_correction_ui.global::<Theme>().set_is_dark(is_dark);
+
+        // Update standard Slint Palette for widgets like ComboBox
+        let scheme = if is_dark {
+            slint::language::ColorScheme::Dark
+        } else {
+            slint::language::ColorScheme::Light
+        };
+        
+        main_ui.global::<Palette>().set_color_scheme(scheme);
+        settings_ui.global::<Palette>().set_color_scheme(scheme);
+        thumb_ui.global::<Palette>().set_color_scheme(scheme);
+        color_correction_ui.global::<Palette>().set_color_scheme(scheme);
     }
 }
 
@@ -567,6 +606,15 @@ fn main() -> Result<(), slint::PlatformError> {
 
     // --- Initial state setup ---
     main_window.set_status_text("Ready. Open a file to begin.".into());
+    
+    let current_theme = persistent_settings.borrow().theme.clone();
+    settings_window.set_selected_theme(match current_theme {
+        voutil::settings::ColorTheme::Light => "Light".into(),
+        voutil::settings::ColorTheme::System => "System".into(),
+        _ => "Dark".into(),
+    });
+    apply_ui_theme(&main_window, &settings_window, &thumbnail_window, &color_correction_window, current_theme);
+
     settings_window.set_vsync_enabled(persistent_settings.borrow().vsync);
     settings_window
         .set_show_checker_background(persistent_settings.borrow().show_checker_background);
@@ -1481,7 +1529,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let main_window_handle = main_window.as_weak();
     let app_state_clone = app_state.clone();
-    let persistent_settings_clone = persistent_settings.clone();
+    let persistent_settings_for_pointer = persistent_settings.clone();
     main_window.on_pointer_event(move |event_type, _event_button, x, y| {
         if let Some(ui) = main_window_handle.upgrade() {
             let mut app_state = app_state_clone.borrow_mut();
@@ -1539,7 +1587,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                     let mut y2 = unclamped_img_coord_y;
 
                                     // Adjust the endpoint to apply the aspect ratio.
-                                    let settings = persistent_settings_clone.borrow();
+                                    let settings = persistent_settings_for_pointer.borrow();
                                     if settings.crop_aspect_ratio != "Free" {
                                         if let Some(ratio) = settings.crop_aspect_ratio.split_once(':')
                                             .and_then(|(a, b)| Some(a.parse::<f32>().ok()? / b.parse::<f32>().ok()?))
@@ -1663,7 +1711,7 @@ fn main() -> Result<(), slint::PlatformError> {
                                     let mut w = (x2 - x1) as u32;
                                     let mut h = (y2 - y1) as u32;
 
-                                    let settings = persistent_settings_clone.borrow();
+                                    let settings = persistent_settings_for_pointer.borrow();
                                     if settings.crop_aspect_ratio != "Free" {
                                         let parts: Vec<&str> = settings.crop_aspect_ratio.split(':').collect();
                                         if parts.len() == 2 {
@@ -1809,8 +1857,11 @@ fn main() -> Result<(), slint::PlatformError> {
     // --- Tick handler for dynamic resize/move ---
     let main_window_handle = main_window.as_weak();
     let thumbnail_window_handle = thumbnail_window.as_weak();
+    let settings_window_handle_for_tick = settings_window.as_weak();
+    let color_correction_ui_for_tick = color_correction_window.as_weak();
     let app_state_clone = app_state.clone();
     let volatile_settings_clone = volatile_settings.clone();
+    let persistent_settings_for_tick = persistent_settings.clone();
     main_window.on_tick(move |auto_fit| {
         if let (Some(ui), Some(thumb_ui)) = (
             main_window_handle.upgrade(),
@@ -1859,6 +1910,20 @@ fn main() -> Result<(), slint::PlatformError> {
                     volatile.thumbnail_window_size = thumb_current_size;
                     let _ = volatile.save_blocking();
                     app_state.last_thumbnail_window_size = thumb_current_size;
+                }
+            }
+
+            // Periodic theme check for "System" mode (every 60 ticks, ~1 second)
+            app_state.tick_count += 1;
+            if app_state.tick_count % 60 == 0 {
+                let theme_choice = persistent_settings_for_tick.borrow().theme.clone();
+                if theme_choice == voutil::settings::ColorTheme::System {
+                    if let (Some(sw), Some(ccw)) = (
+                        settings_window_handle_for_tick.upgrade(),
+                        color_correction_ui_for_tick.upgrade(),
+                    ) {
+                        apply_ui_theme(&ui, &sw, &thumb_ui, &ccw, theme_choice);
+                    }
                 }
             }
 
@@ -1958,6 +2023,32 @@ fn main() -> Result<(), slint::PlatformError> {
     });
 
     // --- Settings window callbacks ---
+    let settings_clone = persistent_settings.clone();
+    let main_ui_for_theme = main_window.as_weak();
+    let settings_ui_for_theme = settings_window.as_weak();
+    let thumb_ui_for_theme = thumbnail_window.as_weak();
+    let color_correction_ui_for_theme = color_correction_window.as_weak();
+    settings_window.on_theme_changed(move |choice_str| {
+        if let (Some(ui), Some(sw), Some(tw), Some(ccw)) = (
+            main_ui_for_theme.upgrade(),
+            settings_ui_for_theme.upgrade(),
+            thumb_ui_for_theme.upgrade(),
+            color_correction_ui_for_theme.upgrade(),
+        ) {
+            let choice = match choice_str.as_str() {
+                "Light" => voutil::settings::ColorTheme::Light,
+                "System" => voutil::settings::ColorTheme::System,
+                _ => voutil::settings::ColorTheme::Dark,
+            };
+
+            let mut settings = settings_clone.borrow_mut();
+            settings.theme = choice.clone();
+            let _ = settings.save_blocking();
+            
+            apply_ui_theme(&ui, &sw, &tw, &ccw, choice);
+        }
+    });
+
     let settings_clone = persistent_settings.clone();
     settings_window.on_vsync_changed(move |enabled| {
         let mut settings = settings_clone.borrow_mut();

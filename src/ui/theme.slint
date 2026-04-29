@@ -1,15 +1,31 @@
 export global Theme {
-    // menu bar
+    in-out property <bool> is-dark: true;
+
+    // --- Semantic Colors ---
+    in-out property <color> background: is-dark ? #1E1E1E : #F5F5F5;
+    in-out property <color> foreground: is-dark ? #D4D4D4 : #222222;
+    in-out property <color> secondary-foreground: is-dark ? #9198A1 : #555555;
+    in-out property <color> border-color: is-dark ? #333333 : #CCCCCC;
+    in-out property <color> accent-color: #4CAF50;
+    
+    // Menu bar
     in-out property <length> menu-bar-height: 40px;
-    in-out property <color> menu-bar-background: #191919;
-    // tool button
-    in-out property <color> tool-button-background: #3a3a3a;
-    in-out property <color> tool-button-border-color: #555;
-    in-out property <color> tool-button-color: #9198A1;
-    // status bar
-    in-out property <length> status-bar-height: 40px; // 28px 
-    in-out property <color> status-bar-background: #191919;
-    in-out property <color> status-bar-color: #9198A1;
-    // image container
-    in-out property <color> image-container-background: #1E1E1E;
+    in-out property <color> menu-bar-background: is-dark ? #191919 : #E0E0E0;
+    
+    // Tool button
+    in-out property <color> tool-button-background: is-dark ? #3a3a3a : #E0E0E0;
+    in-out property <color> tool-button-border-color: is-dark ? #555555 : #BBBBBB;
+    in-out property <color> tool-button-color: root.secondary-foreground;
+    
+    // Status bar
+    in-out property <length> status-bar-height: 40px; 
+    in-out property <color> status-bar-background: is-dark ? #191919 : #E0E0E0;
+    in-out property <color> status-bar-color: root.secondary-foreground;
+    
+    // Image container
+    in-out property <color> image-container-background: is-dark ? #111111 : #E5E5E5;
+
+    // Selection
+    in-out property <color> selection-background: #00ff0020;
+    in-out property <color> selection-border: #00ff0080;
 }

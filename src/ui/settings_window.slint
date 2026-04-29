@@ -1,4 +1,5 @@
-import { CheckBox, Button, ComboBox, Slider, ScrollView } from "std-widgets.slint";
+import { CheckBox, Button, ComboBox, Slider, ScrollView, Palette } from "std-widgets.slint";
+import { Theme } from "./theme.slint";
 
 export struct ShortcutEntry {
     event_type: string,
@@ -12,8 +13,10 @@ export component SettingsWindow inherits Window {
     min-height: 600px;
     preferred-width: 720px;
     preferred-height: 850px;
+    background: Theme.background;
 
     // --- Properties for settings ---
+    in-out property <string> selected_theme: "Dark";
     in-out property <bool> vsync_enabled: true;
     in-out property <bool> show_checker_background: false;
     in-out property <bool> reopen_last_image: true;
@@ -28,6 +31,7 @@ export component SettingsWindow inherits Window {
     in-out property <string> recording_description: "";
 
     // --- Callbacks to notify Rust of changes ---
+    callback theme_changed(string);
     callback vsync_changed(bool);
     callback show_checker_background_changed(bool);
     callback reopen_last_image_changed(bool);
@@ -63,6 +67,21 @@ export component SettingsWindow inherits Window {
             spacing: 15px;
             alignment: start;
 
+            // --- Appearance Section ---
+            Text { text: "Appearance"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
+            HorizontalLayout {
+                spacing: 10px;
+                alignment: start;
+                Text { text: "Theme:"; vertical-alignment: center; color: Theme.foreground; }
+                ComboBox {
+                    model: ["Light", "Dark", "System"];
+                    current-value <=> root.selected_theme;
+                    selected => { root.theme_changed(self.current-value); }
+                }
+            }
+
+            Rectangle { background: Theme.border-color; height: 1px; }
+
             // --- General Section ---
             CheckBox {
                 text: "Enable V-Sync";
@@ -82,10 +101,10 @@ export component SettingsWindow inherits Window {
                 toggled => { root.reopen_last_image_changed(self.checked); }
             }
 
-            Rectangle { background: #333; height: 1px; }
+            Rectangle { background: Theme.border-color; height: 1px; }
 
             // --- Sorting Section ---
-            Text { text: "File List Sorting"; font-size: 1.1rem; font-weight: 700; }
+            Text { text: "File List Sorting"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
             CheckBox {
                 text: "Use default OS sorting";
                 checked <=> root.use_os_sorting;
@@ -94,13 +113,13 @@ export component SettingsWindow inherits Window {
             if !root.use_os_sorting : HorizontalLayout {
                 spacing: 10px;
                 alignment: start;
-                Text { text: "Sort by:"; vertical-alignment: center; }
+                Text { text: "Sort by:"; vertical-alignment: center; color: Theme.foreground; }
                 ComboBox {
                     model: ["Name", "Modified time", "Created time", "Size"];
                     current-value <=> root.sort_criteria;
                     selected => { root.sort_criteria_changed(self.current-value); }
                 }
-                Text { text: "Order:"; vertical-alignment: center; }
+                Text { text: "Order:"; vertical-alignment: center; color: Theme.foreground; }
                 ComboBox {
                     model: ["Ascending", "Descending"];
                     current-value <=> root.sort_order;
@@ -108,14 +127,14 @@ export component SettingsWindow inherits Window {
                 }
             }
 
-            Rectangle { background: #333; height: 1px; }
+            Rectangle { background: Theme.border-color; height: 1px; }
 
             // --- Crop Section ---
-            Text { text: "Crop Settings"; font-size: 1.1rem; font-weight: 700; }
+            Text { text: "Crop Settings"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
             HorizontalLayout {
                 spacing: 10px;
                 alignment: start;
-                Text { text: "Aspect ratio:"; vertical-alignment: center; }
+                Text { text: "Aspect ratio:"; vertical-alignment: center; color: Theme.foreground; }
                 ComboBox {
                     model: ["Free", "1:1", "1:2", "2:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"];
                     current-value <=> root.crop_aspect_ratio;
@@ -123,14 +142,14 @@ export component SettingsWindow inherits Window {
                 }
             }
 
-            Rectangle { background: #333; height: 1px; }
+            Rectangle { background: Theme.border-color; height: 1px; }
 
             // --- File Settings Section ---
-            Text { text: "File Settings"; font-size: 1.1rem; font-weight: 700; }
+            Text { text: "File Settings"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
             HorizontalLayout {
                 spacing: 10px;
                 alignment: start;
-                Text { text: "Default save format:"; vertical-alignment: center; }
+                Text { text: "Default save format:"; vertical-alignment: center; color: Theme.foreground; }
                 ComboBox {
                     model: ["Png", "Jpg", "Bmp", "WebP"];
                     current-value <=> root.default_save_format;
@@ -140,7 +159,7 @@ export component SettingsWindow inherits Window {
             if (root.default_save_format == "Jpg") : HorizontalLayout {
                 spacing: 10px;
                 alignment: start;
-                Text { text: "Jpeg quality:"; vertical-alignment: center; width: 100px; }
+                Text { text: "Jpeg quality:"; vertical-alignment: center; width: 100px; color: Theme.foreground; }
                 Slider {
                     width: 200px; minimum: 0; maximum: 100; value: root.jpeg_quality;
                     changed(val) => { 
@@ -149,15 +168,15 @@ export component SettingsWindow inherits Window {
                         root.jpeg_quality_changed(quantized); 
                     }
                 }
-                Text { text: root.jpeg_quality; vertical-alignment: center; width: 30px; }
+                Text { text: root.jpeg_quality; vertical-alignment: center; width: 30px; color: Theme.foreground; }
             }
 
-            Rectangle { background: #333; height: 1px; }
+            Rectangle { background: Theme.border-color; height: 1px; }
 
             // --- Keyboard Shortcuts Section ---
-            Text { text: "Keyboard Shortcuts"; font-size: 1.1rem; font-weight: 700; }
+            Text { text: "Keyboard Shortcuts"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
             Rectangle {
-                background: #191919;
+                background: Theme.menu-bar-background;
                 border-radius: 4px;
                 VerticalLayout {
                     padding: 10px;
@@ -171,7 +190,7 @@ export component SettingsWindow inherits Window {
                             text: entry.description;
                             vertical-alignment: center;
                             width: 220px;
-                            color: #eee;
+                            color: Theme.foreground;
                         }
                         
                         // Flexible container for key tags
@@ -180,7 +199,7 @@ export component SettingsWindow inherits Window {
                             alignment: start;
                             horizontal-stretch: 1;
                             for key in entry.keys : Rectangle {
-                                background: #444;
+                                background: Theme.tool-button-background;
                                 border-radius: 3px;
                                 height: 24px;
                                 width: _key_txt.preferred-width + 16px;
@@ -189,6 +208,7 @@ export component SettingsWindow inherits Window {
                                     font-size: 11px;
                                     vertical-alignment: center;
                                     horizontal-alignment: center;
+                                    color: Theme.foreground;
                                 }
                             }
                         }
@@ -218,10 +238,10 @@ export component SettingsWindow inherits Window {
                 }
             }
 
-            Rectangle { background: #333; height: 1px; }
+            Rectangle { background: Theme.border-color; height: 1px; }
 
             // --- Maintenance Section ---
-            Text { text: "Maintenance"; font-size: 1.1rem; font-weight: 700; }
+            Text { text: "Maintenance"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
             HorizontalLayout {
                 spacing: 10px;
                 alignment: start;
@@ -247,10 +267,10 @@ export component SettingsWindow inherits Window {
         Rectangle {
             width: 350px;
             height: 220px;
-            background: #1e1e1e;
+            background: Theme.background;
             border-radius: 12px;
             border-width: 2px;
-            border-color: #4CAF50;
+            border-color: Theme.accent-color;
             VerticalLayout {
                 padding: 25px;
                 spacing: 15px;
@@ -259,20 +279,20 @@ export component SettingsWindow inherits Window {
                     text: "Recording shortcut for:";
                     horizontal-alignment: center;
                     font-size: 14px;
-                    color: #aaa;
+                    color: Theme.secondary-foreground;
                 }
                 Text {
                     text: root.recording_description;
                     horizontal-alignment: center;
                     font-weight: 700;
                     font-size: 20px;
-                    color: #4CAF50;
+                    color: Theme.accent-color;
                 }
                 Text {
                     text: "Press key combination...";
                     horizontal-alignment: center;
                     font-size: 14px;
-                    color: #fff;
+                    color: Theme.foreground;
                 }
                 Rectangle { height: 10px; } // Spacer
                 Button {
