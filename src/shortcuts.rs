@@ -16,6 +16,10 @@ pub enum InputEvent {
     Paste,
     SaveAs,
     CropSelection,
+    Resize,
+    ColorCorrections,
+    Preferences,
+    BrowseToFileLocation,
     ZenMode,
     PerfectFullscreen,
     ToggleThumbnails,
@@ -36,6 +40,10 @@ impl InputEvent {
             InputEvent::Paste => "Paste from Clipboard",
             InputEvent::SaveAs => "Save as...",
             InputEvent::CropSelection => "Crop Image",
+            InputEvent::Resize => "Resize Image",
+            InputEvent::ColorCorrections => "Color Corrections",
+            InputEvent::Preferences => "Preferences",
+            InputEvent::BrowseToFileLocation => "Browse to File Location",
             InputEvent::ZenMode => "Toggle Zen Mode",
             InputEvent::PerfectFullscreen => "Fullscreen (Zen + Reset)",
             InputEvent::ToggleThumbnails => "Toggle Thumbnails",
@@ -182,6 +190,10 @@ impl ShortcutExt for Shortcuts {
         s.insert(InputEvent::Copy, vec![SimultaneousKeypresses::new("C").ctrl()]);
         s.insert(InputEvent::Paste, vec![SimultaneousKeypresses::new("V").ctrl()]);
         s.insert(InputEvent::SaveAs, vec![SimultaneousKeypresses::new("S").ctrl().shift()]);
+        s.insert(InputEvent::Resize, vec![SimultaneousKeypresses::new("R")]);
+        s.insert(InputEvent::ColorCorrections, vec![SimultaneousKeypresses::new("C")]);
+        s.insert(InputEvent::Preferences, vec![SimultaneousKeypresses::new("P")]);
+        s.insert(InputEvent::BrowseToFileLocation, vec![SimultaneousKeypresses::new("B").ctrl()]);
         s.insert(InputEvent::ZenMode, vec![SimultaneousKeypresses::new("Z")]);
         s.insert(InputEvent::PerfectFullscreen, vec![SimultaneousKeypresses::new("Return")]);
         s

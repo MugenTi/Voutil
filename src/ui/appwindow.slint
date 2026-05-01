@@ -177,6 +177,12 @@ export component AppWindow inherits Window {
     callback browse_to_file_location();
     callback shortcut_pressed(string, bool, bool, bool) -> bool;
 
+    public function show_resize() {
+        root.show_resize_window();
+        resize_window.setup();
+        resize_window.show();
+    }
+
     function get-cursor-from-type(handle_type: string) -> MouseCursor {
         if (handle_type == "move") { return MouseCursor.move; }
         else if (handle_type == "ns-resize") { return MouseCursor.ns-resize; }
@@ -494,9 +500,7 @@ export component AppWindow inherits Window {
                     icon: IconSet.Scaling;
                     text: "Resize";
                     clicked => {
-                        root.show_resize_window();
-                        resize_window.setup();
-                        resize_window.show();
+                        root.show_resize();
                     }
                 }
             }

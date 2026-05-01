@@ -14,6 +14,7 @@ export component SettingsWindow inherits Window {
     preferred-width: 720px;
     preferred-height: 850px;
     background: Theme.background;
+    default-font-size: 14px;
 
     // --- Properties for settings ---
     in-out property <string> selected_theme: "Dark";
@@ -48,6 +49,7 @@ export component SettingsWindow inherits Window {
     callback stop_recording();
     callback reset_shortcuts();
     callback key_recorded(string, bool, bool, bool) -> bool;
+    callback shortcut_pressed(string, bool, bool, bool) -> bool;
 
     forward-focus: key_handler;
     key_handler := FocusScope {
@@ -56,12 +58,25 @@ export component SettingsWindow inherits Window {
                 if (root.key_recorded(event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift)) {
                     return accept;
                 }
+            } else {
+                if (event.text == Key.Escape) {
+                    root.shortcut_pressed(event.text, false, false, false);
+                    return accept;
+                }
+                if (root.shortcut_pressed(event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift)) {
+                    return accept;
+                }
             }
-            accept
+            reject
         }
     }
 
-    ScrollView {
+    // Default focus...
+    init => {
+        key_handler.focus();
+    }
+
+    main_scroll := ScrollView {
         VerticalLayout {
             padding: 15px;
             spacing: 15px;
@@ -73,7 +88,7 @@ export component SettingsWindow inherits Window {
                 spacing: 10px;
                 alignment: start;
                 Text { text: "Theme:"; vertical-alignment: center; color: Theme.foreground; }
-                ComboBox {
+                theme_combo := ComboBox {
                     model: ["Light", "Dark", "System"];
                     current-value <=> root.selected_theme;
                     selected => { root.theme_changed(self.current-value); }
@@ -213,10 +228,10 @@ export component SettingsWindow inherits Window {
                             }
                         }
 
-                        // Actions - Now side by side and correctly aligned
+                        // Actions
                         HorizontalLayout {
                             spacing: 8px;
-                            width: 160px; // Fixed width for button group to ensure vertical alignment
+                            width: 160px;
                             Button {
                                 text: "+ Add";
                                 clicked => { root.start_recording(entry.event_type); }

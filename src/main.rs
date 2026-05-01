@@ -774,6 +774,10 @@ fn main() -> Result<(), slint::PlatformError> {
                     InputEvent::Copy => ui.invoke_copy_to_clipboard(),
                     InputEvent::Paste => ui.invoke_paste_from_clipboard(),
                     InputEvent::SaveAs => ui.invoke_save_as(),
+                    InputEvent::Resize => ui.invoke_show_resize(),
+                    InputEvent::ColorCorrections => ui.invoke_show_color_correction_window(),
+                    InputEvent::Preferences => ui.invoke_show_settings_window(),
+                    InputEvent::BrowseToFileLocation => ui.invoke_browse_to_file_location(),
                     InputEvent::ZenMode => {
                         let current = ui.get_zen_mode_enabled();
                         ui.set_zen_mode_enabled(!current);
@@ -2209,6 +2213,28 @@ fn main() -> Result<(), slint::PlatformError> {
             let _ = settings.save_blocking();
             populate_shortcut_list(&sw, &settings.shortcuts);
         }
+    });
+
+    let settings_window_handle_for_esc = settings_window.as_weak();
+    settings_window.on_shortcut_pressed(move |text, _ctrl, _alt, _shift| {
+        if text == slint::SharedString::from(slint::platform::Key::Escape) {
+            if let Some(sw) = settings_window_handle_for_esc.upgrade() {
+                let _ = sw.hide();
+            }
+            return true;
+        }
+        false
+    });
+
+    let cc_window_handle_for_esc = color_correction_window.as_weak();
+    color_correction_window.on_shortcut_pressed(move |text, _ctrl, _alt, _shift| {
+        if text == slint::SharedString::from(slint::platform::Key::Escape) {
+            if let Some(ccw) = cc_window_handle_for_esc.upgrade() {
+                let _ = ccw.hide();
+            }
+            return true;
+        }
+        false
     });
 
     // --- Load last image on startup if enabled ---

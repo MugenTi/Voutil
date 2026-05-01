@@ -8,11 +8,13 @@ export component ColorCorrectionWindow inherits Window {
     preferred-width: 960px;
     preferred-height: 800px;
     background: Theme.background;
+    default-font-size: 14px;
 
     callback apply();
     callback cancel();
     callback reset();
     callback values-changed();
+    callback shortcut_pressed(string, bool, bool, bool) -> bool;
 
     in-out property <image> original-image;
     in-out property <image> preview-image;
@@ -27,6 +29,24 @@ export component ColorCorrectionWindow inherits Window {
 
     private property<int> min-value: -100;
     private property<int> max-value: 100;
+
+    forward-focus: key_handler;
+    key_handler := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Escape) {
+                root.shortcut_pressed(event.text, false, false, false);
+                return accept;
+            }
+            if (root.shortcut_pressed(event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift)) {
+                return accept;
+            }
+            reject
+        }
+    }
+
+    init => {
+        key_handler.focus();
+    }
 
     GridLayout {
         padding: 10px;
@@ -85,7 +105,7 @@ export component ColorCorrectionWindow inherits Window {
                             vertical-alignment: center;
                             height: 20px;
                         }
-                        Slider {
+                        brightness_slider := Slider {
                             minimum: min-value;
                             maximum: max-value;
                             value <=> root.brightness;
@@ -141,9 +161,6 @@ export component ColorCorrectionWindow inherits Window {
                             vertical-alignment: center;
                             height: 20px;
                         }
-                    }
-                    HorizontalLayout {
-                        Rectangle { vertical-stretch: 1; } // Spacer
                     }
                 }
             }
@@ -215,9 +232,6 @@ export component ColorCorrectionWindow inherits Window {
                             height: 20px;
                         }
                     }
-                    HorizontalLayout {
-                        Rectangle { vertical-stretch: 1; } // Spacer
-                    }
                 }
             }
         }
@@ -243,7 +257,6 @@ export component ColorCorrectionWindow inherits Window {
                             maximum: max-value;
                             value <=> root.saturation;
                             changed(val) => { root.values-changed(); }
-                            //horizontal-stretch: 1;
                         }
                         Text {
                             text: round(root.saturation);
@@ -253,9 +266,6 @@ export component ColorCorrectionWindow inherits Window {
                             vertical-alignment: center;
                             height: 20px;
                         }
-                    }
-                    HorizontalLayout {
-                        Rectangle { vertical-stretch: 1; } // Spacer
                     }
                 }
             }
