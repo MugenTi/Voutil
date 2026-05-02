@@ -992,6 +992,7 @@ fn main() -> Result<(), slint::PlatformError> {
                 .window()
                 .set_position(slint::LogicalPosition::new(x, y));
             let _ = settings_ui.show();
+            settings_ui.set_focus_trigger(!settings_ui.get_focus_trigger());
         }
     });
 

@@ -30,6 +30,8 @@ export component SettingsWindow inherits Window {
     in-out property <[ShortcutEntry]> shortcut_list;
     in-out property <string> recording_event_type: ""; // Empty if not recording
     in-out property <string> recording_description: "";
+    
+    in-out property <bool> focus-trigger: false;
 
     // --- Callbacks to notify Rust of changes ---
     callback theme_changed(string);
@@ -53,6 +55,11 @@ export component SettingsWindow inherits Window {
 
     forward-focus: key_handler;
     key_handler := FocusScope {
+        property <bool> _trigger: root.focus-trigger;
+        changed _trigger => {
+            theme_combo.focus();
+        }
+
         key-pressed(event) => {
             if (root.recording_event_type != "") {
                 if (root.key_recorded(event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift)) {
@@ -69,209 +76,204 @@ export component SettingsWindow inherits Window {
             }
             reject
         }
-    }
 
-    // Default focus...
-    init => {
-        key_handler.focus();
-    }
-
-    main_scroll := ScrollView {
-        VerticalLayout {
-            padding: 15px;
-            spacing: 15px;
-            alignment: start;
-
-            // --- Appearance Section ---
-            Text { text: "Appearance"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
-            HorizontalLayout {
-                spacing: 10px;
+        main_scroll := ScrollView {
+            VerticalLayout {
+                padding: 15px;
+                spacing: 15px;
                 alignment: start;
-                Text { text: "Theme:"; vertical-alignment: center; color: Theme.foreground; }
-                theme_combo := ComboBox {
-                    model: ["Light", "Dark", "System"];
-                    current-value <=> root.selected_theme;
-                    selected => { root.theme_changed(self.current-value); }
-                }
-            }
 
-            Rectangle { background: Theme.border-color; height: 1px; }
-
-            // --- General Section ---
-            CheckBox {
-                text: "Enable V-Sync";
-                checked <=> root.vsync_enabled;
-                toggled => { root.vsync_changed(self.checked); }
-            }
-            
-            CheckBox {
-                text: "Show checker background";
-                checked <=> root.show_checker_background;
-                toggled => { root.show_checker_background_changed(self.checked); }
-            }
-
-            CheckBox {
-                text: "Re-open last image on startup";
-                checked <=> root.reopen_last_image;
-                toggled => { root.reopen_last_image_changed(self.checked); }
-            }
-
-            Rectangle { background: Theme.border-color; height: 1px; }
-
-            // --- Sorting Section ---
-            Text { text: "File List Sorting"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
-            CheckBox {
-                text: "Use default OS sorting";
-                checked <=> root.use_os_sorting;
-                toggled => { root.use_os_sorting_changed(self.checked); }
-            }
-            if !root.use_os_sorting : HorizontalLayout {
-                spacing: 10px;
-                alignment: start;
-                Text { text: "Sort by:"; vertical-alignment: center; color: Theme.foreground; }
-                ComboBox {
-                    model: ["Name", "Modified time", "Created time", "Size"];
-                    current-value <=> root.sort_criteria;
-                    selected => { root.sort_criteria_changed(self.current-value); }
-                }
-                Text { text: "Order:"; vertical-alignment: center; color: Theme.foreground; }
-                ComboBox {
-                    model: ["Ascending", "Descending"];
-                    current-value <=> root.sort_order;
-                    selected => { root.sort_order_changed(self.current-value); }
-                }
-            }
-
-            Rectangle { background: Theme.border-color; height: 1px; }
-
-            // --- Crop Section ---
-            Text { text: "Crop Settings"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
-            HorizontalLayout {
-                spacing: 10px;
-                alignment: start;
-                Text { text: "Aspect ratio:"; vertical-alignment: center; color: Theme.foreground; }
-                ComboBox {
-                    model: ["Free", "1:1", "1:2", "2:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"];
-                    current-value <=> root.crop_aspect_ratio;
-                    selected => { root.crop_aspect_ratio_changed(self.current-value); }
-                }
-            }
-
-            Rectangle { background: Theme.border-color; height: 1px; }
-
-            // --- File Settings Section ---
-            Text { text: "File Settings"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
-            HorizontalLayout {
-                spacing: 10px;
-                alignment: start;
-                Text { text: "Default save format:"; vertical-alignment: center; color: Theme.foreground; }
-                ComboBox {
-                    model: ["Png", "Jpg", "Bmp", "WebP"];
-                    current-value <=> root.default_save_format;
-                    selected => { root.default_save_format_changed(self.current-value); }
-                }
-            }
-            if (root.default_save_format == "Jpg") : HorizontalLayout {
-                spacing: 10px;
-                alignment: start;
-                Text { text: "Jpeg quality:"; vertical-alignment: center; width: 100px; color: Theme.foreground; }
-                Slider {
-                    width: 200px; minimum: 0; maximum: 100; value: root.jpeg_quality;
-                    changed(val) => { 
-                        let quantized = Math.round(val / 5) * 5;
-                        root.jpeg_quality = quantized;
-                        root.jpeg_quality_changed(quantized); 
+                // --- Appearance Section ---
+                Text { text: "Appearance"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: start;
+                    Text { text: "Theme:"; vertical-alignment: center; color: Theme.foreground; }
+                    theme_combo := ComboBox {
+                        model: ["Light", "Dark", "System"];
+                        current-value <=> root.selected_theme;
+                        selected => { root.theme_changed(self.current-value); }
                     }
                 }
-                Text { text: root.jpeg_quality; vertical-alignment: center; width: 30px; color: Theme.foreground; }
-            }
 
-            Rectangle { background: Theme.border-color; height: 1px; }
+                Rectangle { background: Theme.border-color; height: 1px; }
 
-            // --- Keyboard Shortcuts Section ---
-            Text { text: "Keyboard Shortcuts"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
-            Rectangle {
-                background: Theme.menu-bar-background;
-                border-radius: 4px;
-                VerticalLayout {
-                    padding: 10px;
-                    spacing: 8px;
-                    for entry in root.shortcut_list : HorizontalLayout {
-                        spacing: 15px;
-                        padding-top: 2px;
-                        padding-bottom: 2px;
-                        
-                        Text {
-                            text: entry.description;
-                            vertical-alignment: center;
-                            width: 220px;
-                            color: Theme.foreground;
+                // --- General Section ---
+                CheckBox {
+                    text: "Enable V-Sync";
+                    checked <=> root.vsync_enabled;
+                    toggled => { root.vsync_changed(self.checked); }
+                }
+                
+                CheckBox {
+                    text: "Show checker background";
+                    checked <=> root.show_checker_background;
+                    toggled => { root.show_checker_background_changed(self.checked); }
+                }
+
+                CheckBox {
+                    text: "Re-open last image on startup";
+                    checked <=> root.reopen_last_image;
+                    toggled => { root.reopen_last_image_changed(self.checked); }
+                }
+
+                Rectangle { background: Theme.border-color; height: 1px; }
+
+                // --- Sorting Section ---
+                Text { text: "File List Sorting"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
+                CheckBox {
+                    text: "Use default OS sorting";
+                    checked <=> root.use_os_sorting;
+                    toggled => { root.use_os_sorting_changed(self.checked); }
+                }
+                if !root.use_os_sorting : HorizontalLayout {
+                    spacing: 10px;
+                    alignment: start;
+                    Text { text: "Sort by:"; vertical-alignment: center; color: Theme.foreground; }
+                    ComboBox {
+                        model: ["Name", "Modified time", "Created time", "Size"];
+                        current-value <=> root.sort_criteria;
+                        selected => { root.sort_criteria_changed(self.current-value); }
+                    }
+                    Text { text: "Order:"; vertical-alignment: center; color: Theme.foreground; }
+                    ComboBox {
+                        model: ["Ascending", "Descending"];
+                        current-value <=> root.sort_order;
+                        selected => { root.sort_order_changed(self.current-value); }
+                    }
+                }
+
+                Rectangle { background: Theme.border-color; height: 1px; }
+
+                // --- Crop Section ---
+                Text { text: "Crop Settings"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: start;
+                    Text { text: "Aspect ratio:"; vertical-alignment: center; color: Theme.foreground; }
+                    ComboBox {
+                        model: ["Free", "1:1", "1:2", "2:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"];
+                        current-value <=> root.crop_aspect_ratio;
+                        selected => { root.crop_aspect_ratio_changed(self.current-value); }
+                    }
+                }
+
+                Rectangle { background: Theme.border-color; height: 1px; }
+
+                // --- File Settings Section ---
+                Text { text: "File Settings"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: start;
+                    Text { text: "Default save format:"; vertical-alignment: center; color: Theme.foreground; }
+                    ComboBox {
+                        model: ["Png", "Jpg", "Bmp", "WebP"];
+                        current-value <=> root.default_save_format;
+                        selected => { root.default_save_format_changed(self.current-value); }
+                    }
+                }
+                if (root.default_save_format == "Jpg") : HorizontalLayout {
+                    spacing: 10px;
+                    alignment: start;
+                    Text { text: "Jpeg quality:"; vertical-alignment: center; width: 100px; color: Theme.foreground; }
+                    Slider {
+                        width: 200px; minimum: 0; maximum: 100; value: root.jpeg_quality;
+                        changed(val) => { 
+                            let quantized = Math.round(val / 5) * 5;
+                            root.jpeg_quality = quantized;
+                            root.jpeg_quality_changed(quantized); 
                         }
-                        
-                        // Flexible container for key tags
-                        HorizontalLayout {
-                            spacing: 6px;
-                            alignment: start;
-                            horizontal-stretch: 1;
-                            for key in entry.keys : Rectangle {
-                                background: Theme.tool-button-background;
-                                border-radius: 3px;
-                                height: 24px;
-                                width: _key_txt.preferred-width + 16px;
-                                _key_txt := Text {
-                                    text: key;
-                                    font-size: 11px;
-                                    vertical-alignment: center;
-                                    horizontal-alignment: center;
-                                    color: Theme.foreground;
+                    }
+                    Text { text: root.jpeg_quality; vertical-alignment: center; width: 30px; color: Theme.foreground; }
+                }
+
+                Rectangle { background: Theme.border-color; height: 1px; }
+
+                // --- Keyboard Shortcuts Section ---
+                Text { text: "Keyboard Shortcuts"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
+                Rectangle {
+                    background: Theme.menu-bar-background;
+                    border-radius: 4px;
+                    VerticalLayout {
+                        padding: 10px;
+                        spacing: 8px;
+                        for entry in root.shortcut_list : HorizontalLayout {
+                            spacing: 15px;
+                            padding-top: 2px;
+                            padding-bottom: 2px;
+                            
+                            Text {
+                                text: entry.description;
+                                vertical-alignment: center;
+                                width: 220px;
+                                color: Theme.foreground;
+                            }
+                            
+                            // Flexible container for key tags
+                            HorizontalLayout {
+                                spacing: 6px;
+                                alignment: start;
+                                horizontal-stretch: 1;
+                                for key in entry.keys : Rectangle {
+                                    background: Theme.tool-button-background;
+                                    border-radius: 3px;
+                                    height: 24px;
+                                    width: _key_txt.preferred-width + 16px;
+                                    _key_txt := Text {
+                                        text: key;
+                                        font-size: 11px;
+                                        vertical-alignment: center;
+                                        horizontal-alignment: center;
+                                        color: Theme.foreground;
+                                    }
+                                }
+                            }
+
+                            // Actions
+                            HorizontalLayout {
+                                spacing: 8px;
+                                width: 160px;
+                                Button {
+                                    text: "+ Add";
+                                    clicked => { root.start_recording(entry.event_type); }
+                                }
+                                Button {
+                                    text: "Clear";
+                                    clicked => { root.clear_shortcuts(entry.event_type); }
                                 }
                             }
                         }
-
-                        // Actions
-                        HorizontalLayout {
-                            spacing: 8px;
-                            width: 160px;
-                            Button {
-                                text: "+ Add";
-                                clicked => { root.start_recording(entry.event_type); }
-                            }
-                            Button {
-                                text: "Clear";
-                                clicked => { root.clear_shortcuts(entry.event_type); }
-                            }
-                        }
                     }
                 }
-            }
-            
-            HorizontalLayout {
-                alignment: start;
-                Button {
-                    text: "Reset shortcuts to default";
-                    clicked => { root.reset_shortcuts(); }
+                
+                HorizontalLayout {
+                    alignment: start;
+                    Button {
+                        text: "Reset shortcuts to default";
+                        clicked => { root.reset_shortcuts(); }
+                    }
                 }
-            }
 
-            Rectangle { background: Theme.border-color; height: 1px; }
+                Rectangle { background: Theme.border-color; height: 1px; }
 
-            // --- Maintenance Section ---
-            Text { text: "Maintenance"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
-            HorizontalLayout {
-                spacing: 10px;
-                alignment: start;
-                Button {
-                    text: "Reset window positions/sizes";
-                    clicked => { root.reset_window_geometry(); }
+                // --- Maintenance Section ---
+                Text { text: "Maintenance"; font-size: 1.1rem; font-weight: 700; color: Theme.foreground; }
+                HorizontalLayout {
+                    spacing: 10px;
+                    alignment: start;
+                    Button {
+                        text: "Reset window positions/sizes";
+                        clicked => { root.reset_window_geometry(); }
+                    }
+                    Button {
+                        text: "Clear thumbnail cache";
+                        clicked => { root.clear_cache(); }
+                    }
                 }
-                Button {
-                    text: "Clear thumbnail cache";
-                    clicked => { root.clear_cache(); }
-                }
+                
+                // Extra spacing at the bottom
+                Rectangle { height: 20px; }
             }
-            
-            // Extra spacing at the bottom
-            Rectangle { height: 20px; }
         }
     }
 
