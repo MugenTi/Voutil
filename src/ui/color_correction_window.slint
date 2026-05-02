@@ -89,161 +89,86 @@ export component ColorCorrectionWindow inherits Window {
             }
         }
 
-        VerticalLayout { // Sliders Column 1
+        GroupBox { // Row 1, Column 0
             col: 0;
             row: 1;
-            spacing: 10px;
-            horizontal-stretch: 1;
+            title: "Brightness / Contrast / Gamma";
             width: 460px;
-            GroupBox {
-                title: "Brightness / Contrast / Gamma";
-                VerticalLayout {
-                    spacing: 5px;
-                    HorizontalLayout {
-                        Text { text: "Brightness:"; width: 80px;
-                            color: Theme.foreground;
-                            vertical-alignment: center;
-                            height: 20px;
-                        }
-                        brightness_slider := Slider {
-                            minimum: min-value;
-                            maximum: max-value;
-                            value <=> root.brightness;
-                            changed(val) => { root.values-changed(); }
-                        }
-                        Text {
-                            text: round(root.brightness);
-                            color: Theme.foreground;
-                            min-width: 40px;
-                            horizontal-alignment: right;
-                            vertical-alignment: center;
-                            height: 20px;
-                        }
+            VerticalLayout {
+                spacing: 5px;
+                HorizontalLayout {
+                    Text { text: "Brightness:"; width: 80px;
+                        color: Theme.foreground;
+                        vertical-alignment: center;
+                        height: 20px;
                     }
-                    HorizontalLayout {
-                        Text { text: "Contrast:"; width: 80px;
-                            color: Theme.foreground;
-                            vertical-alignment: center;
-                            height: 20px;
-                        }
-                        Slider {
-                            minimum: min-value;
-                            maximum: max-value;
-                            value <=> root.contrast;
-                            changed(val) => { root.values-changed(); }
-                        }
-                        Text {
-                            text: round(root.contrast);
-                            color: Theme.foreground;
-                            min-width: 40px;
-                            horizontal-alignment: right;
-                            vertical-alignment: center;
-                            height: 20px;
-                        }
+                    brightness_slider := Slider {
+                        minimum: min-value;
+                        maximum: max-value;
+                        value <=> root.brightness;
+                        changed(val) => { root.values-changed(); }
                     }
-                    HorizontalLayout {
-                        Text { text: "Gamma:"; width: 80px;
-                            color: Theme.foreground;
-                            vertical-alignment: center;
-                            height: 20px;
-                        }
-                        Slider {
-                            minimum: 10;
-                            maximum: 500;
-                            value <=> root.gamma;
-                            changed(val) => { root.values-changed(); }
-                        }
-                        Text {
-                            text: round(root.gamma)/ 100.0;
-                            color: Theme.foreground;
-                            min-width: 40px;
-                            horizontal-alignment: right;
-                            vertical-alignment: center;
-                            height: 20px;
-                        }
+                    Text {
+                        text: round(root.brightness);
+                        color: Theme.foreground;
+                        min-width: 40px;
+                        horizontal-alignment: right;
+                        vertical-alignment: center;
+                        height: 20px;
                     }
                 }
-            }
-
-            GroupBox {
-                title: "Color Balance";
-                VerticalLayout {
-                    spacing: 5px;
-                    HorizontalLayout {
-                        Text { text: "Red:"; width: 80px;
-                            color: Theme.foreground;
-                            vertical-alignment: center;
-                            height: 20px;
-                        }
-                        Slider {
-                            minimum: min-value;
-                            maximum: max-value;
-                            value <=> root.red;
-                            changed(val) => { root.values-changed(); }
-                         }
-                        Text {
-                            text: round(root.red);
-                            color: Theme.foreground;
-                            min-width: 40px;
-                            horizontal-alignment: right;
-                            vertical-alignment: center;
-                            height: 20px;
-                        }
+                HorizontalLayout {
+                    Text { text: "Contrast:"; width: 80px;
+                        color: Theme.foreground;
+                        vertical-alignment: center;
+                        height: 20px;
                     }
-                    HorizontalLayout {
-                        Text { text: "Green:"; width: 80px;
-                            color: Theme.foreground;
-                            vertical-alignment: center;
-                            height: 20px;
-                        }
-                        Slider {
-                            minimum: min-value;
-                            maximum: max-value;
-                            value <=> root.green;
-                            changed(val) => { root.values-changed(); }
-                        }
-                        Text {
-                            text: round(root.green);
-                            color: Theme.foreground;
-                            min-width: 40px;
-                            horizontal-alignment: right;
-                            vertical-alignment: center;
-                            height: 20px;
-                        }
+                    Slider {
+                        minimum: min-value;
+                        maximum: max-value;
+                        value <=> root.contrast;
+                        changed(val) => { root.values-changed(); }
                     }
-                    HorizontalLayout {
-                        Text { text: "Blue:"; width: 80px;
-                            color: Theme.foreground;
-                            vertical-alignment: center;
-                            height: 20px;
-                        }
-                        Slider {
-                            minimum: min-value;
-                            maximum: max-value;
-                            value <=> root.blue;
-                            changed(val) => { root.values-changed(); }
-                        }
-                        Text {
-                            text: round(root.blue);
-                            color: Theme.foreground;
-                            min-width: 40px;
-                            horizontal-alignment: right;
-                            vertical-alignment: center;
-                            height: 20px;
-                        }
+                    Text {
+                        text: round(root.contrast);
+                        color: Theme.foreground;
+                        min-width: 40px;
+                        horizontal-alignment: right;
+                        vertical-alignment: center;
+                        height: 20px;
+                    }
+                }
+                HorizontalLayout {
+                    Text { text: "Gamma:"; width: 80px;
+                        color: Theme.foreground;
+                        vertical-alignment: center;
+                        height: 20px;
+                    }
+                    Slider {
+                        minimum: 10;
+                        maximum: 500;
+                        value <=> root.gamma;
+                        changed(val) => { root.values-changed(); }
+                    }
+                    Text {
+                        text: round(root.gamma)/ 100.0;
+                        color: Theme.foreground;
+                        min-width: 40px;
+                        horizontal-alignment: right;
+                        vertical-alignment: center;
+                        height: 20px;
                     }
                 }
             }
         }
 
-        VerticalLayout { // Sliders Column 2
+        VerticalLayout { // Row 1, Column 1
             col: 1;
             row: 1;
-            spacing: 10px;
-            horizontal-stretch: 1;
-
+            alignment: start;
             GroupBox {
                 title: "Saturation";
+                horizontal-stretch: 1;
                 VerticalLayout {
                     spacing: 5px;
                     HorizontalLayout {
@@ -271,9 +196,82 @@ export component ColorCorrectionWindow inherits Window {
             }
         }
 
-        HorizontalLayout { // Buttons
+        GroupBox { // Row 2, Column 0
             col: 0;
             row: 2;
+            title: "Color Balance";
+            width: 460px;
+            VerticalLayout {
+                spacing: 5px;
+                HorizontalLayout {
+                    Text { text: "Red:"; width: 80px;
+                        color: Theme.foreground;
+                        vertical-alignment: center;
+                        height: 20px;
+                    }
+                    Slider {
+                        minimum: min-value;
+                        maximum: max-value;
+                        value <=> root.red;
+                        changed(val) => { root.values-changed(); }
+                        }
+                    Text {
+                        text: round(root.red);
+                        color: Theme.foreground;
+                        min-width: 40px;
+                        horizontal-alignment: right;
+                        vertical-alignment: center;
+                        height: 20px;
+                    }
+                }
+                HorizontalLayout {
+                    Text { text: "Green:"; width: 80px;
+                        color: Theme.foreground;
+                        vertical-alignment: center;
+                        height: 20px;
+                    }
+                    Slider {
+                        minimum: min-value;
+                        maximum: max-value;
+                        value <=> root.green;
+                        changed(val) => { root.values-changed(); }
+                    }
+                    Text {
+                        text: round(root.green);
+                        color: Theme.foreground;
+                        min-width: 40px;
+                        horizontal-alignment: right;
+                        vertical-alignment: center;
+                        height: 20px;
+                    }
+                }
+                HorizontalLayout {
+                    Text { text: "Blue:"; width: 80px;
+                        color: Theme.foreground;
+                        vertical-alignment: center;
+                        height: 20px;
+                    }
+                    Slider {
+                        minimum: min-value;
+                        maximum: max-value;
+                        value <=> root.blue;
+                        changed(val) => { root.values-changed(); }
+                    }
+                    Text {
+                        text: round(root.blue);
+                        color: Theme.foreground;
+                        min-width: 40px;
+                        horizontal-alignment: right;
+                        vertical-alignment: center;
+                        height: 20px;
+                    }
+                }
+            }
+        }
+
+        HorizontalLayout { // Buttons
+            col: 0;
+            row: 3;
             colspan: 2;
             alignment: end;
             spacing: 10px;
