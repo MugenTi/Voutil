@@ -72,7 +72,7 @@ export component ResizeWindow {
             // This 'changed' trigger ensures focus is grabbed when shown
             property <bool> _trigger: root.focus_trigger;
             changed _trigger => {
-                fs.focus();
+                unit_combo.focus();
             }
 
             fs := FocusScope {
