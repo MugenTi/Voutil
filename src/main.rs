@@ -1039,6 +1039,7 @@ fn main() -> Result<(), slint::PlatformError> {
 
                 cc_ui.window().set_position(slint::LogicalPosition::new(x, y));
                 let _ = cc_ui.show();
+                cc_ui.set_focus_trigger(!cc_ui.get_focus_trigger());
             }
         }
     });
