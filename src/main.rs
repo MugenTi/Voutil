@@ -834,11 +834,32 @@ fn main() -> Result<(), slint::PlatformError> {
             if let Some(pixel_buffer) = ui.get_image_display().to_rgba8() {
                 let default_format = persistent_settings_clone.borrow().default_save_format.clone();
                 
-                let dialog = rfd::FileDialog::new()
-                    .add_filter("PNG Image", &["png"])
-                    .add_filter("JPEG Image", &["jpg", "jpeg"])
-                    .add_filter("BMP Image", &["bmp"])
-                    .add_filter("WebP Image", &["webp"]);
+                let mut dialog = rfd::FileDialog::new();
+                let filters = [
+                    ("PNG Image", vec!["png"]),
+                    ("JPEG Image", vec!["jpg", "jpeg"]),
+                    ("BMP Image", vec!["bmp"]),
+                    ("WebP Image", vec!["webp"]),
+                ];
+
+                let preferred_name = match default_format.as_str() {
+                    "Jpg" => "JPEG Image",
+                    "Bmp" => "BMP Image",
+                    "WebP" => "WebP Image",
+                    _ => "PNG Image",
+                };
+
+                // Add preferred filter first to make it the default in the dialog
+                for (name, exts) in &filters {
+                    if *name == preferred_name {
+                        dialog = dialog.add_filter(*name, exts);
+                    }
+                }
+                for (name, exts) in &filters {
+                    if *name != preferred_name {
+                        dialog = dialog.add_filter(*name, exts);
+                    }
+                }
 
                 // Determine base name and target directory in a limited scope to avoid borrow conflict
                 let (base_stem, target_dir) = {
