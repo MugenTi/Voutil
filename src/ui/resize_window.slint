@@ -49,8 +49,28 @@ export component ResizeWindow {
     in-out property <bool> lock_aspect: true;
     in-out property <string> interpolation: "CatmullRom";
 
+    // --- Options for ComboBoxes ---
+    private property <[string]> unit_options: ["Pixels", "Percent"];
+    private property <[string]> interpolation_options: ["Nearest", "Triangle", "CatmullRom", "Gaussian", "Lanczos3"];
+
     callback ok_clicked_resize();
     callback cancel_clicked_resize();
+
+    // Helper functions for ComboBox index synchronization
+    pure function get_unit_index(u: string) -> int {
+        if (u == "Pixels") { return 0; }
+        if (u == "Percent") { return 1; }
+        return 0;
+    }
+
+    pure function get_interpolation_index(i: string) -> int {
+        if (i == "Nearest") { return 0; }
+        if (i == "Triangle") { return 1; }
+        if (i == "CatmullRom") { return 2; }
+        if (i == "Gaussian") { return 3; }
+        if (i == "Lanczos3") { return 4; }
+        return 2;
+    }
 
     function update_property() {
         if (root.unit == "Percent") {
@@ -98,8 +118,9 @@ export component ResizeWindow {
                     // Row 1: Unit selection
                     Text { text: "Unit:"; color: Theme.foreground; }
                     unit_combo := ComboBox {
-                        model: ["Pixels", "Percent"];
+                        model: root.unit_options;
                         current-value: root.unit;
+                        current-index: root.get_unit_index(root.unit);
                         selected(value) => {
                             if (value == "Percent" && root.unit == "Pixels") {
                                 root.new_w = root.var_w;
@@ -172,8 +193,9 @@ export component ResizeWindow {
                     // Row 5: Interpolation
                     Text { text: "Interpolation:"; color: Theme.foreground; }
                     interpolation_combo := ComboBox {
-                        model: ["Nearest", "Triangle", "CatmullRom", "Gaussian", "Lanczos3"];
+                        model: root.interpolation_options;
                         current-value: root.interpolation;
+                        current-index: root.get_interpolation_index(root.interpolation);
                         selected(value) => {
                             root.interpolation = value;
                         }

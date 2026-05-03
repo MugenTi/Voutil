@@ -33,6 +33,11 @@ export component SettingsWindow inherits Window {
     
     in-out property <bool> focus-trigger: false;
 
+    // --- Options for ComboBoxes ---
+    private property <[string]> theme_options: ["Light", "Dark", "System"];
+    private property <[string]> aspect_options: ["Free", "1:1", "1:2", "2:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"];
+    private property <[string]> format_options: ["Png", "Jpg", "Bmp", "WebP"];
+
     // --- Callbacks to notify Rust of changes ---
     callback theme_changed(string);
     callback vsync_changed(bool);
@@ -52,6 +57,36 @@ export component SettingsWindow inherits Window {
     callback reset_shortcuts();
     callback key_recorded(string, bool, bool, bool) -> bool;
     callback shortcut_pressed(string, bool, bool, bool) -> bool;
+
+    // Helper functions (Slint functions must use explicit logic)
+    pure function get_theme_index(t: string) -> int {
+        if (t == "Light") { return 0; }
+        if (t == "Dark") { return 1; }
+        if (t == "System") { return 2; }
+        return 1;
+    }
+
+    pure function get_aspect_index(a: string) -> int {
+        if (a == "Free") { return 0; }
+        if (a == "1:1") { return 1; }
+        if (a == "1:2") { return 2; }
+        if (a == "2:1") { return 3; }
+        if (a == "2:3") { return 4; }
+        if (a == "3:2") { return 5; }
+        if (a == "3:4") { return 6; }
+        if (a == "4:3") { return 7; }
+        if (a == "9:16") { return 8; }
+        if (a == "16:9") { return 9; }
+        return 0;
+    }
+
+    pure function get_format_index(f: string) -> int {
+        if (f == "Png") { return 0; }
+        if (f == "Jpg") { return 1; }
+        if (f == "Bmp") { return 2; }
+        if (f == "WebP") { return 3; }
+        return 0;
+    }
 
     forward-focus: key_handler;
     key_handler := FocusScope {
@@ -90,8 +125,9 @@ export component SettingsWindow inherits Window {
                     alignment: start;
                     Text { text: "Theme:"; vertical-alignment: center; color: Theme.foreground; }
                     theme_combo := ComboBox {
-                        model: ["Light", "Dark", "System"];
+                        model: root.theme_options;
                         current-value <=> root.selected_theme;
+                        current-index: root.get_theme_index(root.selected_theme);
                         selected => { root.theme_changed(self.current-value); }
                     }
                 }
@@ -152,8 +188,9 @@ export component SettingsWindow inherits Window {
                     alignment: start;
                     Text { text: "Aspect ratio:"; vertical-alignment: center; color: Theme.foreground; }
                     ComboBox {
-                        model: ["Free", "1:1", "1:2", "2:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"];
+                        model: root.aspect_options;
                         current-value <=> root.crop_aspect_ratio;
+                        current-index: root.get_aspect_index(root.crop_aspect_ratio);
                         selected => { root.crop_aspect_ratio_changed(self.current-value); }
                     }
                 }
@@ -167,8 +204,9 @@ export component SettingsWindow inherits Window {
                     alignment: start;
                     Text { text: "Default save format:"; vertical-alignment: center; color: Theme.foreground; }
                     ComboBox {
-                        model: ["Png", "Jpg", "Bmp", "WebP"];
+                        model: root.format_options;
                         current-value <=> root.default_save_format;
+                        current-index: root.get_format_index(root.default_save_format);
                         selected => { root.default_save_format_changed(self.current-value); }
                     }
                 }
