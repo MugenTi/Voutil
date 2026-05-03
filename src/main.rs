@@ -1022,9 +1022,26 @@ fn main() -> Result<(), slint::PlatformError> {
     let app_state_clone = app_state.clone();
     main_window.on_show_settings_window(move || {
         if let Some(settings_ui) = settings_window_handle.upgrade() {
-            let app_state = app_state_clone.borrow_mut();
-            let x = app_state.last_window_position.x + 12.0;
-            let y = app_state.last_window_position.y + 75.0;
+            let app_state = app_state_clone.borrow();
+            
+            let main_window_pos = app_state.last_window_position;
+            let main_window_size = app_state.last_window_size;
+
+            // Get scale factor to ensure logical pixel consistency
+            let scale_factor = settings_ui.window().scale_factor();
+            let sw_size = slint::LogicalSize::from_physical(settings_ui.window().size(), scale_factor);
+
+            // Use actual size if already calculated, otherwise fallback to preferred
+            let sw_width = if sw_size.width > 0.0 { sw_size.width } else { 720.0 };
+            let sw_height = if sw_size.height > 0.0 { sw_size.height } else { 850.0 };
+
+            let mut x = main_window_pos.x + (main_window_size.width - sw_width) / 2.0;
+            let mut y = main_window_pos.y + (main_window_size.height - sw_height) / 2.0;
+
+            // Ensure window doesn't go off-screen (especially important for height)
+            x = x.max(0.0);
+            y = y.max(0.0);
+
             settings_ui
                 .window()
                 .set_position(slint::LogicalPosition::new(x, y));
