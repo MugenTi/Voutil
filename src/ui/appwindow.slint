@@ -83,7 +83,7 @@ export component AppWindow inherits Window {
         // IconSettings.default-size = 24px; // Planned for future availability
     }
     icon: @image-url("../../res/icons/icon.png");
-    title: "Voutil";
+    title: root.window_title;
     min-width: 640px;
     min-height: 360px;
     preferred-width: 1280px;
@@ -93,6 +93,7 @@ export component AppWindow inherits Window {
     background: Theme.background;
 
     in-out property <image> image_display;
+    in-out property <string> window_title: "Voutil";
     in-out property <string> status_text: "Ready";
     in-out property <string> info_text: "";
     in-out property <int> current_image_index: -1;

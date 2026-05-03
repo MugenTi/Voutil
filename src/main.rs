@@ -473,6 +473,14 @@ fn set_image(
         app_state.is_from_clipboard = false;
         ui.set_auto_fit(true);
         ui.set_image_display(new_slint_image);
+        
+        let title = if let Some(filename) = path.file_name() {
+            format!("{} - Voutil", filename.to_string_lossy())
+        } else {
+            "Voutil".to_string()
+        };
+        ui.set_window_title(title.into());
+
         update_image_info(&ui);
         ui.set_status_text(format!("Loaded: {}", path.to_string_lossy()).into());
         thumbnail_window.set_selected_path(path.to_string_lossy().as_ref().into());
@@ -482,6 +490,14 @@ fn set_image(
         true
     } else {
         app_state.current_image_index = app_state.image_list.iter().position(|p| p == &path);
+        
+        let title = if let Some(filename) = path.file_name() {
+            format!("{} - Voutil", filename.to_string_lossy())
+        } else {
+            "Voutil".to_string()
+        };
+        ui.set_window_title(title.into());
+
         ui.set_status_text(format!("Failed to load: {}", path.to_string_lossy()).into());
         thumbnail_window.set_selected_path(path.to_string_lossy().as_ref().into());
         if let Some(index) = app_state.current_image_index {
@@ -1390,6 +1406,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     app.is_from_clipboard = true;
                     app.selection = None;
                     ui.set_auto_fit(true);
+                    ui.set_window_title("Untitled - Voutil".into());
                     ui.set_image_display(Image::from_rgba8(
                         SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
                             &clipboard_image.bytes,
